@@ -18,6 +18,7 @@ const commandPanel = ref<HTMLElement>();
 const graphicsError = ref('');
 const stationMessage = ref('Click a base module to inspect systems, or use WASD / Arrow keys to walk.');
 const soundEnabled = ref(true);
+const directDecisionMode = ref(false);
 const activeActivity = shallowRef<(Activity & { choiceId: string; impact: string }) | null>(null);
 const activityProgress = ref(0);
 const activityFeedback = ref('');
@@ -28,7 +29,14 @@ let arrivalComplete = false;
 
 function finishArrival() { flightProgress.value = null; arrivalComplete = true; world?.setJourney?.(null); dispatch({ type: 'START' }); }
 function leaveModule() { physics?.exitInterior?.(); world?.setInterior?.(null); interior.value = null; physics?.resumeInput?.(); }
-function cancelActivity() { leaveModule(); activeActivity.value = null; activityProgress.value = 0; world?.setActivityProgress?.(0); world?.setObjective?.(null); }
+function cancelActivity() {
+  soundFX.playRestart();
+  leaveModule();
+  activeActivity.value = null;
+  activityProgress.value = 0;
+  world?.setActivityProgress?.(0);
+  world?.setObjective?.(null);
+}
 function enterModule(id: StationId | null = nearby.value) {
   if (state.value.phase !== 'running' || interior.value) return;
   if (!id || nearby.value !== id) { activityFeedback.value = 'Walk closer to the door first, or use accessible travel.'; return; }
@@ -48,7 +56,11 @@ function operateControl(control: string) {
   const task = activeActivity.value;
   if (!task || interior.value !== task.station || state.value.phase !== 'running') return;
   const next = advanceActivity(task, activityProgress.value, control);
-  if (next === activityProgress.value) { activityFeedback.value = 'That control comes later. Follow the numbered procedure.'; return; }
+  if (next === activityProgress.value) {
+    soundFX.playWarning();
+    activityFeedback.value = 'That control comes later. Follow the numbered procedure.';
+    return;
+  }
   activityProgress.value = next;
   world?.setActivityProgress?.(next);
   activityFeedback.value = `Step ${next} complete.`;
@@ -56,6 +68,8 @@ function operateControl(control: string) {
     cancelActivity();
     dispatch({ type: 'CHOOSE', choiceId: task.choiceId }, true);
     stationMessage.value = `Completed ${task.title}. ${state.value.lastHazardNotice ?? 'Reserves and mission history now show the result.'}`;
+  } else {
+    soundFX.playDecision();
   }
 }
 
@@ -83,7 +97,7 @@ function dispatch(action: GameAction, procedureComplete = false) {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) arrivalComplete = true;
     else { if (flightProgress.value === null) flightProgress.value = 0; return; }
   }
-  if (action.type === 'CHOOSE' && !procedureComplete && state.value.phase === 'running' && physics && !graphicsError.value) {
+  if (action.type === 'CHOOSE' && !procedureComplete && state.value.phase === 'running' && physics && !graphicsError.value && !directDecisionMode.value) {
     if (activeActivity.value) return;
     const event = getCurrentEvent(mission, state.value);
     const choice = event?.choices.find(c => c.id === action.choiceId);
@@ -177,6 +191,18 @@ function handleGlobalKeydown(event: KeyboardEvent) {
   if (event.code === 'KeyM') {
     toggleSound();
     return;
+  }
+  if (activeActivity.value) {
+    if (event.code === 'KeyT') {
+      event.preventDefault();
+      travelToTask();
+      return;
+    }
+    if (event.code === 'Escape') {
+      event.preventDefault();
+      cancelActivity();
+      return;
+    }
   }
   if (state.value.phase === 'ready') {
     if (['Space', 'Enter', 'KeyS'].includes(event.code)) {
@@ -292,6 +318,15 @@ onBeforeUnmount(() => {
       </div>
       <div class="header-controls">
         <span class="prototype-label">Junior explorer program</span>
+        <button
+          type="button"
+          class="mode-btn"
+          @click="directDecisionMode = !directDecisionMode"
+          :title="directDecisionMode ? 'Switch to 3D Expedition Mode' : 'Switch to Direct Decisions Mode'"
+          :aria-label="directDecisionMode ? 'Direct Decision Mode active. Click to switch to 3D Station Procedures.' : '3D Station Procedures active. Click to switch to Direct Decisions Mode.'"
+        >
+          {{ directDecisionMode ? '⚡ Direct Mode' : '🚀 3D Procedures' }}
+        </button>
         <button v-if="state.phase === 'ready'" class="launch-btn" @click="dispatch({ type: 'START' })">Begin expedition <span aria-hidden="true">↗</span></button>
         <button
           type="button"
@@ -365,6 +400,8 @@ onBeforeUnmount(() => {
 h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
 .header-controls { display: flex; align-items: center; gap: 16px; }
 .prototype-label { color: #a0b3bd; font-size: 11px; }
+.mode-btn { font-size: 11px; padding: 9px 12px; background: #182833; border: 1px solid #3f5564; border-radius: 7px; color: #bed2de; cursor: pointer; }
+.mode-btn:hover { background: #253946; color: #ffffff; }
 .sound-btn { font-size: 11px; padding: 9px 12px; background: #15232c; border-color: #34434d; border-radius: 7px; }
 .launch-btn { display: flex; gap: 18px; align-items: center; background: #e9b97d; color: #1d2830; border-color: #f2c796; border-radius: 7px; font-size: 12px; font-weight: 750; padding: 11px 15px; }
 .launch-btn:hover { background: #f5ce9e; }
