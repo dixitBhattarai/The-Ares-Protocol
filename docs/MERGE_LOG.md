@@ -6,9 +6,11 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 
 | Branch | Reported tip | Scope | State |
 | --- | --- | --- | --- |
-| `feat/himamshu-world` | `95a03b3` | `src/features/world/**` | Pushed to origin and remote tip verified; not merged into main |
+| `feat/himamshu-world` | `95a03b3` | `src/features/world/**` | Integrated locally by `c235948`; verified with game/HUD |
+| `feat/rohit-game` | `7489d9d` | Game reducer/tests/notes, contracts, app shell | Integrated locally by `c1a6f25`; checks passed |
+| `feat/saurav-hud` | `999a70f` | HUD component and notes | Integrated locally by `3f1419b`; checks passed |
 
-Verify refs, scope and checks before a merge; this table is not authorization to merge. Other roles have no handoff recorded here yet.
+Verify refs, scope and checks before a merge; this table is not authorization to merge. Anshu, Dixit and Genius have no published handoff recorded at this review.
 
 ## Remote review and publication — 14 November 2026
 
@@ -21,7 +23,21 @@ Verify refs, scope and checks before a merge; this table is not authorization to
 
 ## Completed merges
 
-None recorded. The workflow-document update is a policy commit, not a feature merge. This document does not claim the world feature is present on main.
+### 14 Nov 2026 — world, game and HUD
+
+- Himamshu resumed integration after Rohit's login/push. Verified `origin/feat/rohit-game` and `origin/feat/saurav-hud`; Rohit's earlier `2c02d15` merged main's workflow documents into his branch, not the other feature branches.
+- World merge: `c235948`, preserving `9fc1290` and `95a03b3`. Game merge: `c1a6f25`, preserving Rohit's `9c975de`, `2c02d15`, `7489d9d`. HUD merge: `3f1419b`, preserving Saurav's `999a70f`. All merges were conflict-free and original author metadata remains intact.
+- Game integration: Vue/TypeScript check and production build passed; 18 unique reducer/world tests passed. Browser checked station callbacks, sheltered win, unshielded research-only loss, pause/resume and resource replay with no page exceptions.
+- HUD integration: production build and the same 18 unique tests passed. Browser additionally checked ARIA reserve values, reset feedback, depletion warnings and desktop/360px layouts. No horizontal overflow or page exceptions; inspected screenshots.
+- Standard `npm test` passed 30 tests because it also discovers 12 tests in the ignored local world worktree. To verify the actual main suite once, ran `node node_modules/vitest/vitest.mjs run --exclude '**/.worktrees/**'`: 18 passed. Rohit should exclude worktree paths in test configuration.
+- No Anshu, Dixit or Genius branch was available at this review. NASA evidence, varied mission content, full controller reset and final debrief UI remain with their owners. Publication is performed after the checks above; final published tip is reported in the task handoff.
+
+### Open engineering/content requests
+
+- Rohit: change App viewport `role="img"` to labeled `region`/`group` so world buttons are exposed to assistive technology; add `.worktrees` test exclusion; update `docs/CONTRACTS.md` to describe the additive hazard/delay/history and optional physics hooks already in code.
+- Rohit/Anshu: optional reset/pause hooks are wired but the current physics adapter doesn't implement them. The shell currently says the astronaut reset even when no reset method exists; make that message conditional until the controller handoff lands.
+- Genius/Dixit/Rohit: make the authored Shift 3 hazard visible before the decision, and surface the supplied structured debrief. Current content remains a repeated authored event; do not label its numbers as NASA measurements.
+- Saurav/Rohit: HUD passed browser checks, but desktop HUD is a 760px block above the full-width scene. Coordinate final app layout with the UI owner; no layout file was edited during integration.
 
 For each completed merge, append:
 
