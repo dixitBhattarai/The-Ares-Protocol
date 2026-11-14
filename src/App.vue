@@ -38,6 +38,7 @@ let arrivalComplete = false;
 let orbitComplete = false;
 let music: ReturnType<typeof createMusic> | undefined;
 const preparation = ref<PreparationLevel | null>(null);
+const earthOutside = ref(false);
 const preparationProgress = ref(0);
 const preparationFeedback = ref('');
 const preparationPaused = ref(false);
@@ -47,9 +48,24 @@ let remoteConsole = false;
 function beginPreparation(level: PreparationLevel) {
   flightProgress.value = null; world?.setJourney?.(null);
   preparation.value = level; preparationProgress.value = 0; preparationFeedback.value = ''; preparationPaused.value = false; nearConsole.value = false; remoteConsole = false;
-  world?.setLevel?.(level); world?.setActivityProgress?.(0); physics?.enterInterior?.(); physics?.resumeInput?.();
+  earthOutside.value = level === 'earth';
+  world?.setLevel?.(level); world?.setEarthOutside?.(earthOutside.value); world?.setActivityProgress?.(0);
+  if (earthOutside.value) { physics?.reset?.({x:-5,y:.8,z:4}); setDoor('habitat',true); }
+  else physics?.enterInterior?.();
+  physics?.resumeInput?.();
   stationMessage.value = level === 'earth' ? 'Earth preparation lab: walk to the console and complete your departure checks.' : 'Orbital cabin: establish the navigation link before continuing to Mars.';
   music?.setPaused(false); music?.select(level); music?.unlock();
+}
+function enterEarthLab(accessible = true) {
+  if (preparation.value !== 'earth' || preparationPaused.value || !earthOutside.value) return;
+  if (accessible) { physics?.reset?.(doorApproach('habitat')); setDoor('habitat',true); }
+  physics?.enterInterior?.(); earthOutside.value = false; world?.setEarthOutside?.(false);
+  preparationFeedback.value = 'Inside the training lab. Walk to the numbered back-wall console.';
+}
+function leaveEarthLab() {
+  if (preparation.value !== 'earth' || preparationPaused.value || earthOutside.value) return;
+  physics?.exitInterior?.(); physics?.reset?.(doorApproach('habitat')); earthOutside.value = true; world?.setEarthOutside?.(true);
+  preparationFeedback.value = 'Outside on Earth. Drag to look around; the striped lab door is behind you.';
 }
 function togglePreparationPause() { preparationPaused.value = !preparationPaused.value; music?.setPaused(preparationPaused.value); if (preparationPaused.value) physics?.pauseInput?.(); else physics?.resumeInput?.(); }
 function operatePreparation(control: string) {
@@ -60,6 +76,7 @@ function operatePreparation(control: string) {
   if (next === preparationProgress.value) { preparationFeedback.value = 'Follow the procedure in order.'; return; }
   preparationProgress.value = next; world?.setActivityProgress?.(next); preparationFeedback.value = `Check ${next} complete.`;
   if (next === PREPARATION[level].steps.length) {
+    earthOutside.value = false; world?.setEarthOutside?.(false);
     preparation.value = null; physics?.exitInterior?.(); world?.setLevel?.(null); world?.setActivityProgress?.(0);
     if (level === 'space') orbitComplete = true;
     music?.select('space'); flightProgress.value = 0;
@@ -269,6 +286,11 @@ function checkStationProximity(pose: Vec3) {
 function handleGlobalKeydown(event: KeyboardEvent) {
   if ((event.target as HTMLElement | null)?.closest('button, input, textarea, select, [contenteditable]')) return;
   if (preparation.value && event.code === 'KeyP') { togglePreparationPause(); return; }
+  if (preparation.value === 'earth' && event.code === 'KeyE') {
+    event.preventDefault();
+    if (!event.repeat && !preparationPaused.value && (!earthOutside.value || nearbyDoor(physics!.getPlayerPose()) === 'habitat')) setDoor('habitat',!doorsOpen.value.habitat);
+    return;
+  }
   if (event.code === 'KeyE') { event.preventDefault(); if (!event.repeat) toggleDoor(); return; }
   if (event.code === 'KeyM') {
     toggleSound();
@@ -359,6 +381,7 @@ onMounted(async () => {
         if (flightProgress.value >= 1) finishArrival();
       }
       if (state.value.phase === 'running' || (preparation.value && !preparationPaused.value)) {
+        physics!.setCameraYaw?.(world!.getCameraYaw?.() ?? 0);
         accumulator = Math.min(accumulator + elapsed, 0.1);
         while (accumulator >= 1 / 60) {
           physics!.step(1 / 60);
@@ -368,7 +391,11 @@ onMounted(async () => {
         accumulator = 0;
       }
       let pose = physics!.getPlayerPose();
-      nearConsole.value = pose.z < -.4;
+      nearConsole.value = !earthOutside.value && pose.z < -.4;
+      if (preparation.value === 'earth' && !preparationPaused.value && doorsOpen.value.habitat && (world!.isDoorOpen?.('habitat') ?? true)) {
+        if (earthOutside.value && atDoorThreshold(pose,'habitat')) enterEarthLab(false);
+        else if (!earthOutside.value && atRoomExit(pose)) leaveEarthLab();
+      }
       checkStationProximity(pose);
       pose = physics!.getPlayerPose(); // A doorway transition may have changed the physics-owned pose.
       world!.setPlayerPose(pose);
@@ -503,7 +530,7 @@ onBeforeUnmount(() => {
           <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
             {{ state.upcomingHazardNotice }}
           </p>
-          <PreparationPanel v-if="preparation" :level="preparation" :progress="preparationProgress" :feedback="preparationFeedback" :near-console="nearConsole" :paused="preparationPaused" @control="operatePreparation" @remote="remoteConsole = true; preparationFeedback = 'Remote console enabled.'" @pause="togglePreparationPause" />
+          <PreparationPanel v-if="preparation" :level="preparation" :outdoors="earthOutside" :progress="preparationProgress" :feedback="preparationFeedback" :near-console="nearConsole" :paused="preparationPaused" @enter-lab="enterEarthLab()" @outside="leaveEarthLab" @control="operatePreparation" @remote="remoteConsole = true; preparationFeedback = 'Remote console enabled.'" @pause="togglePreparationPause" />
           <ActivityPanel v-else-if="activeActivity" :station="activeActivity.station" :title="activeActivity.title" :steps="activeActivity.steps" :impact="activeActivity.impact" :progress="activityProgress" :inside="interior === activeActivity.station" :feedback="activityFeedback" :paused="state.phase === 'paused'" @control="operateControl" @travel="travelToTask" @enter="enterModule()" @exit="leaveModule" @cancel="cancelActivity" @pause="dispatch({ type: state.phase === 'paused' ? 'RESUME' : 'PAUSE' })" />
           <section v-else-if="flightProgress !== null" style="padding:18px" aria-label="In transit"><h2>{{ orbitComplete ? 'Mars transfer' : 'Earth departure' }}</h2><p>Flight systems are carrying the expedition to the next playable stage.</p></section>
           <MissionPanels v-else

@@ -50,6 +50,11 @@ export function clampAstronautPosition(
   };
 }
 
+export function rotateMovement(vx: number, vz: number, yaw: number): { vx: number; vz: number } {
+  const angle = Number.isFinite(yaw) ? yaw : 0;
+  return { vx: vx * Math.cos(angle) + vz * Math.sin(angle), vz: -vx * Math.sin(angle) + vz * Math.cos(angle) };
+}
+
 export async function createPhysics(): Promise<PhysicsAdapter> {
   await RAPIER.init();
 
@@ -96,6 +101,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   let isInputPaused = false;
   let isDisposed = false;
   let outsidePose: Vec3 | undefined;
+  let cameraYaw = 0;
 
   const keyDown = (event: KeyboardEvent) => {
     if (isDisposed || isInputPaused) return;
@@ -136,10 +142,12 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   }
 
   return {
+    setCameraYaw(yaw) { cameraYaw = Number.isFinite(yaw) ? yaw : 0; },
     step(seconds: number) {
       if (isDisposed) return;
       const dt = Math.max(0.001, Math.min(seconds, 0.1));
-      const { vx, vz } = isInputPaused ? { vx: 0, vz: 0 } : computeMovementVelocity(pressed, ASTRONAUT_SPEED);
+      const input = computeMovementVelocity(pressed, ASTRONAUT_SPEED);
+      const { vx, vz } = isInputPaused ? { vx: 0, vz: 0 } : rotateMovement(input.vx, input.vz, cameraYaw);
       const curLinvel = body.linvel();
       body.setLinvel({ x: vx, y: curLinvel.y, z: vz }, true);
 

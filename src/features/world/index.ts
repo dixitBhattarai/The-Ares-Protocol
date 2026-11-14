@@ -10,6 +10,8 @@ import { applyStationStatus, getStationStatus, getWorldEventNotice } from './sta
 import './world.css';
 import { createExpeditionViews } from './expedition';
 import { createNasaLoader } from './nasa-assets';
+import { createFollowCamera } from './follow-camera';
+import { createEarthCampus } from './earth';
 
 export function createWorld(host: HTMLElement, onInteract: (station: StationId) => void): WorldAdapter {
   const resources = new WorldResources();
@@ -58,6 +60,12 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     cleanups.push(() => sun.shadow.dispose());
     scene.add(sun);
     const kit = createModelKit(resources);
+    const earth = createEarthCampus(kit, resources);
+    cleanups.push(() => earth.scene.clear());
+    const follow = createFollowCamera(renderer.domElement);
+    cleanups.push(() => follow.dispose());
+    let cameraMode: 'follow' | 'overview' = 'follow';
+    let earthOutside = false;
     const nasa = createNasaLoader(resources);
     cleanups.push(() => nasa.dispose());
     const expedition = createExpeditionViews(kit, resources, nasa);
@@ -196,6 +204,11 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       onInteract(id);
     }
     const raycaster = new THREE.Raycaster();
+    const pickCamera = () => cameraMode === 'follow' ? follow.camera : (interior || level) && !earthOutside ? expedition.camera : camera;
+    let pointerStart = new THREE.Vector2();
+    let dragged = false;
+    const startDrag = (event: PointerEvent) => { pointerStart.set(event.clientX,event.clientY); dragged = false; };
+    const trackDrag = (event: PointerEvent) => { if (event.buttons && pointerStart.distanceTo(new THREE.Vector2(event.clientX,event.clientY)) > 6) dragged = true; };
     const pointer = new THREE.Vector2();
     const stationAt = (event: MouseEvent): StationId | undefined => {
       const rect = renderer!.domElement.getBoundingClientRect();
@@ -203,20 +216,22 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       if (cameraDirty) updateCamera();
       scene.updateMatrixWorld(true);
       pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1);
-      return pickStationAt(pointer, camera, stationGroups, raycaster);
+      return pickStationAt(pointer, pickCamera(), stationGroups, raycaster);
     };
     const stationGroups = stations.map(station => station.visual.group);
     const click = (event: MouseEvent) => {
+      if (dragged) { dragged = false; return; }
       if (interior || level) {
         const rect = renderer!.domElement.getBoundingClientRect();
         pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1);
-        const control = expedition.pickControl(pointer);
+        const control = earthOutside ? undefined : expedition.pickControl(pointer, pickCamera());
         if (control !== undefined) consoleHandler?.(control);
         return;
       }
       const id = stationAt(event); if (id) selectStation(id);
     };
     const move = (event: PointerEvent) => {
+      if (interior || level) return;
       const id = stationAt(event);
       if (id === hovered) return;
       hovered = id;
@@ -228,11 +243,15 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       if (event.key === 'Escape') { selected = undefined; hovered = undefined; updateHighlights(); updateHint(); }
     };
     renderer.domElement.addEventListener('click', click);
+    renderer.domElement.addEventListener('pointerdown', startDrag);
+    renderer.domElement.addEventListener('pointermove', trackDrag);
     renderer.domElement.addEventListener('pointermove', move);
     renderer.domElement.addEventListener('pointerleave', leave);
     container.addEventListener('keydown', key);
     cleanups.push(() => {
       renderer!.domElement.removeEventListener('click', click);
+      renderer!.domElement.removeEventListener('pointerdown', startDrag);
+      renderer!.domElement.removeEventListener('pointermove', trackDrag);
       renderer!.domElement.removeEventListener('pointermove', move);
       renderer!.domElement.removeEventListener('pointerleave', leave);
       container.removeEventListener('keydown', key);
@@ -240,6 +259,23 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     let width = 1;
     let height = 1;
     let cameraDirty = true;
+    const cameraChanged = () => { cameraDirty = true; };
+    follow.controls.addEventListener('change', cameraChanged);
+    cleanups.push(() => follow.controls.removeEventListener('change', cameraChanged));
+    const cameraBar = document.createElement('div'); cameraBar.className = 'ares-world__camera-controls'; cameraBar.setAttribute('aria-label','Camera controls');
+    const modeButton = document.createElement('button');
+    const buttons: [HTMLButtonElement,string,()=>void][] = [
+      [modeButton,'Overview',()=>{cameraMode=cameraMode==='follow'?'overview':'follow';modeButton.textContent=cameraMode==='follow'?'Overview':'Follow camera';modeButton.setAttribute('aria-label',modeButton.textContent);follow.reset();cameraDirty=true;}],
+      [document.createElement('button'),'Rotate left',()=>follow.rotate(.35)],
+      [document.createElement('button'),'Rotate right',()=>follow.rotate(-.35)],
+      [document.createElement('button'),'Zoom in',()=>follow.zoom(true)],
+      [document.createElement('button'),'Zoom out',()=>follow.zoom(false)],
+      [document.createElement('button'),'Reset camera',()=>follow.reset()],
+    ];
+    for(const [button,label,action] of buttons) {
+      button.type='button';button.textContent=label;button.setAttribute('aria-label',label);button.addEventListener('click',action);cameraBar.appendChild(button);cleanups.push(()=>button.removeEventListener('click',action));
+    }
+    container.appendChild(cameraBar);
     const resize = () => {
       if (disposed) return;
       width = Math.max(1, host.clientWidth);
@@ -255,9 +291,11 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     resize();
     const projected = new THREE.Vector3();
     function updateCamera(): void {
-      frameOutpost(camera, width / height, playerPose);
+      if (cameraMode === 'overview') frameOutpost(camera, width / height, playerPose);
+      const labelCamera = cameraMode === 'follow' ? follow.camera : camera;
       const labels = stations.map(station => {
-        projected.set(station.position.x, 2.6, station.position.z).project(camera);
+        projected.set(station.position.x, 2.6, station.position.z).project(labelCamera);
+        station.label.hidden = cameraMode === 'follow' && (projected.z < -1 || projected.z > 1 || Math.abs(projected.x) > 1.15);
         return {
           station,
           x: Math.max(67, Math.min(width - 67, (projected.x + 1) * width / 2)),
@@ -267,7 +305,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       // At map edges a wider camera can cluster labels. Use a readable legend row.
       const compact = width < 250 || height < 260 || labels.some((a, i) => labels.some((b, j) => i < j && Math.abs(a.x - b.x) < 140 && Math.abs(a.y - b.y) < 65));
       container.classList.toggle('ares-world--compact-labels', compact);
-      if (compact) frameOutpost(camera, width / height, playerPose, { top: 106 / height, bottom: 48 / height });
+      if (compact && cameraMode === 'overview') frameOutpost(camera, width / height, playerPose, { top: 106 / height, bottom: 48 / height });
       labels.forEach(({ station, x, y }, index) => {
         station.label.style.left = `${compact ? (index + .5) * width / 3 : x}px`;
         station.label.style.top = `${compact ? 96 : y}px`;
@@ -283,12 +321,16 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     updateCamera();
     let previousAnimationTime = performance.now();
     return {
+      getCameraYaw() { return cameraMode === 'follow' ? follow.yaw() : 0; },
+      setEarthOutside(outside) { earthOutside = outside; if (!outside) expedition.setDoor(doorStates.habitat,true); follow.reset(); },
       setMotionPaused(paused) { motionPaused = paused; },
       setDoorState(id, open) {
         if (disposed) return;
         doorStates[id] = open;
+        if (id === 'habitat' && level === 'earth') earth.labDoor.setOpen(open);
         stations.find(station => station.id === id)?.visual.door.setOpen(open);
         if (interior === id) expedition.setDoor(open);
+        if (level === 'earth' && !earthOutside && id === 'habitat') expedition.setDoor(open);
         renderer!.shadowMap.needsUpdate = true;
       },
       isDoorOpen(id) { return interior === id ? expedition.isDoorOpen() : stations.find(station => station.id === id)?.visual.door.isOpen() ?? false; },
@@ -296,6 +338,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       setLevel(id) {
         if (disposed || level === id) return;
         level = id;
+        if (id !== 'earth') earthOutside = false;
         if (id) expedition.interior(id);
         container.classList.toggle('ares-world--interior', Boolean(id || interior));
         heading.childNodes[0].textContent = id === 'earth' ? 'EARTH / FLIGHT OPERATIONS' : id === 'space' ? 'ORBIT / TRANSFER CABIN' : 'ARES / OUTPOST 01';
@@ -374,6 +417,10 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         const delta = (now - previousAnimationTime) / 1000;
         previousAnimationTime = now;
         const active = !motionPaused && !document.hidden && lastState?.phase !== 'paused' && lastState?.phase !== 'won' && lastState?.phase !== 'lost';
+        follow.update(playerPose, width / height, earthOutside ? 'earth' : interior || level ? 'room' : 'mars', cameraMode === 'follow' && journey === null);
+        follow.controls.enabled = active && cameraMode === 'follow' && journey === null;
+        cameraBar.hidden = journey !== null;
+        cameraDirty ||= cameraMode === 'follow';
         stations.forEach(station => {
           const before = station.visual.door.group.userData.openProgress;
           station.visual.door.update(active ? delta : 0, reduceMotion);
@@ -381,10 +428,18 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         });
         expedition.resize(width / height);
         if (journey !== null) { expedition.journey(journey); renderer!.render(expedition.flight, expedition.camera); return; }
-        if (interior || level) { expedition.animate(delta, active, reduceMotion); expedition.roomCamera(); renderer!.render(expedition.room, expedition.camera); return; }
+        if (level === 'earth' && earthOutside) {
+          if (astronaut.group.parent !== earth.scene) earth.scene.add(astronaut.group);
+          earth.labDoor.update(active ? delta : 0,reduceMotion);
+          updateAstronautAnimation(astronaut,delta,active,reduceMotion);
+          if (cameraDirty) updateCamera();
+          renderer!.render(earth.scene,cameraMode==='follow'?follow.camera:camera);return;
+        }
+        if (interior || level) { expedition.animate(delta, active, reduceMotion); expedition.roomCamera(); expedition.cutaway(cameraMode==='follow'?follow.camera:expedition.camera); renderer!.render(expedition.room, cameraMode==='follow'?follow.camera:expedition.camera); return; }
+        if (astronaut.group.parent !== scene) scene.add(astronaut.group);
         updateAstronautAnimation(astronaut, delta, active, reduceMotion);
         if (cameraDirty) updateCamera();
-        renderer!.render(scene, camera);
+        renderer!.render(scene, cameraMode==='follow'?follow.camera:camera);
       },
       dispose,
     };

@@ -53,3 +53,7 @@ Status: Complete and validated.
 - **Milestone 1**: `feat(physics): add grounded astronaut controller` (`cc9f45d`)
 - **Milestone 2**: `fix(physics): handle focus pause and reset` (staged for commit)
 - **Changed Paths**: `src/features/physics/index.ts`, `src/features/physics/physics.test.ts`, `src/features/physics/NOTES.md`
+
+## Camera-heading handoff from Himamshu — 14 Nov 2026
+
+User explicitly requested controllable third-person exploration. This coordinated slice adds only optional setCameraYaw and a pure rotateMovement helper; existing input, gravity, collider footprints, bounds and lifecycle stay owned by physics. App supplies world camera heading before fixed stepping. Tests verify a quarter-turn forward vector, preserved diagonal speed and invalid-heading fallback. Anshu retains subsequent physics ownership. No Three.js dependency/import enters physics.
