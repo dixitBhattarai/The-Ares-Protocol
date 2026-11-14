@@ -1,6 +1,29 @@
 # Missions Handoff — Genius (NASA Data & Mission Architect)
 
-## Status: COMPLETE
+## Current Status — 14 Nov 2026
+
+### Already integrated
+
+- The original six-shift mission and May 2024 DONKI evidence were merged to `main` as `a8d9a39` (with the game alert wording reconciliation in `500c830`). The merge log records passing typecheck, tests and build.
+- Integrated mission content includes oxygen vs science, shelter vs exploration, a solar-weather hazard with a shielding threshold, greenhouse trade-offs, delayed Earth communications, and a final science vs reserves decision.
+- Rohit's game reducer supports the authored shelter hazard and delayed effects; Saurav's HUD surfaces hazard/delayed feedback; Dixit's UI includes decisions, debrief and a source-attribution drawer. These existing surfaces should consume the current mission fields without a new UI/API change for the bundled CME source.
+
+### Local changes not yet integrated
+
+- Added `scripts/refresh-donki-snapshot.mjs`: maintainer-run refresh of a date-bounded NASA DONKI CME query; validates the response, preserves raw records and selected observation, and replaces the snapshot only after success. It reads `NASA_API_KEY` or uses `DEMO_KEY`, and does not persist the key.
+- Fetched a local snapshot for 2026-11-07 through 2026-11-14. It selects `2026-11-13T21:24:00-CME-001` (reported analysis speed 474 km/s). The snapshot is bundled for offline gameplay; runtime `loadMission()` remains synchronous and does not make requests.
+- Updated mission sources and Shift 2/3 descriptions to use this observation as context and clarify that the shelter drill and reserve losses are authored, not measured Mars damage or crew dose.
+- Removed the unverified APOD/EONET/NeoWS record from active mission sources. `nasa-apis-extra-raw.json` and `donki-flr-sep-may2024-raw.json` remain unused/unverified. The InSight Sol 675 fixture remains static and is not refreshed by the DONKI script.
+- Added refresh and mission assertions, plus refresh instructions in `data/PROVENANCE.md`.
+- These edits and newly added snapshot/script/data files are currently local and uncommitted. The current feature branch is 16 commits behind `origin/main`; none of these follow-up changes are recorded as integrated in `docs/MERGE_LOG.md`.
+- Validation run on these local changes: 12 focused mission/refresh tests passed, all 76 project tests passed, typecheck and production build passed, and all five mission JSON files parsed. Build retains the existing large physics-chunk advisory.
+
+### Cross-feature request — not implemented
+
+- Request Rohit (game/contracts): add a once-per-expedition, 1% launch safety abort before the mission begins. Keep it non-graphic, end the expedition immediately, and ensure the chance is not rerolled by rendering. Decide whether retry starts a new expedition and rerolls. Suggested child-friendly message: “Launch safety check failed. The expedition was stopped before landing.”
+- After the game outcome/state is agreed, ask Dixit (UI) to present the abort and retry action accessibly. This is not expressible using the current mission events and should not be added as a random mission choice.
+
+## Original Mission Milestone: Integrated
 
 Branch: `feat/genius-missions`  
 Owned Paths: `src/features/missions/**` only.
@@ -22,7 +45,7 @@ Authored six distinct, deterministic shifts matching `docs/HACKATHON_PLAN.md` wi
 
 ### B. Verified NASA Archived Observation & Sources
 - **Archived Data Mode**: `dataMode: 'archived'`.
-- **Primary NASA Source (`nasa-donki-cme-2024`)**:
+- **Historical NASA Source (`nasa-donki-cme-2024`)**:
   - Raw JSON fixture: `src/features/missions/data/donki-cme-may2024-raw.json`.
   - Event: Coronal Mass Ejection `2024-05-11T01:36:00-CME-001` associated with X5.8 flare from NOAA Active Region 13664.
   - Observing instruments: SOHO LASCO C2/C3, STEREO A SECCHI/COR2, SDO AIA 193.

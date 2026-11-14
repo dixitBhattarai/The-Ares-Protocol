@@ -1,5 +1,17 @@
 # NASA Space Weather Observation & Mission Data Provenance
 
+## Refreshable Archived DONKI Snapshot
+
+The mission uses `donki-cme-snapshot.json` as a bundled, offline snapshot for the Shift 2 shelter decision and Shift 3 authored shelter drill. To refresh it intentionally, run:
+
+```sh
+node src/features/missions/scripts/refresh-donki-snapshot.mjs
+```
+
+By default, the script requests the prior seven UTC days from NASA's current DONKI CME API endpoint. An explicit range can be supplied as `START_DATE END_DATE` in `YYYY-MM-DD` form. It uses `NASA_API_KEY` from the environment when set, otherwise NASA's `DEMO_KEY`. The key is never written to the snapshot. The snapshot keeps the full response, the selected latest CME with a usable analysis, exact non-secret endpoint/date parameters, retrieval time, observation time, units and attribution. A failed request or invalid/empty response leaves the previous snapshot unchanged.
+
+Refreshing is a maintainer action, not a game action. `loadMission()` remains synchronous and performs no network request; the shipped snapshot is what players use offline. The selected CME is evidence context only. The shelter drill and all reserve changes are authored mechanics, not claims about Mars conditions or human radiation dose. The older May 2024 record below remains preserved as a historical fixture and is tested separately.
+
 ## 1. Primary Observation: Coronal Mass Ejection & Solar Energetic Particle Event (May 2024)
 
 ### Observation Metadata
