@@ -8,6 +8,8 @@ import { soundFX } from './features/game/audio';
 import { loadMission } from './features/missions';
 import HudOverlay from './features/hud/HudOverlay.vue';
 import MissionPanels from './features/ui/MissionPanels.vue';
+import SplashScreen from './features/ui/SplashScreen.vue';
+import LoginScreen from './features/ui/LoginScreen.vue';
 import ActivityPanel from './features/world/ActivityPanel.vue';
 import { getActivity, advanceActivity, type Activity } from './features/game/activities';
 import PreparationPanel from './features/world/PreparationPanel.vue';
@@ -163,6 +165,18 @@ let physics: PhysicsAdapter | undefined;
 let frame = 0;
 let disposed = false;
 let accumulator = 0;
+const showSplash = ref(true);
+const showLogin = ref(true);
+
+function onSplashDone() {
+  showSplash.value = false;
+}
+
+function onLoginStart() {
+  showLogin.value = false;
+  dispatch({ type: 'START' });
+}
+
 let lastNearStation: string | null = null;
 let currentSelectedStation: string | null = null;
 let lastTaskNotice = '';
@@ -443,6 +457,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <SplashScreen v-if="showSplash" @finished="onSplashDone" />
+  <LoginScreen v-if="showLogin" @start="onLoginStart" />
   <main class="ares-app">
     <header class="app-header">
       <div class="brand">
