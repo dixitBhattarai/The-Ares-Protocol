@@ -114,6 +114,7 @@ function onRestart() {
       </div>
     </section>
 
+    <details class="mission-review"><summary>What happened?</summary>
     <!-- Flight Director Recommendations & Spaceflight Lessons -->
     <div class="coaching-grid">
       <!-- Recommendations -->
@@ -189,6 +190,8 @@ function onRestart() {
 
       <p v-else class="no-history">{{ isStationWork ? 'No job records logged.' : 'No shift records logged.' }}</p>
     </section>
+
+    </details>
 
     <!-- Action: Play Again -->
     <div class="restart-action">
@@ -586,3 +589,5 @@ ul {
   }
 }
 </style>
+
+<style scoped>.mission-review summary{min-height:44px;padding:10px;border:1px solid #4a7067;border-radius:8px;cursor:pointer;font-size:14px}.mission-review[open] summary{margin-bottom:16px}.debrief-title{font-size:23px}.medal-title{display:none}.debrief-summary{font-size:14px;line-height:1.6}.final-stats h3{font-size:15px}.mission-review .coaching-grid{margin-bottom:20px}</style>

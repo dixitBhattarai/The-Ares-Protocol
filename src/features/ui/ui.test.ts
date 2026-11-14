@@ -367,7 +367,7 @@ describe('MissionPanels Rendering - Science Sources and Attributions', () => {
     });
     const html = await renderToString(app);
 
-    expect(html).toContain('Science Sources, NASA Data &amp; Attributions');
+    expect(html).toContain('Science &amp; sources');
     expect(html).toContain('authored-demo');
     expect(html).toContain('Honest Attribution Note:');
     expect(html).toContain('No external NASA telemetry datasets are currently loaded');

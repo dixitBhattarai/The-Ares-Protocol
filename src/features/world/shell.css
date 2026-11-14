@@ -1,44 +1,51 @@
-/* App composition: every gameplay surface is an overlay within the world viewport. */
+/* One shared instrument layout: top controls, world, contextual controls, bottom reserves. */
 .ares-app{position:fixed;inset:0;max-width:none;padding:0;margin:0;overflow:hidden}
-.mission-layout{position:absolute;inset:0;height:100%;min-height:0;display:block}
-.world-panel{position:absolute;inset:0;border:0;border-radius:0;display:block;height:100%;box-shadow:none}
-.viewport{position:absolute;inset:0;width:100%;height:100%;min-height:0;overflow:hidden}
-.app-header{position:absolute;z-index:12;right:16px;top:14px;height:auto;min-height:0;padding:0;gap:0;pointer-events:none}
-.app-header .brand,.prototype-label{display:none}
-.header-controls{width:auto;gap:6px;pointer-events:auto}
-.header-controls button{min-height:44px;max-width:160px;background:#142b38d9;border:1px solid #b6d9e65c;backdrop-filter:blur(12px)}
+.mission-layout,.world-panel,.viewport{position:absolute;inset:0;width:100%;height:100%;min-height:0;margin:0;box-sizing:border-box}
+.mission-layout{display:block}.world-panel{display:block;border:0;border-radius:0;box-shadow:none;overflow:hidden}.viewport{overflow:hidden}
+.app-header{position:absolute;z-index:12;right:16px;top:14px;height:auto;min-height:0;padding:0;pointer-events:none}
+.app-header .brand,.prototype-label,.surface-header>span,.surface-actions>span,.surface-footer,.scene-status{display:none}
+.header-controls{display:flex;width:auto;gap:6px;pointer-events:auto}
+.header-controls button{min-height:44px;padding:9px 12px;max-width:160px;border:1px solid #91b3ac80;border-radius:7px;background:#17353eeb;color:#e6f5e7;font-size:12px;box-shadow:inset 0 1px #c8dfce25}
+.header-controls .launch-btn{color:#1c3838;background:#f1cf93}
 .hud-container{position:absolute;inset:0;pointer-events:none}
-.surface-header{position:absolute;right:16px;top:70px;padding:0;border:0;z-index:12}
-.surface-header>span,.surface-actions>span,.surface-footer,.scene-status{display:none}
+.surface-header{position:absolute;z-index:12;right:16px;top:66px;padding:0;border:0}
+.deck-toggle-btn{min-height:44px;padding:9px 14px;border:1px solid #91b3ac80;background:#17353eeb;color:#e6f5e7}
 .scene-status.graphics-error{display:block;position:absolute;top:120px;left:16px;right:16px;z-index:8;padding:12px;border-radius:12px;background:#173442ed;color:#fff1cf}
-.deck-toggle-btn{min-height:44px;padding:9px 14px;background:#142b38d9;backdrop-filter:blur(12px)}
-.task-warning{position:absolute;right:16px;bottom:88px;width:260px;max-width:calc(100% - 32px);z-index:7;box-sizing:border-box;border:1px solid #eed1a566;border-radius:14px;background:#182d39d4;backdrop-filter:blur(12px);padding:10px 14px;font-size:12px}
-.task-warning p:nth-child(2){display:none}
-.task-warning button{min-height:40px;background:#a7e6d6;color:#123440}
-.world-panel>:deep(.door-panel){position:absolute;right:16px;bottom:220px;width:270px;max-width:calc(100% - 32px);z-index:7;box-sizing:border-box;border:1px solid #a8dce66b;border-radius:14px;background:#18323edb;backdrop-filter:blur(12px);padding:10px 14px}
-.world-panel>:deep(.door-panel .tip){display:none}
-.in-viewport-deck{position:absolute;top:128px;right:16px;bottom:24px;width:390px;max-width:calc(100% - 32px);max-height:none;margin:0;z-index:15;background:linear-gradient(135deg,#183b47ed,#142632f2);border:1px solid #b5dfe96b;border-radius:18px;backdrop-filter:blur(18px);box-shadow:0 18px 70px #05121e6b}
-.command-heading{background:#193641e8;padding:12px 16px;min-height:32px}
-.command-heading button{min-width:44px;min-height:44px}
-.exploration-info{padding:18px;color:#e4f6f1;font-size:14px;line-height:1.6}
-.exploration-info h2{font-size:22px}
-.exploration-info button{min-height:44px;margin:5px;padding:10px;background:#b6f0d9;color:#183c43;border-radius:10px}
-.arrival-overlay{top:30%;left:15%;right:15%;background:#16303ad9;border-radius:18px;backdrop-filter:blur(12px);z-index:8}
-@media(max-width:600px){
- .app-header{right:10px;top:10px}.header-controls button{font-size:10px;padding:7px 9px;max-width:135px}.surface-header{right:10px;top:112px}.surface-actions{gap:0}
- .task-warning{right:10px;bottom:78px;width:174px;padding:8px 10px;font-size:10px;line-height:1.4}.task-warning button{font-size:10px;min-height:36px;padding:6px 8px}
- .world-panel>:deep(.door-panel){right:10px;bottom:246px;width:174px;font-size:10px;padding:8px;gap:3px}.world-panel>:deep(.door-panel strong){font-size:11px}.world-panel>:deep(.door-panel p){font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.world-panel>:deep(.door-panel button){min-height:40px;font-size:10px;padding:6px}.world-panel>:deep(.door-panel details){width:100%}
- .in-viewport-deck{inset:auto 8px 8px;top:25%;width:auto;max-width:none;max-height:none}.arrival-overlay{left:8px;right:8px;top:28%;padding:14px}
+.environment-label{position:absolute;left:18px;top:20px;color:#edf8df;z-index:5;font:700 12px ui-monospace,monospace;letter-spacing:.08em;text-shadow:0 2px 5px #000}
+.world-panel :deep(.ares-world__heading),.world-panel :deep(.ares-world__hint),.world-panel :deep(.ares-world__look-hint),.world-panel :deep(.ares-world__task-toast),.world-panel :deep(.ares-world__status){display:none}
+.world-panel :deep(.ares-world__camera-controls){top:auto;bottom:112px;left:16px;right:auto;transform:none;z-index:10;max-width:210px}
+.world-panel :deep(.ares-world__camera-controls summary){min-height:40px;box-sizing:border-box;padding:10px 14px;border-radius:8px;background:#17353ee8;border:1px solid #91b3ac80;font-size:12px;color:#e6f5e7}
+.world-panel :deep(.ares-world__camera-options){top:auto;bottom:48px}
+.world-panel :deep(.ares-world__label){font-size:12px;min-height:36px;width:130px;padding:7px 9px;border-radius:7px;border:1px solid #c3d8c080;background:#193a40d9;backdrop-filter:none;animation:none;box-shadow:0 3px 8px #0003}
+.world-panel :deep(.ares-world__readout){display:none}
+.world-panel :deep(.ares-world__work-prompt){left:50%;right:auto;bottom:112px;transform:translateX(-50%);max-width:calc(100% - 340px);min-height:44px;padding:10px 18px;font-size:14px;border-radius:8px;background:#234841ef;backdrop-filter:none;box-shadow:0 3px 0 #0b2028}
+.world-panel :deep(.ares-world__work-prompt[hidden]){display:none}
+.world-panel :deep(.door-panel),.airlock-panel{position:absolute;right:16px;bottom:112px;z-index:10;display:flex;align-items:center;flex-wrap:wrap;gap:7px;box-sizing:border-box;width:auto;max-width:280px;border:1px solid #9abbb180;border-radius:8px;background:#18363eea;padding:10px;color:#eaf9e7;font-size:12px}
+.world-panel :deep(.door-panel p),.world-panel :deep(.door-panel .tip){display:none}
+.world-panel :deep(.door-panel button),.world-panel :deep(.door-panel summary),.airlock-panel button{min-height:44px;padding:9px 12px;font-size:12px;background:#244b4b;color:#e8fbea;border:1px solid #8fbbb0;border-radius:6px;cursor:pointer}
+.airlock-panel{display:block;width:245px}.airlock-panel p{font-size:13px;line-height:1.4;margin:8px 0}.airlock-panel button{width:100%}.airlock-panel button:disabled{opacity:.5;cursor:default}
+.in-viewport-deck{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(480px,calc(100% - 32px));max-width:none;max-height:calc(100dvh - 150px);bottom:auto;z-index:20;margin:0;overflow:auto;overscroll-behavior:contain;border:2px solid #80978b;border-top:5px solid #a8b7a2;border-radius:10px;background:#132f36;box-shadow:0 8px 0 #081c25,0 18px 45px #0008}
+.command-heading{display:flex;min-height:44px;box-sizing:border-box;padding:5px 14px;border-bottom:1px solid #769e8d66;background:#223e43;color:#adcdbf;font:700 10px ui-monospace,monospace;letter-spacing:.14em}
+.command-heading button{min-width:40px;min-height:40px;background:#142d35;border:1px solid #658d85;border-radius:6px}
+.exploration-info{padding:18px;color:#e4f6f1;font-size:14px;line-height:1.6}.exploration-info h2{font-size:22px}.exploration-info button{min-height:44px;margin:5px;padding:10px;background:#b6f0d9;color:#183c43;border-radius:8px}
+.work-modal{position:absolute;inset:0;z-index:25;display:grid;place-items:center;box-sizing:border-box;padding:16px;background:#06151b66;overflow:auto}
+.work-modal :deep(.activity){width:min(440px,100%);max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain;border:2px solid #8ea895;border-top:5px solid #c0cdb3;border-radius:10px;background:#17343b;box-shadow:0 6px 0 #081b22,0 18px 40px #0007;padding:4px}
+.work-modal :deep(.activity footer){padding:8px}.work-modal :deep(.mini),.work-modal :deep(.maintenance){border:0;border-radius:6px;box-shadow:none}
+.console-open .app-header,.console-open .environment-label{visibility:hidden}
+.console-open .world-panel :deep(.ares-world__label),.console-open .world-panel :deep(.ares-world__camera-controls),.console-open .world-panel :deep(.ares-world__work-prompt){visibility:hidden}
+.arrival-overlay{position:absolute;top:18%;left:20%;right:20%;z-index:8;padding:16px;background:#15333ae0;color:#edf9eb;border:1px solid #91b2a7;border-radius:8px;text-align:center;pointer-events:none}.arrival-overlay h2{font-size:20px}.arrival-overlay p{font-size:13px}
+.arrival-guide,.cabin-prompt{position:absolute;left:50%;bottom:112px;transform:translateX(-50%);z-index:14;display:flex;align-items:center;gap:10px;box-sizing:border-box;max-width:calc(100% - 32px);padding:8px 12px;border:1px solid #98cbc677;border-radius:8px;background:#16333be8;color:#e1f3df;font-size:13px}
+.arrival-guide strong{color:#ffe0a0}.arrival-guide button,.arrival-guide summary,.cabin-prompt button{min-height:44px;min-width:40px;display:grid;place-items:center;padding:8px 12px;border:1px solid #97bba9;border-radius:6px;background:#24494b;color:#efffe9;cursor:pointer}.arrival-guide details{position:relative}.arrival-guide details p{position:absolute;bottom:50px;right:0;min-width:110px;padding:12px;margin:0;background:#12313d;border:1px solid #8fbdbd;border-radius:8px;line-height:1.8}.cabin-prompt{bottom:22px}
+button:focus-visible,summary:focus-visible{outline:3px solid #ffe0a0;outline-offset:3px}
+@media(max-width:640px){
+ .app-header{right:8px;top:10px}.header-controls{gap:4px}.header-controls button{font-size:11px;padding:8px;max-width:135px}.environment-label{font-size:10px;left:12px;top:25px;max-width:40%}
+ .surface-header{right:8px;top:62px}.in-viewport-deck{width:calc(100% - 20px);max-height:calc(100dvh - 128px);top:46%}
+ .world-panel :deep(.ares-world__camera-controls){left:10px;bottom:112px;max-width:100px}.world-panel :deep(.ares-world__label){max-width:108px;font-size:10px;padding:6px;min-height:32px}
+ .world-panel :deep(.ares-world__work-prompt){bottom:170px;left:12px;right:12px;max-width:none;transform:none;font-size:13px}
+ .world-panel :deep(.door-panel),.airlock-panel{right:10px;bottom:112px;max-width:220px;padding:8px}.world-panel :deep(.door-panel strong){font-size:12px}.world-panel :deep(.door-panel button){font-size:11px;padding:8px}.airlock-panel{width:210px}
+ .arrival-guide{left:10px;right:10px;bottom:170px;max-width:none;transform:none;padding:8px;gap:8px;font-size:12px}.arrival-guide>span{flex:1}.arrival-overlay{left:12px;right:12px;top:24%;padding:14px}
+ .work-modal{padding:10px}.work-modal :deep(.activity){max-height:calc(100dvh - 20px)}
 }
-/* Quiet exploration; work opens at the center of the game. */
-.in-viewport-deck{inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(520px,calc(100% - 24px));max-width:none;max-height:calc(100dvh - 48px);bottom:auto;overflow:auto}
-.work-modal{position:absolute;inset:0;z-index:25;display:grid;place-items:center;box-sizing:border-box;padding:16px;background:#06152088;backdrop-filter:blur(4px);overflow:auto}
-.work-modal>:deep(.activity){width:min(460px,100%);max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain}
-.task-warning{width:auto;bottom:18px;right:16px;padding:0;border:0;background:transparent;box-shadow:none;backdrop-filter:none}
-.task-warning button{font-size:11px;min-height:40px;padding:8px 12px;background:#18353cdd;color:#ddf9ec;border:1px solid #799e9e;border-radius:10px}
-.world-panel>:deep(.door-panel){bottom:82px;width:auto;max-width:260px;padding:8px 10px}
-.world-panel>:deep(.door-panel p),.world-panel>:deep(.door-panel .tip){display:none}
-.world-panel>:deep(.ares-world__hint),.world-panel>:deep(.ares-world__look-hint),.world-panel>:deep(.ares-world__task-toast){display:none}
-@media(max-width:600px){.work-modal{padding:10px}.work-modal>:deep(.activity){max-height:calc(100dvh - 20px)}.in-viewport-deck{inset:50% auto auto 50%;width:calc(100% - 20px);max-height:calc(100dvh - 24px)}.task-warning{bottom:14px;right:10px}.world-panel>:deep(.door-panel){bottom:70px;right:10px;max-width:220px;width:auto}}
-.airlock-panel{position:absolute;right:16px;bottom:150px;z-index:14;width:min(240px,calc(100% - 32px));box-sizing:border-box;background:#16333eee;border:1px solid #9edac8;border-radius:12px;padding:12px;color:#e7fff6;font-size:13px}.airlock-panel p{margin:8px 0}.airlock-panel button{min-height:44px;padding:8px 14px;border-radius:8px;border:1px solid #a3e1c9;background:#224a4e;color:#ecfff6}.airlock-panel button:disabled{opacity:.5}
-.cabin-prompt{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);z-index:14}.cabin-prompt button{min-height:44px;padding:10px 18px;border:1px solid #9dd8bc;border-radius:10px;background:#17383dee;color:#effff2;font-size:14px}
+@media(max-height:480px){.in-viewport-deck{max-height:calc(100dvh - 28px);top:50%}.world-panel :deep(.ares-world__camera-controls),.world-panel :deep(.door-panel),.airlock-panel,.arrival-guide{bottom:92px}.airlock-panel{padding:6px}.airlock-panel p{font-size:11px;margin:4px 0}.environment-label{top:18px}}
+.console-open .world-panel :deep(canvas){pointer-events:none}
+.world-panel :deep(.further-science){font-size:12px;line-height:1.6}.world-panel :deep(.further-science a){color:#9bded2}

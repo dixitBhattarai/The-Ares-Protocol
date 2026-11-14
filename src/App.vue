@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Integration shell: Rohit owns this file. Himamshu's layout handoff is recorded in world/NOTES.md.
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 import { atSuitRack, inAirlock, freshHabitatAccess } from './contracts/habitat';
 import { changeSuit, cycleAirlock, stepAirlock } from './features/game/airlock';
 import { SPACECRAFT_SEAT, STATIONS } from './contracts';
@@ -9,6 +9,7 @@ import { createInitialState, getCurrentEvent, reduceGame, STATION_TASKS, taskCom
 import { soundFX } from './features/game/audio';
 import { loadMission } from './features/missions';
 import HudOverlay from './features/hud/HudOverlay.vue';
+import SourceCredits from './features/ui/SourceCredits.vue';
 import MissionPanels from './features/ui/MissionPanels.vue';
 import { usableMachines, WORK_MACHINES, type WorkWorldAdapter } from './features/world/interactables';
 import SpaceflightPanel from './features/ui/SpaceflightPanel.vue';
@@ -357,6 +358,7 @@ function leaveModule() {
 function travelToDoor(id: StationId) {
   if (state.value.phase !== 'running') return;
   startMissionAfterGuide();
+  if(habitatAccess.value.phase!=='inside'||airlockOccupied.value){stationMessage.value='Return through the airlock first.';return;}
   leaveModule(); physics?.reset?.(doorApproach(id)); nearby.value = id;
   doorReady.value = false;
   stationMessage.value = `At the ${id} entrance. Open the door with E or the button.`;
@@ -420,6 +422,19 @@ let missionSeconds=0;
 const showSplash = ref(true);
 const showLogin = ref(true);
 
+function trapDeck(event:KeyboardEvent){
+ if(event.key==='Escape'){event.preventDefault();if(state.value.phase==='paused')dispatch({type:'RESUME'});else deckVisible.value=false;return;}
+ if(event.key!=='Tab')return;
+ const nodes=Array.from(commandPanel.value?.querySelectorAll<HTMLElement>('button:not(:disabled),summary,a[href],input:not(:disabled),select,[tabindex="0"]')??[]).filter(node=>node.getClientRects().length);
+ const first=nodes[0],last=nodes[nodes.length-1];if(!first)return;
+ if(event.shiftKey&&(document.activeElement===first||document.activeElement===commandPanel.value)){event.preventDefault();last.focus();}
+ else if(!event.shiftKey&&(document.activeElement===last||document.activeElement===commandPanel.value)){event.preventDefault();first.focus();}
+}
+watch(()=>[deckVisible.value,state.value.phase,preparation.value],async()=>{
+ if(!deckVisible.value||activeActivity.value||showLogin.value||showSplash.value)return;
+ await nextTick();if(commandPanel.value?.getClientRects().length)commandPanel.value.focus();
+});
+
 function onSplashDone() {
   showSplash.value = false;
 }
@@ -459,7 +474,8 @@ function dispatch(action: GameAction) {
     world?.setObjective?.(task.station);physics?.pauseInput?.();deckVisible.value=false;return;
   }
   if (action.type === 'RESTART') { habitatAccess.value=freshHabitatAccess();airlockNotice.value='';missionTimerActive.value=false;arrivalGuide.value=false;clearLandingFlight();clearLaunchFlight();missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; preparationProgress.value=0;nearCabinSeat.value=false;cabinSeated.value=false;world?.setCabinSeatState?.('hidden');arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
-  if (action.type === 'PAUSE' && state.value.phase === 'running') music?.setPaused(true);
+  if (action.type === 'PAUSE' && state.value.phase === 'running') {deckVisible.value=true;music?.setPaused(true);}
+  if (action.type === 'RESUME' && !directDecisionMode.value) deckVisible.value=false;
   if (action.type === 'RESUME' && state.value.phase === 'paused') music?.setPaused(false);
   const previousState = state.value;
   state.value = reduceGame(state.value, action, mission);
@@ -772,7 +788,7 @@ onBeforeUnmount(() => {
 <template>
   <SplashScreen v-if="showSplash" @finished="onSplashDone" />
   <LoginScreen v-if="showLogin" @start="onLoginStart" />
-  <main class="ares-app" :class="{'launch-active':!!launchFlight}">
+  <main class="ares-app" :class="{'console-open':activeActivity || (deckVisible && (preparation || flightStage || state.phase!=='running' || directDecisionMode)),'mars-play':arrivalComplete && state.phase==='running','launch-active':!!launchFlight}">
 
     <div class="mission-layout">
 
@@ -787,6 +803,7 @@ onBeforeUnmount(() => {
       </div>
       <div class="header-controls">
         <span class="prototype-label">Junior explorer program</span>
+        <button v-if="state.taskRun && (state.phase==='running'||state.phase==='paused')" @click="dispatch({type:state.phase==='paused'?'RESUME':'PAUSE'})">{{ state.phase==='paused'?'Resume':'Pause' }}</button>
         <button
           type="button"
           v-if="!launchFlight && !landingFlight" class="mode-btn"
@@ -794,7 +811,7 @@ onBeforeUnmount(() => {
           :title="directDecisionMode ? 'Use walking and station computers' : 'Use accessible station consoles'"
           :aria-label="directDecisionMode ? 'Accessible consoles active. Switch to walking.' : 'Walking mode active. Enable accessible consoles.'"
         >
-          {{ directDecisionMode ? 'Accessible consoles' : 'Walk & work' }}
+          {{ directDecisionMode ? 'Remote console' : 'Walk mode' }}
         </button>
         <button v-if="state.phase === 'ready' && !preparation && flightProgress === null" class="launch-btn" @click="dispatch({ type: 'START' })">Begin expedition <span aria-hidden="true">↗</span></button>
         <button
@@ -804,12 +821,12 @@ onBeforeUnmount(() => {
           :aria-label="soundEnabled ? 'Mute audio' : 'Enable audio'"
           :title="soundEnabled ? 'Press M to mute sound' : 'Press M to enable sound'"
         >
-          {{ soundEnabled ? '🔊 Sound On' : '🔇 Muted' }}
+          {{ soundEnabled ? '♫ On' : '♫ Off' }}
         </button>
       </div>
     </header>
       <div class="hud-container">
-        <HudOverlay v-if="!launchFlight && !landingFlight" :key="state.taskRun?.session ?? 0" :state="state" :mission="mission" />
+        <HudOverlay v-if="!launchFlight && !landingFlight" :key="state.taskRun?.session ?? 0" :state="state" :mission="mission" :stage="preparation ?? flightStage" :stage-progress="preparation ? {value:preparationProgress,max:PREPARATION[preparation].steps.length}:undefined" />
       </div>
         <div class="surface-header">
           <span><span class="live-dot" aria-hidden="true" /> {{ preparation === 'earth' ? 'EARTH / PREPARATION LAB' : preparation === 'space' ? 'ARES / ROCKET FLIGHT CABIN' : flightStage === 'launch' || flightStage === 'orbit-autopilot' ? 'EARTH / LAUNCH VEHICLE' : flightStage === 'transfer' ? 'EXPEDITION / AUTOPILOT TRANSFER' : flightStage === 'landing' || flightStage === 'touchdown' ? 'MARS / LANDING APPROACH' : 'OUTPOST ARES / SURFACE VIEW' }}</span>
@@ -821,7 +838,7 @@ onBeforeUnmount(() => {
               :title="deckVisible ? 'Hide Mission Deck (Press C)' : 'Show Mission Deck (Press C)'"
               @click="deckVisible = !deckVisible"
             >
-              {{ deckVisible ? '✕ Close Deck' : 'ℹ Mission Info' }}
+              {{ deckVisible ? 'Close console' : 'Console' }}
             </button>
             <span>SECTOR 01</span>
           </div>
@@ -832,6 +849,7 @@ onBeforeUnmount(() => {
           role="region"
           :aria-label="flightStage ? 'Rocket ascent, transfer or Mars landing view' : preparation === 'earth' ? 'Interactive Earth launch site' : preparation === 'space' ? 'Interactive zero-gravity rocket cabin' : 'Interactive 3D Mars Outpost Viewport'"
         />
+        <div v-if="arrivalComplete && state.phase==='running'" class="environment-label">{{ habitatAccess.phase==='outside'?'MARS · SUIT SEALED':habitatAccess.suited?'BASE · SUIT READY':'BASE · BREATHABLE' }}</div>
         <div v-if="preparation==='space' && !deckVisible" class="cabin-prompt">
           <button v-if="preparationProgress<3" @click="deckVisible=true">E · Flight console {{ preparationProgress+1 }}</button>
           <template v-else><button v-if="!nearCabinSeat && !cabinSeated" @click="glideToFlightSeat">Go to seat</button><button v-else-if="!cabinSeated" @click="sitInFlightSeat">E · Buckle in</button><button v-else @click="beginTransferFromFlightSeat">Begin Mars transfer</button></template>
@@ -841,11 +859,7 @@ onBeforeUnmount(() => {
           <button @click="startMissionAfterGuide">Explore</button>
           <details><summary aria-label="Show movement help">?</summary><p>WASD · move<br>Drag · look<br>E · use<br>P · pause</p></details>
         </div>
-        <div v-if="state.taskRun && (state.phase==='running'||state.phase==='paused')" class="task-warning">
-
-          <button @click="dispatch({type:state.phase==='paused'?'RESUME':'PAUSE'})">{{ state.phase==='paused'?'▶ Resume':'Ⅱ Pause' }}</button>
-        </div>
-        <DoorPanel v-if="!activeActivity && arrivalComplete && state.phase === 'running' && !preparation && flightProgress === null"
+        <DoorPanel v-if="!activeActivity && !nearSuitRack && !airlockOccupied && arrivalComplete && state.phase === 'running' && !preparation && flightProgress === null"
           :station="interior ?? nearby" :inside="!!interior" :open="!!doorsOpen[interior ?? nearby ?? 'habitat']"
           :ready="doorReady" :paused="false" @toggle="toggleDoor" @enter="enterModule()" @exit="leaveModule" @travel="travelToDoor" />
         <section v-if="arrivalComplete && state.phase==='running' && !activeActivity && (nearSuitRack || airlockOccupied)" class="airlock-panel" aria-label="Habitat airlock">
@@ -889,7 +903,7 @@ onBeforeUnmount(() => {
           class="command-panel in-viewport-deck"
           role="dialog" aria-label="Mission controls"
           tabindex="0"
-          @keydown.stop
+          @keydown.stop="trapDeck"
           @focusin="physics?.pauseInput?.()"
           @focusout="!cabinSeated && !activeActivity && (state.phase === 'running' || (preparation && !preparationPaused)) && physics?.resumeInput?.()"
         >
@@ -941,6 +955,7 @@ onBeforeUnmount(() => {
             :event="getCurrentEvent(mission, state)"
             @action="dispatch"
           />
+          <SourceCredits v-if="preparation || flightStage || state.phase==='running'" :mission="mission" />
           <AssetCredits />
         </section>
       </section>
@@ -1072,4 +1087,4 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
 }
 </style>
 
-<style scoped src="./features/world/shell.css">.arrival-guide{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:14;display:flex;align-items:center;gap:10px;max-width:calc(100% - 24px);box-sizing:border-box;padding:10px 12px;border:1px solid #98cbc677;border-radius:12px;background:#102c38e8;color:#dff9ee;backdrop-filter:blur(12px);font-size:12px}.arrival-guide strong{color:#ffe0a0}.arrival-guide button,.arrival-guide summary{min-height:40px;min-width:36px;display:grid;place-items:center;padding:0 10px;border:1px solid #97cfc5;border-radius:8px;background:#234751;color:#ecfff6;cursor:pointer}.arrival-guide details{position:relative}.arrival-guide details p{position:absolute;bottom:44px;right:0;min-width:110px;padding:12px;margin:0;border:1px solid #8fbdbd;border-radius:10px;background:#12313d;line-height:1.8}.arrival-guide button:focus-visible,.arrival-guide summary:focus-visible{outline:3px solid #ffe0a0;outline-offset:2px}@media(max-width:600px){.arrival-guide{bottom:230px;width:max-content;font-size:10px;gap:7px}}</style>
+<style scoped src="./features/world/shell.css"></style>

@@ -883,7 +883,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         });
         if (cameraMode === 'follow' && level !== 'space' && !firstPerson) {
           buildings.forEach(station => station.visual.group.updateMatrixWorld(true));
-          follow.avoidOcclusion(buildings.flatMap(station => [...station.visual.walls, station.visual.roof, station.visual.door.group]));
+          dome.group.updateMatrixWorld(true);
+          follow.avoidOcclusion([...buildings.flatMap(station => [...station.visual.walls, station.visual.roof, station.visual.door.group]),...(level===null?dome.occluders:[])]);
         }
         if (level === 'earth') {
           if (astronaut.group.parent !== earth.scene) earth.scene.add(astronaut.group);

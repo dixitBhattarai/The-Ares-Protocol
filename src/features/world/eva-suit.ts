@@ -10,7 +10,7 @@ export function createEvaEquipment(kit:ModelKit) {
   helmet.visible=pack.visible=suited;if(!suited)return;
   avatar.updateWorldMatrix(true,true);
   let headBone:THREE.Object3D|undefined,spine:THREE.Object3D|undefined;
-  avatar.traverse(node=>{if(/(?:^|:)Head$/.test(node.name))headBone=node;if(/(?:^|:)Spine2$/.test(node.name))spine=node;});
+  avatar.traverse(node=>{if(/(?:^|:|mixamorig\d*)Head$/.test(node.name))headBone=node;if(/(?:^|:|mixamorig\d*)Spine2$/.test(node.name))spine=node;});
   for(const [part,bone,fallback] of [[helmet,headBone,new THREE.Vector3(0,.45,0)],[pack,spine,new THREE.Vector3(0,-.05,0)]] as const){
    if(bone){bone.matrixWorld.decompose(part===helmet?head:back,rotation,scale);part.position.copy(avatar.worldToLocal((part===helmet?head:back).clone()));const q=avatar.getWorldQuaternion(new THREE.Quaternion()).invert();part.quaternion.copy(q.multiply(rotation));}
    else {part.position.copy(fallback);part.quaternion.identity();}

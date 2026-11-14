@@ -27,11 +27,11 @@ export function createLocomotion(model: THREE.Object3D, clips: readonly THREE.An
   let reduced = false;
   let posture:'ground'|'float'|'seated'='ground';
   const posed: {bone:THREE.Object3D;rest:THREE.Quaternion;kind:string}[]=[];
-  model.traverse(bone=>{const kind=bone.name.replace(/^.*[:]/,'').replace(/^mixamorig\d*/, '');if(/^(Left|Right)(UpLeg|Leg|Arm|ForeArm)$/.test(kind))posed.push({bone,rest:bone.quaternion.clone(),kind});});
-  function pose(){if(posture==='ground')return;for(const {bone,rest,kind} of posed){const seated=posture==='seated';const x=/UpLeg$/.test(kind)?(seated?-1.15:-.16):/Leg$/.test(kind)?(seated?1.4:.3):/ForeArm$/.test(kind)?-.6:0;const z=/Arm$/.test(kind)&&!/ForeArm$/.test(kind)?(kind.startsWith('Left')?.95:-.95):0;bone.quaternion.copy(rest).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(x,0,z)));}}
+  model.traverse(bone=>{const kind=bone.name.replace(/^.*[:]/,'').replace(/^mixamorig\d*/, '');if(/^(Left|Right)(UpLeg|Leg)$/.test(kind))posed.push({bone,rest:bone.quaternion.clone(),kind});});
+  function pose(){if(posture==='ground')return;for(const {bone,rest,kind} of posed){const seated=posture==='seated';const x=/UpLeg$/.test(kind)?(seated?-1.15:-.16):(seated?1.4:.3);const z=0;bone.quaternion.copy(rest).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(x,0,z)));}}
   return {
     mixer,
-    setPosture(value:'ground'|'float'|'seated'){if(posture===value)return;for(const {bone,rest} of posed)bone.quaternion.copy(rest);posture=value;moving=false;sinceMovement=Infinity;},
+    setPosture(value:'ground'|'float'|'seated'){if(posture===value)return;for(const {bone,rest} of posed)bone.quaternion.copy(rest);posture=value;moving=false;sinceMovement=Infinity;mixer.update(0);pose();},
     actions: actions as ReadonlyMap<string, THREE.AnimationAction>,
     setMoving(value: boolean) { moving = value; if (value) sinceMovement = 0; },
     update(seconds: number, active: boolean, reduceMotion: boolean) {
