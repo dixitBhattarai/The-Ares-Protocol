@@ -7,8 +7,8 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 | Branch | Reported tip | Scope | State |
 | --- | --- | --- | --- |
 | `feat/himamshu-world` | `1f93ff1` | `src/features/world/**`, `src/App.vue`, `src/styles.css` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors merged by `8764bfa`; checks passed |
-| `feat/rohit-game` | `e08a858` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory `72f8f65`; audio synthesis, star badges, keyboard navigation merged by `b7c9c33`; checks passed |
-| `feat/saurav-hud` | `20c52af` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast merged by `76d163a`; checks passed |
+| `feat/rohit-game` | `a17ea4b` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory `72f8f65`; audio synthesis, star badges, keyboard navigation `b7c9c33`; contextual station procedures, console audio, and direct decision mode merged by `44a7120`; checks passed |
+| `feat/saurav-hud` | `474254d` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations and post-merge validation merged by `4d07adf`; checks passed |
 | `feat/anshu-physics` | `4108654` | `src/features/physics/**` | Grounded astronaut controller, reset and pause merged by `dfe1d24`; checks passed |
 | `feat/dixit-ui` | `0637603` | `src/features/ui/**` | Onboarding, decisions, pause, debrief replay & sources merged by `55799b3`; checks passed |
 | `feat/genius-missions` | `66a5322` | `src/features/missions/**` | Six teaching decisions & NASA CME evidence merged by `a8d9a39`; alert wording reconciled by `500c830`; checks passed |
@@ -117,6 +117,27 @@ All six feature branches (`feat/himamshu-world`, `feat/genius-missions`, `feat/r
    - Conflict resolution: Reconciled `src/App.vue` viewport header by placing the arrival overlay cleanly above the status bar while preserving the module selection clear button and status message.
    - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (8 test files, 70 tests passed); `npm run build` passed cleanly.
    - Browser smoke check: Vite preview on `http://127.0.0.1:4173/` verified clean load with 0 errors, briefing launch, Earth→Mars transit overlay and skip button, Mars landing, module proximity selection, accessible and manual door entry into cutaway Habitat interior, sequential checklist execution ("Check air filter" -> "Open intake valve" -> "Start air processor"), reserve dispatch to reducer (Power: 58, Air: 88, Supplies: 65), safe exit to exterior spawn, and transition to Shift 2.
+
+### 14 Nov 2026 — Saurav (HUD) and Rohit (game) continuation integration & Standing Auto-Merge Mandate
+
+Himamshu issued a standing mandate authorizing the merge coordinator to automatically discover, verify, and merge all published feature branches serially upon availability without requiring manual branch-by-branch approval prompts, provided all tests and builds pass cleanly.
+
+1. **`feat/saurav-hud` (tip `474254d`)**:
+   - Merged as `4d07adf`, preserving Saurav's commits `42b9a07`, `64706c0`, and `474254d`.
+   - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
+   - Changes: Independent per-reserve motion tracking and animation (shimmer on gains, brief shimmy on losses), one-shot fill shine on reaching 100 capacity, continuous pulse animation on critical reserves ($\le 20$), and post-merge validation.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (8 test files, 70 tests passed); `npm run build` passed cleanly.
+
+2. **`feat/rohit-game` (tip `a17ea4b`)**:
+   - Merged as `44a7120`, preserving Rohit's commit `a17ea4b`.
+   - Scope: `src/App.vue`, `src/features/game/NOTES.md`, `src/features/game/activities.test.ts`, `src/features/game/activities.ts`. All paths owned by Rohit.
+   - Changes: Shift-specific contextual 3-step procedures for every decision across all 6 shifts with out-of-order bounds checks and unit tests; synthesized console step audio feedback (`playDecision` on correct steps, `playWarning` on mistakes, `playRestart` on cancellation); accessible "Direct Decisions / 3D Procedures" toggle in viewport header; keyboard shortcuts `KeyT` (accessible travel to task door) and `Escape` (cancel task).
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (8 test files, 72 tests passed); `npm run build` passed cleanly.
+
+### Standing Auto-Merge Automation Policy
+
+- Authorized by Himamshu on 14 Nov 2026: The merge coordinator automatically polls `origin`, discovers any feature branches containing unmerged commits ahead of `main`, merges each serially with `--no-ff`, executes `npm run typecheck`, `npm test`, and `npm run build`, logs the verified merge, and pushes `main` to `origin`.
+- Manual approval prompts are disabled for normal passing merges. The coordinator stops and alerts Himamshu only if a merge conflict arises or if automated checks fail.
 
 ### Updated open requests
 
