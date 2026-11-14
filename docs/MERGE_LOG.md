@@ -8,10 +8,10 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 | --- | --- | --- | --- |
 | `feat/himamshu-world` | `278c91e` | `src/features/world/**`, `src/App.vue`, `src/contracts/index.ts`, `docs/CONTRACTS.md`, `src/features/physics/**` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors `8764bfa`; NASA assets, detailed interiors, and playable Earth/orbit preflight `c644a59`; procedural suit rig `2a4f7f7`; Mixamo locomotion clips `0fae932`; openable doors & free building exploration `79ad90d`; third-person exploration & outdoor Earth campus merged by `e82fa10`; station minigames and task cues merged by `e05925c`; checks passed |
 | `feat/rohit-game` | `4d02fd0` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory `72f8f65`; audio synthesis, star badges, keyboard navigation `b7c9c33`; contextual station procedures `44a7120`; full-reserve sound, in-viewport deck overlay, and roguelike choice cards merged by `828493c`; checks passed |
-| `feat/saurav-hud` | `c5973b1` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations `4d07adf`; in-game status polish `86c1beb`; science & shelter readout softening `44ff31e`; expandable science and shelter buttons `f994aa7`; stat icon spin and numerator progress roll `667ae75`; gentle cursor parallax and motion polish `afff7e4`; viewport event toast details merged by `94ce20e`; checks passed |
+| `feat/saurav-hud` | `45d52be` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations `4d07adf`; in-game status polish `86c1beb`; science & shelter readout softening `44ff31e`; expandable science and shelter buttons `f994aa7`; stat icon spin and numerator progress roll `667ae75`; gentle cursor parallax and motion polish `afff7e4`; viewport event toast details `94ce20e`; playful reserve meter visuals merged by `d77cb4c`; checks passed |
 | `feat/anshu-physics` | `4108654` | `src/features/physics/**` | Grounded astronaut controller, reset and pause merged by `dfe1d24`; checks passed |
-| `feat/dixit-ui` | `0637603` | `src/features/ui/**` | Onboarding, decisions, pause, debrief replay & sources merged by `55799b3`; checks passed |
-| `feat/genius-missions` | `2ecab55` | `src/features/missions/**` | Six teaching decisions & NASA CME evidence merged by `a8d9a39`; alert wording reconciled by `500c830`; refreshable DONKI snapshot and raw NASA datasets merged by `e4abf24`; checks passed |
+| `feat/dixit-ui` | `a974254` | `src/features/ui/**`, `src/App.vue`, `src/assets/**` | Initial onboarding, decisions, pause, debrief replay & sources `55799b3`; cinematic splash screen, Mars observatory menu, and 3D Earth view merged by `b4549b4`; checks passed |
+| `feat/genius-missions` | `87c2189` | `src/features/missions/**` | Six teaching decisions & NASA CME evidence `a8d9a39`; alert wording reconciled by `500c830`; refreshable DONKI snapshot and raw NASA datasets `e4abf24`; observation details and NASA API documentation merged by `15ea38e`; checks passed |
 
 Verify refs, scope and checks before a merge; this table is not authorization to merge. Anshu and Dixit have no published branch recorded at this review.
 
@@ -246,6 +246,26 @@ Himamshu issued a standing mandate authorizing the merge coordinator to automati
    - Changes: Maintainer script `scripts/refresh-donki-snapshot.mjs` for date-bounded NASA DONKI CME queries; local bundled snapshot for 2026-11-07 through 2026-11-14 with selected observation `2026-11-13T21:24:00-CME-001` (analysis speed 474 km/s); provenance documentation in `data/PROVENANCE.md`; raw NASA API dataset fixtures; updated source descriptions distinguishing authored shelter drill / reserve loss from measured Mars crew dose; unit tests in `scripts/refresh-donki-snapshot.test.mjs` and `missions.test.ts`.
    - Cross-feature request recorded: Genius requests Rohit (game) consider a 1% once-per-expedition pre-flight launch safety abort with Dixit (UI) presenting the non-graphic stop and retry action.
    - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (16 test files, 95 tests passed); `npm run build` passed cleanly in 818ms.
+
+### 14 Nov 2026 — Genius (missions), Saurav (HUD), and Dixit (UI) serial integration
+
+1. **`feat/genius-missions` (tip `87c2189`)**:
+   - Merged as `15ea38e`, preserving Genius's commit `87c2189`.
+   - Scope: `src/features/missions/NOTES.md`. All paths owned by Genius.
+   - Changes: Expanded observation snapshot details, NASA API query guidance, and documented distinction between measured Mars sensor data and authored simulation models.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (16 test files, 95 tests passed); `npm run build` passed cleanly.
+
+2. **`feat/saurav-hud` (tip `45d52be`)**:
+   - Merged as `d77cb4c`, preserving Saurav's commits `b053a2d`, `8035c96`, and `45d52be`.
+   - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
+   - Changes: Playful reserve meter visuals with rounded pill meters, distinct resource-colored gauge tracks, refined warning states, and refreshed micro-interactions.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (16 test files, 95 tests passed); `npm run build` passed cleanly.
+
+3. **`feat/dixit-ui` (tip `a974254`)**:
+   - Merged as `b4549b4`, preserving Dixit's commits `797f857`, `ef0565a`, and integration merge `a974254`.
+   - Scope: `src/features/ui/SplashScreen.vue`, `src/features/ui/LoginScreen.vue`, `src/features/ui/NOTES.md`, `src/App.vue`, and assets in `src/assets/**`.
+   - Changes: Cinematic splash screen featuring Ares logo with 2.5s timed transition; Mars observatory title and login screen with interactive 3D telescope view of Earth, Moon, and atmospheric cloud layers; start mission action button initiating the game sequence.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (16 test files, 95 tests passed); `npm run build` passed cleanly in 1.06s.
 
 ### Updated open requests
 
