@@ -21,24 +21,15 @@
 - The source and decision UI already render `MissionData.sources`, each source's mapping/provenance, and the active event description generically. No UI change is needed for this bundled CME snapshot. Verify the resulting source card in the integrated browser flow.
 - The update is not yet merged into `main`; hand it to Himamshu for the normal serial feature-merge queue. Push of `feat/genius-missions` was attempted after fetch and fast-forward verification, but failed because Git could not obtain a password (`fatal: unable to get password from user`). No remote update was made; the commits remain local. The unverified `nasa-apis-extra-raw.json` and `donki-flr-sep-may2024-raw.json` remain untracked and intentionally excluded.
 
-### Cross-feature request — not implemented
-
-- Request Rohit (game/contracts): add a once-per-expedition, 1% launch safety abort before the mission begins. Keep it non-graphic, end the expedition immediately, and ensure the chance is not rerolled by rendering. Decide whether retry starts a new expedition and rerolls. Suggested child-friendly message: “Launch safety check failed. The expedition was stopped before landing.”
-- After the game outcome/state is agreed, ask Dixit (UI) to present the abort and retry action accessibly. This is not expressible using the current mission events and should not be added as a random mission choice.
-
 ### Copy-ready team messages
 
 **To Himamshu (merge coordinator):**
 
 > Missions handoff: `feat/genius-missions`, commits `4a9315f` and `45a8eab`, plus merge of current `origin/main` as `8d59925`. Scope is `src/features/missions/**`. DONKI refresh script and bundled snapshot are tested; the observation is used as context for the authored Shift 2/3 shelter drill, with the Mars-dose distinction stated. After syncing main, all 82 tests, typecheck and production build passed. No missions path conflicts. Please queue this branch for the normal serial merge. Two unverified raw fixtures remain untracked and are not part of the handoff.
 
-**To Rohit (game/contracts):**
-
-> Request for a separately coordinated feature: could we add a 1% once-per-expedition launch safety abort before Shift 1? It should be a non-graphic immediate stop, not a random mission choice, and must not reroll on Vue renders. Please define state/contract behavior and whether Retry counts as a new expedition and rerolls. Suggested copy: “Launch safety check failed. The expedition was stopped before landing.” I have not changed game code or contracts.
-
 **To Dixit (UI):**
 
-> The refreshed DONKI mission source needs no UI code change: `SourceCredits` already renders source title/link/date/units/mapping and `DecisionPanel` renders the event description. Please verify the new CME source card and authored-drill wording during integration. If Rohit implements the launch safety abort, please coordinate its accessible stop/retry presentation with him; no UI change is requested before that behavior is defined.
+> The refreshed DONKI mission source needs no UI code change: `SourceCredits` already renders source title/link/date/units/mapping and `DecisionPanel` renders the event description. Please verify the new CME source card and authored-drill wording during integration.
 
 ## Original Mission Milestone: Integrated
 
