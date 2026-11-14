@@ -18,7 +18,7 @@ const resourceInfo: Record<ResourceId, { label: string }> = {
 
 type ReserveMotion = { direction: 'up' | 'down' | ''; key: number; fullKey: number; reachedFull: boolean };
 type ProgressStat = 'science' | 'shelter';
-type StatPop = { key: number; from: string; to: string };
+type StatPop = { key: number; from: number; to: number; max: number };
 const reserveMotion = ref<Record<ResourceId, ReserveMotion>>({
   power: { direction: '', key: 0, fullKey: 0, reachedFull: false },
   oxygen: { direction: '', key: 0, fullKey: 0, reachedFull: false },
@@ -107,7 +107,7 @@ watch(
       if (now <= before) return;
       statPops.value = {
         ...statPops.value,
-        [id]: { key: ++statPopKey, from: `${before}/${max}`, to: `${now}/${max}` },
+        [id]: { key: ++statPopKey, from: before, to: now, max },
       };
       if (statPopTimers[id]) clearTimeout(statPopTimers[id]);
       statPopTimers[id] = setTimeout(() => {
@@ -258,7 +258,7 @@ function toggleStat(id: ProgressStat): void {
 
     <div class="secondary-grid">
       <div class="stat-widget science-widget" :class="{ 'is-expanded': expandedStat === 'science' }" @mouseenter="openStat('science')" @mouseleave="closeStat('science')">
-        <span v-if="statPops.science" :key="statPops.science.key" class="progress-pop science-pop" aria-hidden="true"><span>{{ statPops.science.from }}</span><i>→</i><strong>{{ statPops.science.to }}</strong></span>
+        <span v-if="statPops.science" :key="statPops.science.key" class="progress-pop science-pop" aria-hidden="true"><span class="progress-numerator"><span class="count-old">{{ statPops.science.from }}</span><span class="count-new">{{ statPops.science.to }}</span></span><span class="progress-denominator">/{{ statPops.science.max }}</span></span>
         <div class="stat-detail" :aria-hidden="expandedStat !== 'science'">
           <span class="secondary-label">SCIENCE GOAL</span>
           <strong class="stat-value">{{ state.science }} <span>/ {{ mission.scienceTarget }}</span></strong>
@@ -278,7 +278,7 @@ function toggleStat(id: ProgressStat): void {
         </button>
       </div>
       <div class="stat-widget shelter-widget" :class="{ 'is-expanded': expandedStat === 'shelter' }" @mouseenter="openStat('shelter')" @mouseleave="closeStat('shelter')">
-        <span v-if="statPops.shelter" :key="statPops.shelter.key" class="progress-pop shelter-pop" aria-hidden="true"><span>{{ statPops.shelter.from }}</span><i>→</i><strong>{{ statPops.shelter.to }}</strong></span>
+        <span v-if="statPops.shelter" :key="statPops.shelter.key" class="progress-pop shelter-pop" aria-hidden="true"><span class="progress-numerator"><span class="count-old">{{ statPops.shelter.from }}</span><span class="count-new">{{ statPops.shelter.to }}</span></span><span class="progress-denominator">/100</span></span>
         <div class="stat-detail" :aria-hidden="expandedStat !== 'shelter'">
           <span class="secondary-label">SHELTER</span>
           <strong class="stat-value">{{ state.shielding }}<span> / 100</span></strong>
@@ -310,7 +310,7 @@ function toggleStat(id: ProgressStat): void {
 
         <p v-if="feedback" class="feedback" :class="feedbackTone" aria-live="polite" aria-atomic="true">
       <span class="feedback-mark" aria-hidden="true">{{ feedbackTone === 'cost' ? '−' : feedbackTone === 'gain' ? '+' : '↻' }}</span>
-      <span><strong>SHIFT UPDATE</strong>{{ feedback }}</span>
+          <span class="feedback-copy"><strong>SHIFT UPDATE</strong><span>{{ feedback }}</span></span>
     </p>
 
     <p class="units-note">Simplified game units · not real spacecraft readings</p>
@@ -399,19 +399,24 @@ function toggleStat(id: ProgressStat): void {
 .science-track > span { background: #a8c9e6; }
 .shelter-track > span { background: #d5bd96; }
 .shelter-note { display: block; margin: .04rem 0 0; color: #e2d7c5; font-size: .52rem; font-weight: 650; letter-spacing: .01em; text-shadow: 0 1px 3px #171317; white-space: nowrap; }
-.stat-icon-button { position: relative; z-index: 1; display: grid; place-items: center; flex: 0 0 2.4rem; width: 2.4rem; height: 2.4rem; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #d6d1c6; font: inherit; cursor: pointer; pointer-events: auto; transition: color 180ms ease, transform 240ms cubic-bezier(.2,.85,.25,1); }
-.stat-icon-button > span { display: grid; place-items: center; width: 100%; height: 100%; font-size: 1.08rem; filter: drop-shadow(0 1px 2px rgb(0 0 0 / 55%)); }
+.stat-icon-button { position: relative; z-index: 1; display: grid; place-items: center; flex: 0 0 2.4rem; width: 2.4rem; height: 2.4rem; padding: 0; border: 1px solid color-mix(in srgb, currentColor, transparent 52%); border-radius: 50%; background: transparent; color: #d6d1c6; font: inherit; cursor: pointer; pointer-events: auto; transition: color 180ms ease, transform 240ms cubic-bezier(.2,.85,.25,1), border-color 180ms ease; }
+.stat-icon-button > span { display: grid; place-items: center; width: 100%; height: 100%; font-size: 1.08rem; filter: drop-shadow(0 1px 2px rgb(0 0 0 / 45%)); }
 .stat-icon-button:hover, .stat-widget.is-expanded .stat-icon-button { color: #fff3d4; transform: scale(1.08); }
+.stat-icon-button:hover > span, .stat-icon-button:focus-visible > span { animation: stat-icon-spin .5s cubic-bezier(.2,.8,.2,1) both; }
 .stat-icon-button:focus-visible { outline: 2px solid #fff1ba; outline-offset: 2px; }
 .science-icon { color: #bfd5e8; }
 .shelter-icon { color: #dfcba9; }
-.progress-pop { position: absolute; z-index: 3; top: -.86rem; right: .15rem; display: flex; align-items: center; gap: .16rem; padding: .16rem .3rem; border: 1px solid rgb(255 255 255 / 35%); border-radius: 999px; background: rgb(16 24 29 / 82%); color: #e7e4da; box-shadow: 0 3px 9px rgb(0 0 0 / 20%); font-size: .55rem; font-weight: 750; line-height: 1; white-space: nowrap; transform-origin: 85% 100%; animation: progress-pop .34s cubic-bezier(.18,1.4,.42,1) both, progress-pop-away .24s 1.18s ease-in forwards; pointer-events: none; }
-.progress-pop i { color: #d0cbbf; font-size: .5rem; font-style: normal; }
-.progress-pop strong { color: #fff6d8; font-size: .61rem; font-weight: 950; }
-.science-pop { border-color: rgb(168 201 230 / 55%); }
-.shelter-pop { border-color: rgb(213 189 150 / 55%); }
+.progress-pop { position: absolute; z-index: 3; top: -.92rem; right: .28rem; display: flex; align-items: center; gap: .02rem; color: #f4f0e7; font-size: .76rem; font-weight: 800; line-height: 1; white-space: nowrap; text-shadow: 0 1px 4px rgb(0 0 0 / 85%); transform-origin: 85% 100%; animation: progress-pop-in .32s cubic-bezier(.18,1.4,.42,1) both, progress-pop-away .24s 1.22s ease-in forwards; pointer-events: none; }
+.progress-numerator { position: relative; display: grid; min-width: .62em; height: 1em; overflow: hidden; place-items: center; font-variant-numeric: tabular-nums; }
+.count-old, .count-new { grid-area: 1 / 1; }
+.count-old { animation: count-roll-away .3s .22s cubic-bezier(.4,0,.7,.2) both; }
+.count-new { color: #fff8e8; animation: count-roll-in .34s .22s cubic-bezier(.2,.9,.25,1.2) both; }
+.progress-denominator { display: inline-block; color: #e1ddd4; font-size: .72em; font-weight: 650; animation: denominator-nudge .28s .2s ease-out both; }
+.science-pop { color: #d9ebfa; }
+.shelter-pop { color: #eee1c9; }
 .feedback { position: absolute; top: 88px; left: 14px; display: flex; align-items: flex-start; gap: .32rem; width: min(240px, calc(100% - 28px)); margin: 0; padding: 0; border: 0; background: transparent; color: #fff0db; font-size: .58rem; line-height: 1.3; text-shadow: 0 1px 4px #171317; }
-.feedback > span:last-child { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.feedback-copy { display: grid; gap: .08rem; min-width: 0; }
+.feedback-copy > span { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .feedback strong { color: #ffcf91; font-size: .49rem; letter-spacing: .06em; }
 .feedback-mark { width: .75rem; height: .75rem; display: grid; place-items: center; flex: 0 0 auto; color: #ffd28c; font-weight: 900; }
 .delayed-effects { position: absolute; top: 132px; left: 14px; width: min(240px, calc(100% - 28px)); margin: 0; color: #fff1cf; text-shadow: 0 1px 4px #171317; }
@@ -429,7 +434,11 @@ function toggleStat(id: ProgressStat): void {
 .toast-copy > strong { color: #ffdc96; font-size: .68rem; font-weight: 950; letter-spacing: .1em; text-shadow: 0 1px #50391f; }
 .toast-spark { align-self: start; color: #ffe6a8; font-size: 1rem; text-shadow: 0 0 10px #ffd779; animation: spark-spin 1.6s ease-in-out infinite; }
 @keyframes reserve-hover-bop { 0%, 100% { transform: scale(1) rotate(0); } 35% { transform: scale(1.16) rotate(-7deg); } 70% { transform: scale(1.12) rotate(6deg); } }
-@keyframes progress-pop { 0% { opacity: 0; transform: translateY(.35rem) scale(.55); } 62% { opacity: 1; transform: translateY(-.08rem) scale(1.12); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes stat-icon-spin { 0% { transform: rotate(-24deg) scale(.88); } 55% { transform: rotate(205deg) scale(1.12); } 100% { transform: rotate(360deg) scale(1); } }
+@keyframes progress-pop-in { 0% { opacity: 0; transform: translateY(.8rem) scale(.62); } 62% { opacity: 1; transform: translateY(-.06rem) scale(1.12); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes count-roll-away { to { opacity: 0; transform: translateY(-110%) scale(.78); } }
+@keyframes count-roll-in { from { opacity: 0; transform: translateY(105%) scale(.78); } 72% { opacity: 1; transform: translateY(-8%) scale(1.08); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes denominator-nudge { 35% { transform: translateX(-1px) rotate(-2deg); } 70% { transform: translateX(1px) rotate(2deg); } to { transform: translateX(0) rotate(0); } }
 @keyframes progress-pop-away { to { opacity: 0; transform: translateY(-.55rem) scale(.88); } }
 @keyframes reserve-pop { 0% { transform: scaleY(.8); } 45% { transform: scaleY(1.28); filter: brightness(1.45); } 100% { transform: scaleY(1); } }
 @keyframes reserve-shimmy { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
@@ -460,6 +469,6 @@ function toggleStat(id: ProgressStat): void {
 }
 @media (prefers-reduced-motion: reduce) {
   .shift-track > span, .reserve-fill, .science-track > span, .icon-tooltip, .stat-widget, .stat-detail, .stat-icon-button { transition: none; }
-  .motion-up, .motion-down, .reserve-icon-wrap:hover, .reserve-icon:focus-visible, .reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap, .progress-pop, .progress-pop strong, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
+  .motion-up, .motion-down, .reserve-icon-wrap:hover, .reserve-icon:focus-visible, .reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap, .stat-icon-button:hover > span, .stat-icon-button:focus-visible > span, .progress-pop, .count-old, .count-new, .progress-denominator, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
 }
 </style>
