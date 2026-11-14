@@ -313,7 +313,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         const dx = pose.x - playerPose.x;
         const dz = pose.z - playerPose.z;
         const distance = Math.hypot(dx, dz);
-        const moving = distance > .0001 && distance < 1 && lastState?.phase === 'running' && !reduceMotion;
+        const moving = distance > .0001 && distance < 1 && (lastState?.phase === 'running' || level !== null) && !reduceMotion;
         const redrawShadow = distance > .0001 || pose.y !== playerPose.y || gaitWasMoving;
         gaitWasMoving = moving;
         if (distance > .0001) astronaut.group.rotation.y = Math.atan2(dx, dz);
