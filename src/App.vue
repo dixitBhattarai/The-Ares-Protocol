@@ -102,6 +102,14 @@ const preparationProgress = ref(0);
 const preparationFeedback = ref('');
 const preparationPaused = ref(false);
 const nearConsole = ref(false);
+// Arrival guidance is optional. Start survival time only when the player takes control.
+const missionTimerActive=ref(false);
+const arrivalGuide=ref(false);
+function startMissionAfterGuide(){
+ if(state.value.phase!=='running'||missionTimerActive.value)return;
+ missionTimerActive.value=true;arrivalGuide.value=false;
+ physics?.resumeInput?.();
+}
 let remoteConsole = false;
 
 function updateFlightStage(stage: FlightStage | null, progress = 0) {
@@ -259,6 +267,7 @@ function finishArrival() {
 function setDoor(id: StationId, open: boolean) { doorsOpen.value = { ...doorsOpen.value, [id]: open }; doorReady.value = false; world?.setDoorState?.(id, open); }
 function toggleDoor() {
   if (state.value.phase !== 'running') return;
+  startMissionAfterGuide();
   const id = interior.value ?? nearby.value;
   if (!id) return;
   if(doorsOpen.value[id] && doorwayOccupied(physics!.getPlayerPose(),id)) {stationMessage.value='Step clear of the doorway before closing it.';return;}
@@ -274,6 +283,7 @@ function leaveModule() {
 }
 function travelToDoor(id: StationId) {
   if (state.value.phase !== 'running') return;
+  startMissionAfterGuide();
   leaveModule(); physics?.reset?.(doorApproach(id)); nearby.value = id;
   doorReady.value = false;
   stationMessage.value = `At the ${id} entrance. Open the door with E or the button.`;
@@ -367,6 +377,7 @@ function dispatch(action: GameAction) {
   if(action.type==='START'&&state.value.phase==='ready'&&(directDecisionMode.value||graphicsError.value)){arrivalComplete=true;setGravity('mars');world?.setLevel?.(null);world?.setJourney?.(null);music?.select('mars');}
   if(action.type==='CHOOSE')return;
   if(action.type==='START_TASK') {
+    if(state.value.phase==='running')startMissionAfterGuide();
     const previous=state.value;state.value=reduceGame(state.value,action,mission);
     if(state.value===previous)return;
     const task=STATION_TASKS.find(task=>task.id===action.taskId)!;
@@ -374,7 +385,7 @@ function dispatch(action: GameAction) {
     activityProgress.value=0;activityFeedback.value='Finish the station minigame to earn this reward.';
     world?.setObjective?.(task.station);physics?.pauseInput?.();deckVisible.value=false;return;
   }
-  if (action.type === 'RESTART') { clearLaunchFlight();missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
+  if (action.type === 'RESTART') { missionTimerActive.value=false;arrivalGuide.value=false;clearLaunchFlight();missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
   if (action.type === 'PAUSE' && state.value.phase === 'running') music?.setPaused(true);
   if (action.type === 'RESUME' && state.value.phase === 'paused') music?.setPaused(false);
   const previousState = state.value;
@@ -384,6 +395,7 @@ function dispatch(action: GameAction) {
   }
 
   if (action.type === 'START') {
+    if(previousState.phase==='ready'&&state.value.phase==='running'){missionTimerActive.value=false;arrivalGuide.value=true;}
     if(state.value.phase==='running')physics?.resumeInput?.();
     soundFX.playStart();
   } else if(action.type==='COMPLETE_TASK'||action.type==='TICK') {
@@ -410,7 +422,7 @@ function dispatch(action: GameAction) {
 }
 
 function advanceMissionTime(elapsed:number) {
-  if(state.value.phase==='running'&&!document.hidden&&!preparation.value&&flightProgress.value===null){
+  if(state.value.phase==='running'&&missionTimerActive.value&&!document.hidden&&!preparation.value&&flightProgress.value===null){
     missionSeconds+=elapsed;
     if(missionSeconds>=1){missionSeconds-=1;dispatch({type:'TICK',seconds:1});}
   }else missionSeconds=0;
@@ -456,6 +468,7 @@ function checkStationProximity(pose: Vec3) {
 }
 
 function handleGlobalKeydown(event: KeyboardEvent) {
+  if(state.value.phase==='running'&&!activeActivity.value&&['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.code)&&!(event.target as HTMLElement|null)?.closest('input,textarea,select,[contenteditable]'))startMissionAfterGuide();
   if(launchFlight.value&&flightStage.value==='launch'&&!(event.target as HTMLElement|null)?.closest('input,textarea,select,[contenteditable]')){
     if(event.code==='KeyP'){event.preventDefault();if(!event.repeat)togglePreparationPause();return;}
     if(['KeyW','KeyS','KeyA','KeyD'].includes(event.code)){event.preventDefault();holdLaunch(event.code as FlightControlKey,true);return;}
@@ -714,6 +727,11 @@ onBeforeUnmount(() => {
           role="region"
           :aria-label="flightStage ? 'Rocket ascent, transfer or Mars landing view' : preparation === 'earth' ? 'Interactive Earth launch site' : preparation === 'space' ? 'Orbital cabin view' : 'Interactive 3D Mars Outpost Viewport'"
         />
+        <div v-if="arrivalGuide && state.phase==='running' && !activeActivity" class="arrival-guide" role="status">
+          <span><strong>Touchdown</strong> · E near any machine</span>
+          <button @click="startMissionAfterGuide">Explore</button>
+          <details><summary aria-label="Show movement help">?</summary><p>WASD · move<br>Drag · look<br>E · use<br>P · pause</p></details>
+        </div>
         <div v-if="state.taskRun && (state.phase==='running'||state.phase==='paused')" class="task-warning">
 
           <button @click="dispatch({type:state.phase==='paused'?'RESUME':'PAUSE'})">{{ state.phase==='paused'?'▶ Resume':'Ⅱ Pause' }}</button>
@@ -926,4 +944,4 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
 }
 </style>
 
-<style scoped src="./features/world/shell.css"></style>
+<style scoped src="./features/world/shell.css">.arrival-guide{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:14;display:flex;align-items:center;gap:10px;max-width:calc(100% - 24px);box-sizing:border-box;padding:10px 12px;border:1px solid #98cbc677;border-radius:12px;background:#102c38e8;color:#dff9ee;backdrop-filter:blur(12px);font-size:12px}.arrival-guide strong{color:#ffe0a0}.arrival-guide button,.arrival-guide summary{min-height:40px;min-width:36px;display:grid;place-items:center;padding:0 10px;border:1px solid #97cfc5;border-radius:8px;background:#234751;color:#ecfff6;cursor:pointer}.arrival-guide details{position:relative}.arrival-guide details p{position:absolute;bottom:44px;right:0;min-width:110px;padding:12px;margin:0;border:1px solid #8fbdbd;border-radius:10px;background:#12313d;line-height:1.8}.arrival-guide button:focus-visible,.arrival-guide summary:focus-visible{outline:3px solid #ffe0a0;outline-offset:2px}@media(max-width:600px){.arrival-guide{bottom:230px;width:max-content;font-size:10px;gap:7px}}</style>
