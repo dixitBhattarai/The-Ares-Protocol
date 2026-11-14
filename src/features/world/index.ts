@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { STATIONS } from '../../contracts';
-import type { FlightStage, GameState, StationId, Vec3, WorldAdapter } from '../../contracts';
+import type { FlightStage, LaunchFlightSnapshot, GameState, StationId, Vec3, WorldAdapter } from '../../contracts';
+import { createLaunchView } from './launch-view';
 import { frameOutpost } from './camera';
 import { createGroundShadow, createStation, createTerrain, STATION_NAMES } from './models';
 import { applyAstronautGait, createAstronaut, updateAstronautAnimation } from './astronaut';
@@ -81,6 +82,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     void nasa.attach(volcano, 'olympus', 58, undefined, true);
     const expedition = createExpeditionViews(kit, resources, nasa);
     cleanups.push(() => expedition.dispose());
+    const launchView=createLaunchView(kit,resources,nasa);cleanups.push(()=>launchView.dispose());
+    let launchSnapshot:Readonly<LaunchFlightSnapshot>|null=null;
     let interior: StationId | null = null;
     let journey: number | null = null;
     let flightStage: FlightStage | null = null;
@@ -761,9 +764,14 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         if (disposed) return;
         flightStage = stage;
         flightProgress = Number.isFinite(progress) ? Math.max(0, Math.min(1, progress)) : 0;
-        cockpitFrame.hidden = stage === null;
+        cockpitFrame.hidden = stage === null || (!!launchSnapshot && (stage==='launch'||stage==='orbit-autopilot'));
         container.classList.toggle('ares-world--cockpit', stage !== null);
         if (stage !== null) unlockMouse();
+      },
+      setLaunchFlight(snapshot){
+        if(disposed)return;
+        launchSnapshot=snapshot;
+        cockpitFrame.hidden=flightStage===null || (!!snapshot && (flightStage==='launch'||flightStage==='orbit-autopilot'));
       },
       setObjective(id) {
         if (disposed || selected === (id ?? undefined)) return;
@@ -841,6 +849,10 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         });
         expedition.resize(width / height);
         if (flightStage !== null) {
+          if(launchSnapshot&&(flightStage==='launch'||flightStage==='orbit-autopilot')){
+            launchView.update(launchSnapshot,width/height,delta,active,reduceMotion);
+            renderer!.render(launchView.scene,launchView.camera);return;
+          }
           expedition.cockpit(flightStage, flightProgress, delta, active, reduceMotion);
           renderer!.render(expedition.cockpitFlight, expedition.cockpitCamera);
           return;
