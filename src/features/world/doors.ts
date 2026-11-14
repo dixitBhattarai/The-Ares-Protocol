@@ -25,7 +25,7 @@ export function atDoorThreshold(pose: Vec3, id: StationId): boolean {
 }
 export function atRoomExit(pose: Vec3): boolean { return Math.abs(pose.x) < .55 && pose.z >= 2.4; }
 
-export function createSlidingDoor(kit: ModelKit, name: string, backdrop = true) {
+export function createSlidingDoor(kit: ModelKit, name: string, backdrop = true, pocketDepth = 0) {
   const group = new THREE.Group(); group.name = `${name}-door`;
   const { trim, dark, ivory, orange, glass } = kit.materials;
   if (backdrop) kit.flatBox(group, dark, [1.22, 1.72, .03], [0, 0, -.035]);
@@ -33,6 +33,9 @@ export function createSlidingDoor(kit: ModelKit, name: string, backdrop = true) 
   kit.box(group, orange, [1.44, .12, .09], [0, .89, 0]);
   const leaves = [-1, 1].map(side => {
     const leaf = new THREE.Group(); group.add(leaf);
+    leaf.name=`${name}-leaf-${side<0?'left':'right'}`;
+    // Exterior panels retract into the wall pocket rather than its front face.
+    leaf.position.z=-pocketDepth;
     kit.box(leaf, trim, [.59, 1.68, .035], [0, 0, .012]);
     kit.box(leaf, glass, [.36, .37, .016], [0, .25, .04]);
     kit.box(leaf, orange, [.035, 1.43, .018], [-side * .25, 0, .04]);
@@ -43,7 +46,7 @@ export function createSlidingDoor(kit: ModelKit, name: string, backdrop = true) 
     const delta = Number.isFinite(seconds) ? THREE.MathUtils.clamp(seconds, 0, .1) : 0;
     progress = reduced ? Number(target) : THREE.MathUtils.clamp(progress + (target ? 1 : -1) * delta / .4, 0, 1);
     const eased = progress * progress * (3 - 2 * progress);
-    leaves.forEach((leaf, i) => { leaf.position.x = (i ? 1 : -1) * (.3 + eased * .65); });
+    leaves.forEach((leaf, i) => { leaf.position.x = (i ? 1 : -1) * (.3 + eased * .70); });
     group.userData.openProgress = progress;
   }
   update(0, false);
