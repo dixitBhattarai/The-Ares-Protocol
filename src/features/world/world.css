@@ -34,6 +34,12 @@
 .ares-world--compact-labels .ares-world__label::after { display: none; }
 .ares-world__you { position: absolute; padding: 2px 4px; transform: translate(-50%, -100%); border: 1px solid #ffe4a2; border-radius: 4px; background: #26333bed; color: #ffe4a2; font: 700 10px/1.2 system-ui, sans-serif; pointer-events: none; }
 .ares-world__you[hidden] { display: none; }
+.ares-world__crosshair { display: none; position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; box-sizing: border-box; transform: translate(-50%, -50%); border: 2px solid #fff1cf; border-radius: 50%; box-shadow: 0 0 0 1px #2b2024aa; pointer-events: none; z-index: 2; }
+.ares-world__look-hint { display: none; position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); max-width: calc(100% - 24px); margin: 0; padding: 5px 9px; border: 1px solid #ead1a48c; border-radius: 7px; background: #26333bf2; color: #fff1cf; font: 600 11px/1.4 system-ui, sans-serif; text-align: center; pointer-events: none; z-index: 2; }
+.ares-world--first .ares-world__crosshair { display: block; }
+.ares-world--first .ares-world__look-hint { display: block; }
+.ares-world--journey.ares-world--first .ares-world__crosshair { display: none; }
+.ares-world--journey.ares-world--first .ares-world__look-hint { display: none; }
 .ares-world__label:focus-visible { outline: 3px solid #fff0af; outline-offset: 3px; }
 .ares-world__label::after { content: ''; position: absolute; bottom: -6px; left: calc(50% - 1px); height: 5px; width: 1px; background: #ead1a4; }
 .ares-world__label::before { display: inline-block; margin-right: 5px; color: #b8ded6; font: 700 9px/1.4 system-ui, sans-serif; letter-spacing: .04em; }
@@ -70,3 +76,34 @@
 @media(prefers-reduced-motion:reduce){.ares-world__work-prompt:active{scale:1}}
 .ares-world__heading span{display:none}
 @media(max-width:600px){.ares-world__heading{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+
+/* A still first-person flight deck. Stage motion stays in the scene beyond the glass. */
+.ares-world__cockpit-frame { position:absolute; inset:0; z-index:6; overflow:hidden; color:#e3f7f0; pointer-events:none; font:600 10px/1.3 ui-monospace,Consolas,monospace; }
+.ares-world__cockpit-frame[hidden] { display:none; }
+.ares-world__cockpit-windshield { position:absolute; inset:4.5% 6.5% 23%; border:9px solid #263b40; border-bottom-width:13px; border-radius:15% 15% 8% 8% / 17% 17% 7% 7%; box-shadow:inset 0 0 0 2px #79918c, inset 0 0 28px #c8efff30, 0 7px 24px #06141b90; }
+.ares-world__cockpit-windshield::before { content:''; position:absolute; left:50%; top:0; bottom:0; width:4px; transform:translateX(-50%); background:linear-gradient(#263b40,#536d70 45%,#263b40); box-shadow:0 0 0 1px #9db5ac55; }
+.ares-world__cockpit-windshield::after { content:''; position:absolute; left:0; right:0; top:70%; height:5px; background:linear-gradient(#263b40,#536d70 45%,#263b40); box-shadow:0 0 0 1px #9db5ac55; }
+.ares-world__cockpit-hud { position:absolute; top:7%; left:50%; transform:translateX(-50%); padding:5px 10px; border:1px solid #9ecab45c; border-radius:5px; background:#10242b9c; color:#e2f8eb; letter-spacing:.13em; text-shadow:0 0 8px #86d8c3aa; white-space:nowrap; }
+.ares-world__cockpit-dashboard { position:absolute; left:-4%; right:-4%; bottom:-9%; height:31%; min-height:112px; box-sizing:border-box; padding:15px 13% 20px; border:7px solid #263b40; border-bottom:0; border-radius:42% 42% 0 0 / 19% 19% 0 0; background:linear-gradient(180deg,#536268 0%,#263a40 20%,#172a31 68%,#0d1e24 100%); box-shadow:0 -8px 24px #06141b8a,inset 0 2px 0 #9ab1a755; text-align:center; }
+.ares-world__cockpit-dashboard > span { display:block; color:#9cd3c1; font-size:9px; letter-spacing:.2em; }
+.ares-world__cockpit-instruments { display:flex; justify-content:center; align-items:flex-start; gap:clamp(18px,8vw,90px); margin-top:8px; }
+.ares-world__cockpit-instrument { display:grid; justify-items:center; gap:4px; color:#b9d5cc; font-size:8px; letter-spacing:.08em; }
+.ares-world__cockpit-instrument i { display:block; width:clamp(33px,5vw,54px); aspect-ratio:1; border:3px solid #748c88; border-radius:50%; background:radial-gradient(circle at 50% 52%,#18333a 0 55%,#0d2027 57%); box-shadow:inset 0 0 0 2px #1a2a2f,0 0 9px #91d7c655; }
+.ares-world__cockpit-instrument i::after { content:''; display:block; width:2px; height:34%; margin:15% auto 0; transform:rotate(28deg); transform-origin:bottom center; background:#ffc877; box-shadow:0 0 5px #ffc877; }
+.ares-world--cockpit .ares-world__heading,
+.ares-world--cockpit .ares-world__hint,
+.ares-world--cockpit .ares-world__status,
+.ares-world--cockpit .ares-world__camera-controls,
+.ares-world--cockpit .ares-world__crosshair,
+.ares-world--cockpit .ares-world__look-hint,
+.ares-world--cockpit .ares-world__label,
+.ares-world--cockpit .ares-world__you,
+.ares-world--cockpit .ares-world__task-toast { display:none !important; }
+@media(max-width:560px) {
+  .ares-world__cockpit-windshield { inset:4% 4% 27%; border-width:7px; border-bottom-width:10px; }
+  .ares-world__cockpit-dashboard { height:36%; min-height:102px; padding:13px 8% 16px; }
+  .ares-world__cockpit-dashboard > span { font-size:8px; }
+  .ares-world__cockpit-instruments { gap:clamp(12px,6vw,34px); }
+  .ares-world__cockpit-instrument { font-size:7px; }
+}
+@media(prefers-reduced-motion:reduce) { .ares-world__cockpit-frame * { animation:none !important; transition:none !important; } }
