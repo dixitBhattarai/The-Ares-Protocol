@@ -6,7 +6,7 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 
 | Branch | Reported tip | Scope | State |
 | --- | --- | --- | --- |
-| `feat/himamshu-world` | `1f93ff1` | `src/features/world/**`, `src/App.vue`, `src/styles.css` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors merged by `8764bfa`; checks passed |
+| `feat/himamshu-world` | `97547fe` | `src/features/world/**`, `src/App.vue`, `src/contracts/index.ts` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors `8764bfa`; NASA assets, detailed interiors, and playable Earth/orbit preflight merged by `c644a59`; checks passed |
 | `feat/rohit-game` | `a17ea4b` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory `72f8f65`; audio synthesis, star badges, keyboard navigation `b7c9c33`; contextual station procedures, console audio, and direct decision mode merged by `44a7120`; checks passed |
 | `feat/saurav-hud` | `29ad929` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations `4d07adf`; in-game status polish `86c1beb`; science & shelter readout softening `44ff31e`; expandable science and shelter buttons merged by `f994aa7`; checks passed |
 | `feat/anshu-physics` | `4108654` | `src/features/physics/**` | Grounded astronaut controller, reset and pause merged by `dfe1d24`; checks passed |
@@ -162,6 +162,15 @@ Himamshu issued a standing mandate authorizing the merge coordinator to automati
    - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
    - Changes: Replaced always-visible science and shelter readouts with two independent icon-only buttons with hover, keyboard focus, and click-to-pin expansion revealing value, progress track, and status. Animated progress bubbles on value gains, and simplified shift feedback.
    - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (8 test files, 72 tests passed); `npm run build` passed cleanly.
+
+### 14 Nov 2026 — Himamshu (world) NASA assets, detailed interiors, and playable Earth/orbit preflight integration
+
+1. **`feat/himamshu-world` (tip `97547fe`)**:
+   - Merged as `c644a59`, preserving Himamshu's commits `e5324bd` and `97547fe`.
+   - Scope: `src/App.vue`, `src/contracts/index.ts`, `src/features/world/**` (including `assets/**`, `nasa-assets.ts`, `interiors.ts`, `preflight.ts`, `preflight.test.ts`, `music.ts`, `music.test.ts`, `PreparationPanel.vue`, `AssetCredits.vue`, `ActivityPanel.vue`, `CREDITS.md`, `NOTES.md`).
+   - Changes: Local NASA GLB models (astronaut, EO-1, Opportunity), Earth/Mars textures, local Draco WASM/JS decoder with asynchronous loading and procedural fallbacks; detailed cutaway interiors with equipment, racks, monitors, hydroponic beds, and raycast 3D console screens; playable Earth departure checks and orbital communications cabin with sequential control validation and accessible remote mode; stage-specific music tracks (Snowfall, Space, happy tune) with pause/mute/visibility management; and visible asset attribution / NASA non-endorsement modal.
+   - Conflict reconciliation: In `src/App.vue`, reconciled the header launch button condition (`state.phase === 'ready' && !preparation && flightProgress === null`) while preserving Rohit's direct decision mode toggle button (`⚡ Direct Mode` / `🚀 3D Procedures`).
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (10 test files, 74 tests passed); `npm run build` passed cleanly with all hashed assets generated in `dist/assets/`.
 
 ### Updated open requests
 
