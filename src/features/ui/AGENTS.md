@@ -33,3 +33,7 @@ All commands emit typed `GameAction`; never mutate props, recompute balances, im
 2. Debrief/replay/credits: `feat(ui): add debrief replay and source credits`.
 
 Run typecheck/tests/build and complete a keyboard/narrow-screen start-to-retry flow. Stage only `src/features/ui`, inspect staged diff and commit working milestones. Update notes; hand Himamshu branch/hash/paths/checks/limits for merging; send engineering requests to Rohit. Don't edit the HUD, simulate missing rules yourself or merge into main.
+
+## Temporary rocket cabin handoff — 14 Nov
+
+The user-authorized UI slice adds the post-task flight-seat instruction/status panel and keeps the landing panel behind the cabin task and seat sequence. The cabin panel emits only a seat action/pause request; App owns proximity and progression. Dixit retains UI ownership after this handoff.

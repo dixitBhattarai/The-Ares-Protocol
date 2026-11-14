@@ -101,3 +101,6 @@ Added compact LandingControls telemetry, pad alignment/tilt, thrust slider, held
 
 ### Entry HUD and corrected landing input
 Landing HUD now stays through space approach, atmospheric entry and base approach, with km/m altitude, descent, non-negative forward speed, fuel, heat, pitch and bank. W/S explicitly say Nose down/up. Separate Q/E thrust buttons and slider remain keyboard/touch operable. Engine standby/active and 800m leg gate explain current controls compactly. Earth launch bindings unchanged. Retry in final approach uses a short checkpoint. Desktop/mobile browser pass checked W changes pitch without changing throttle and all entry phases retain HUD.
+
+### Rocket cabin seat handoff — 14 November
+Added `CabinSeatPanel.vue` for the post-task cabin state: tells the player to reach the glowing seat, exposes a nearby-only “Sit and buckle in” button, supports E and pause, and reports seat/harness status with text and an icon. Seated players can watch the cabin panorama with the engines idle, then start transfer explicitly from a separate button. `SpaceflightPanel.vue` continues to report the flight state. `VisualPreflightMinigame.vue` labels the space work as Ares flight-cabin tasks and hides fast-forward for that stage. Validation: not run at the user's request; user will test. No HUD props, simulation logic, or resource behavior changed.
