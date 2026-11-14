@@ -1,0 +1,4 @@
+import {it,expect} from 'vitest';
+import {EXPOSED_PANELS,CROP_TARGETS,placeShield,cropBalanced} from './maintenance';
+it('requires covering each exposed gap and never counts solid or duplicate panels',()=>{for(let stage=0;stage<3;stage++){let covered:readonly number[]=[];const solid=[0,1,2,3,4,5,6,7,8].find(n=>!(EXPOSED_PANELS[stage] as readonly number[]).includes(n))!;expect(placeShield(stage,covered,solid)).toBe(covered);for(const n of EXPOSED_PANELS[stage]){covered=placeShield(stage,covered,n);expect(placeShield(stage,covered,n)).toBe(covered);}expect(covered).toHaveLength(3);}});
+it('checks both crop settings, rejecting too little, too much and invalid stages',()=>{for(let stage=0;stage<3;stage++){const t=CROP_TARGETS[stage];expect(cropBalanced(stage,t.water,t.light)).toBe(true);expect(cropBalanced(stage,t.water+1,t.light)).toBe(false);expect(cropBalanced(stage,t.water,t.light-1)).toBe(false);}expect(cropBalanced(9,0,0)).toBe(false);});

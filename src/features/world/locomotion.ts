@@ -25,8 +25,13 @@ export function createLocomotion(model: THREE.Object3D, clips: readonly THREE.An
   let moving = false;
   let sinceMovement = Infinity;
   let reduced = false;
+  let posture:'ground'|'float'|'seated'='ground';
+  const posed: {bone:THREE.Object3D;rest:THREE.Quaternion;kind:string}[]=[];
+  model.traverse(bone=>{const kind=bone.name.replace(/^.*[:]/,'').replace(/^mixamorig\d*/, '');if(/^(Left|Right)(UpLeg|Leg|Arm|ForeArm)$/.test(kind))posed.push({bone,rest:bone.quaternion.clone(),kind});});
+  function pose(){if(posture==='ground')return;for(const {bone,rest,kind} of posed){const seated=posture==='seated';const x=/UpLeg$/.test(kind)?(seated?-1.15:-.16):/Leg$/.test(kind)?(seated?1.4:.3):/ForeArm$/.test(kind)?-.6:0;const z=/Arm$/.test(kind)&&!/ForeArm$/.test(kind)?(kind.startsWith('Left')?.95:-.95):0;bone.quaternion.copy(rest).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(x,0,z)));}}
   return {
     mixer,
+    setPosture(value:'ground'|'float'|'seated'){if(posture===value)return;for(const {bone,rest} of posed)bone.quaternion.copy(rest);posture=value;moving=false;sinceMovement=Infinity;},
     actions: actions as ReadonlyMap<string, THREE.AnimationAction>,
     setMoving(value: boolean) { moving = value; if (value) sinceMovement = 0; },
     update(seconds: number, active: boolean, reduceMotion: boolean) {
@@ -36,6 +41,7 @@ export function createLocomotion(model: THREE.Object3D, clips: readonly THREE.An
           current = actions.get('Idle')!;
           current.reset().setEffectiveWeight(1).play();
           mixer.update(0);
+          pose();
         }
         reduced = true;
         return;
@@ -45,13 +51,14 @@ export function createLocomotion(model: THREE.Object3D, clips: readonly THREE.An
       const delta = Number.isFinite(seconds) ? THREE.MathUtils.clamp(seconds, 0, .1) : 0;
       // Rendering can run faster than the fixed physics step; bridge empty pose frames.
       sinceMovement += delta;
-      const next = actions.get(moving || sinceMovement < .1 ? 'Walk' : 'Idle')!;
+      const next = actions.get(posture==='ground'&&(moving || sinceMovement < .1) ? 'Walk' : 'Idle')!;
       if (next !== current) {
         next.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).play();
         current.crossFadeTo(next, .2, false);
         current = next;
       }
       mixer.update(delta);
+      pose();
     },
     dispose() { mixer.stopAllAction(); mixer.uncacheRoot(model); },
   };

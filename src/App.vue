@@ -12,6 +12,7 @@ import HudOverlay from './features/hud/HudOverlay.vue';
 import MissionPanels from './features/ui/MissionPanels.vue';
 import { usableMachines, WORK_MACHINES, type WorkWorldAdapter } from './features/world/interactables';
 import SpaceflightPanel from './features/ui/SpaceflightPanel.vue';
+import CabinTasks from './features/ui/CabinTasks.vue';
 import CabinSeatPanel from './features/ui/CabinSeatPanel.vue';
 import LaunchControls from './features/ui/LaunchControls.vue';
 import LandingControls from './features/ui/LandingControls.vue';
@@ -197,6 +198,10 @@ function beginMarsTransfer() {
   music?.select('space');
 }
 
+function glideToFlightSeat(){
+ if(preparation.value!=='space'||preparationPaused.value||preparationProgress.value<3||cabinSeated.value)return;
+ (document.activeElement as HTMLElement)?.blur();deckVisible.value=false;physics?.resumeInput?.();physics?.walkPath?.([{...SPACECRAFT_SEAT}]);
+}
 function sitInFlightSeat() {
   if (preparation.value !== 'space' || preparationProgress.value < PREPARATION.space.steps.length || preparationPaused.value || cabinSeated.value) return;
   if (!nearCabinSeat.value) {
@@ -305,6 +310,7 @@ function operatePreparation(control: string) {
 }
 
 function handleVisualMinigameControl(control: string) {
+  // A local console or the explicit accessible deck uses the same puzzle checks.
   remoteConsole = true;
   operatePreparation(control);
 }
@@ -652,7 +658,7 @@ onMounted(async () => {
           deckVisible.value = true;
           preparationFeedback.value = `${PREPARATION.space.steps[preparationProgress.value]} is ready. Complete its interactive task in the flight deck.`;
         }
-      } else if (preparation.value) {const steps=PREPARATION[preparation.value].steps;const progress=preparationProgress.value;operatePreparation(steps[index===progress%3?progress:index]);}
+      } else if (preparation.value) {remoteConsole=true;deckVisible.value=true;}
 
       else if(interior.value) {stationMessage.value='Approach a glowing machine and press E.';}
     });
@@ -686,7 +692,7 @@ onMounted(async () => {
         }
         if (flightStage.value === stage) world!.setFlightStage?.(stage, flightProgress.value ?? 0);
       }
-      if (state.value.phase === 'running' || (preparation.value && !preparationPaused.value)) {
+      if (!document.hidden && ((state.value.phase === 'running' && !activeActivity.value) || (preparation.value && !preparationPaused.value && !cabinSeated.value))) {
         physics!.setCameraYaw?.(world!.getCameraYaw?.() ?? 0);
         accumulator = Math.min(accumulator + elapsed, 0.1);
         while (accumulator >= 1 / 60) {
@@ -826,6 +832,10 @@ onBeforeUnmount(() => {
           role="region"
           :aria-label="flightStage ? 'Rocket ascent, transfer or Mars landing view' : preparation === 'earth' ? 'Interactive Earth launch site' : preparation === 'space' ? 'Interactive zero-gravity rocket cabin' : 'Interactive 3D Mars Outpost Viewport'"
         />
+        <div v-if="preparation==='space' && !deckVisible" class="cabin-prompt">
+          <button v-if="preparationProgress<3" @click="deckVisible=true">E · Flight console {{ preparationProgress+1 }}</button>
+          <template v-else><button v-if="!nearCabinSeat && !cabinSeated" @click="glideToFlightSeat">Go to seat</button><button v-else-if="!cabinSeated" @click="sitInFlightSeat">E · Buckle in</button><button v-else @click="beginTransferFromFlightSeat">Begin Mars transfer</button></template>
+        </div>
         <div v-if="arrivalGuide && state.phase==='running' && !activeActivity" class="arrival-guide" role="status">
           <span><strong>Touchdown</strong> · E near any machine</span>
           <button @click="startMissionAfterGuide">Explore</button>
@@ -899,8 +909,9 @@ onBeforeUnmount(() => {
           <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
             {{ state.upcomingHazardNotice }}
           </p>
+          <CabinTasks v-if="preparation==='space' && preparationProgress<PREPARATION.space.steps.length" :progress="preparationProgress" :paused="preparationPaused" @control="handleVisualMinigameControl" @pause="togglePreparationPause" />
           <VisualPreflightMinigame
-            v-if="preparation && !(preparation === 'space' && preparationProgress >= PREPARATION.space.steps.length)"
+            v-else-if="preparation==='earth'"
             :level="preparation"
             :progress="preparationProgress"
             :paused="preparationPaused"
@@ -914,6 +925,7 @@ onBeforeUnmount(() => {
             :seated="cabinSeated"
             :paused="preparationPaused"
             :feedback="preparationFeedback"
+            @glide="glideToFlightSeat"
             @sit="sitInFlightSeat"
             @transfer="beginTransferFromFlightSeat"
             @pause="togglePreparationPause"

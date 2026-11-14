@@ -68,6 +68,7 @@ export function createNasaLoader(resources: WorldResources) {
           parent.userData.animateSuit = (_cycle: number, moving: boolean) => animation.setMoving(moving);
           parent.userData.updateSuit = animation.update;
           parent.userData.animationMixer = animation.mixer;
+          parent.userData.setPosture = animation.setPosture;
         } else if (key === 'astronaut') {
           const rig = rigSuit(scene, resources, height);
           parent.add(rig.group); parent.userData.animateSuit = rig.animate;
