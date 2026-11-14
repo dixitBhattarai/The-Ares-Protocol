@@ -52,3 +52,9 @@ export function applyAstronautGait(visual: AstronautVisual, cycle: number, movin
   });
   visual.arms.forEach((arm, index) => { arm.rotation.x = (index ? 1 : -1) * swing * .12; });
 }
+
+export function updateAstronautAnimation(visual: AstronautVisual, seconds: number, active: boolean, reduced: boolean): void {
+  for (const child of visual.group.children) {
+    if (typeof child.userData.updateSuit === 'function') child.userData.updateSuit(seconds, active, reduced);
+  }
+}

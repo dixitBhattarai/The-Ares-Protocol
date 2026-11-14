@@ -1,5 +1,15 @@
 # World assets and music provenance
 
+## Adobe Mixamo character and motion
+
+`assets/astra.glb`: Astra character (downloaded as `Ch48_nonPBR.fbx`), Breathing Idle, and Walking (description: Walking With A Swagger), downloaded from https://www.mixamo.com/ on 2026-11-14 through the user's signed-in session. Walking was exported In Place; clips use 30 fps, no keyframe reduction, without skin. Character was exported as binary FBX in T-pose.
+
+Converted with Blender 5.1 to a game-embedded GLB with two clips (Idle, Walk), 65 joints and three JPEG diffuse maps capped at 1024 pixels. Simplified materials use authored roughness. Source FBXs remain outside this repository. `tools/prepare-mixamo.py` documents reproduction; an editable blend is saved alongside local preview artifacts, outside tracked game assets. Runtime removes horizontal hip drift and crossfades clips; the physics root remains separate.
+
+Adobe's usage FAQ: https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html (checked 2026-11-14). Assets are incorporated into this game, not offered as a standalone character/animation library. Astra is a fictional suit, not NASA equipment. The NASA suit remains the first asset-failure fallback, followed by authored procedural geometry.
+
+Animation approach reference: https://github.com/mrdoob/three.js/blob/master/examples/webgl_animation_skinning_blending.html — Three.js contributors, MIT (https://github.com/mrdoob/three.js/blob/master/LICENSE). This project uses AnimationMixer and crossfading in its existing App-owned render loop, without the example's GUI or separate animation loop.
+
 NASA source: https://science.nasa.gov/3d-resources/ and its official mirror https://github.com/nasa/NASA-3D-Resources (retrieved 2026-11-14).
 Usage guidance: https://www.nasa.gov/nasa-brand-center/images-and-media/
 NASA is acknowledged as the source of the following unmodified source files. Runtime transforms resize them for the fictional game; NASA does not endorse the project. These models are references, not claims that EO-1 or Opportunity carried the player to Mars.

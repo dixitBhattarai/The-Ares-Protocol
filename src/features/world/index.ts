@@ -3,7 +3,7 @@ import { STATIONS } from '../../contracts';
 import type { GameState, StationId, Vec3, WorldAdapter } from '../../contracts';
 import { frameOutpost } from './camera';
 import { createGroundShadow, createStation, createTerrain, STATION_NAMES } from './models';
-import { applyAstronautGait, createAstronaut } from './astronaut';
+import { applyAstronautGait, createAstronaut, updateAstronautAnimation } from './astronaut';
 import { createModelKit, WorldResources } from './resources';
 import { pickStationAt } from './picking';
 import { applyStationStatus, getStationStatus, getWorldEventNotice } from './status';
@@ -279,6 +279,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       cameraDirty = false;
     }
     updateCamera();
+    let previousAnimationTime = performance.now();
     return {
       setConsoleHandler(handler) { if (!disposed) consoleHandler = handler; },
       setLevel(id) {
@@ -357,9 +358,14 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       },
       render() {
         if (disposed) return;
+        const now = performance.now();
+        const delta = (now - previousAnimationTime) / 1000;
+        previousAnimationTime = now;
+        const active = !document.hidden && lastState?.phase !== 'paused' && lastState?.phase !== 'won' && lastState?.phase !== 'lost';
         expedition.resize(width / height);
         if (journey !== null) { expedition.journey(journey); renderer!.render(expedition.flight, expedition.camera); return; }
-        if (interior || level) { expedition.roomCamera(); renderer!.render(expedition.room, expedition.camera); return; }
+        if (interior || level) { expedition.animate(delta, active, reduceMotion); expedition.roomCamera(); renderer!.render(expedition.room, expedition.camera); return; }
+        updateAstronautAnimation(astronaut, delta, active, reduceMotion);
         if (cameraDirty) updateCamera();
         renderer!.render(scene, camera);
       },
