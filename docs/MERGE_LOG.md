@@ -8,7 +8,7 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 | --- | --- | --- | --- |
 | `feat/himamshu-world` | `1f93ff1` | `src/features/world/**`, `src/App.vue`, `src/styles.css` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors merged by `8764bfa`; checks passed |
 | `feat/rohit-game` | `a17ea4b` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory `72f8f65`; audio synthesis, star badges, keyboard navigation `b7c9c33`; contextual station procedures, console audio, and direct decision mode merged by `44a7120`; checks passed |
-| `feat/saurav-hud` | `474254d` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations and post-merge validation merged by `4d07adf`; checks passed |
+| `feat/saurav-hud` | `dbd126c` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations `4d07adf`; in-game status polish merged by `86c1beb`; checks passed |
 | `feat/anshu-physics` | `4108654` | `src/features/physics/**` | Grounded astronaut controller, reset and pause merged by `dfe1d24`; checks passed |
 | `feat/dixit-ui` | `0637603` | `src/features/ui/**` | Onboarding, decisions, pause, debrief replay & sources merged by `55799b3`; checks passed |
 | `feat/genius-missions` | `66a5322` | `src/features/missions/**` | Six teaching decisions & NASA CME evidence merged by `a8d9a39`; alert wording reconciled by `500c830`; checks passed |
@@ -138,6 +138,14 @@ Himamshu issued a standing mandate authorizing the merge coordinator to automati
 
 - Authorized by Himamshu on 14 Nov 2026: The merge coordinator automatically polls `origin`, discovers any feature branches containing unmerged commits ahead of `main`, merges each serially with `--no-ff`, executes `npm run typecheck`, `npm test`, and `npm run build`, logs the verified merge, and pushes `main` to `origin`.
 - Manual approval prompts are disabled for normal passing merges. The coordinator stops and alerts Himamshu only if a merge conflict arises or if automated checks fail.
+
+### 14 Nov 2026 — Saurav (HUD) in-game status polish integration
+
+1. **`feat/saurav-hud` (tip `dbd126c`)**:
+   - Merged as `86c1beb`, preserving Saurav's commits `661819a`, `abc5695`, and `dbd126c`.
+   - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
+   - Changes: Enlarged science and shelter status indicators with progress tracks, clamped accent callouts for shift updates, restrained icon hover/focus shimmy and gentle bar highlight, and ensured HUD and hazard toast render only during running mission phase.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (8 test files, 72 tests passed); `npm run build` passed cleanly.
 
 ### Updated open requests
 
