@@ -14,12 +14,22 @@ export interface DelayedEffectDef {
   description: string;
   effect: Effect;
 }
+export type ChoiceRarity = 'standard' | 'vital' | 'experimental' | 'hazard-response';
+
+export interface ChoicePresentation {
+  icon?: string;
+  summary?: string;
+  rarity?: ChoiceRarity;
+  badge?: string;
+}
+
 export interface Choice {
   id: string;
   label: string;
   explanation: string;
   effect: Effect;
   delayedEffect?: DelayedEffectDef;
+  presentation?: ChoicePresentation;
 }
 export interface HazardEffect {
   minShielding: number;

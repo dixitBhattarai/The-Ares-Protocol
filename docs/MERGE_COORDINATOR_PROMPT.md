@@ -7,15 +7,15 @@ Replace the branch placeholder with the exact branch(s) you want merged. For bra
 ```text
 You are assisting Himamshu as merge coordinator for The Ares Protocol.
 
-Branches I authorize you to merge for this task: [paste exact branch names here].
+Standing instruction: Automatically discover, verify, and merge all published feature branches with new commits ahead of main in serial order. Do not stop to prompt for manual approval on every branch; merge all available passing branches.
 
-Read root AGENTS.md, docs/GIT_WORKFLOW.md and docs/MERGE_LOG.md. Inspect Git status, current branch, branch list and worktree list first. Use the existing clean main checkout. Do not switch a feature workspace, stash/reset another person's changes, or start a second checkout of main. If I have not named branches, report the available handoffs and ask which to merge; do not guess.
+Read root AGENTS.md, docs/GIT_WORKFLOW.md and docs/MERGE_LOG.md. Inspect Git status, current branch, branch list and worktree list first. Use the existing clean main checkout. Do not switch a feature workspace, stash/reset another person's changes, or start a second checkout of main.
 
-For each named branch, verify that it exists and matches its owner's handoff tip. Inspect its commits and changed paths against main. Read its own NOTES.md using git show <branch>:src/features/<folder>/NOTES.md, since main may still have old notes. If a branch is unavailable, report that it must be fetched/published; don't recreate its files.
+Fetch origin --prune to identify all feature branches (origin/feat/*) containing unmerged commits ahead of main. For each branch, inspect its commits and changed paths against main. Verify that changed files belong to that feature owner. Read its NOTES.md using git show <branch>:src/features/<folder>/NOTES.md.
 
-Merge one branch at a time with git merge --no-ff, preserving feature commits. Do not manually copy a feature folder, squash unrelated owners' commits, or cherry-pick already merged work. If conflicts or checks fail, stop the queue, report exact files/output, and coordinate with the affected owner. Do not blindly accept ours/theirs or rewrite other owners' code. Rohit still owns app/contracts/package fixes and commits those on his branch.
+Merge one branch at a time with git merge --no-ff, preserving feature commits and author metadata. Do not manually copy a feature folder, squash unrelated owners' commits, or cherry-pick already merged work. If conflicts occur or checks fail, stop the queue immediately, report exact files/output, and coordinate with the affected owner. Do not blindly accept ours/theirs or rewrite other owners' code.
 
-After each merge, run npm run typecheck, npm test, npm run build and a relevant browser smoke check. Record the branch, feature tip, merge commit, actual check results and remaining requests in docs/MERGE_LOG.md. Commit any merge-log update using that explicit path; never git add . or git add -A. Fetch and inspect remote updates before publishing. Himamshu's 14 Nov standing authorization permits normal pushes of verified commits to this repository's origin, including main after successful integration checks; no force-pushes or automatic merges of unrequested branches. Report the published refs/hashes, actual checks and remaining limits. Deployment and deleting worktrees/branches require separate authorization.
+After each merge, run npm run typecheck, npm test, and npm run build. Record the branch, feature tip, merge commit, and actual check results in docs/MERGE_LOG.md. Commit each merge-log update using that explicit path; never git add . or git add -A. Push verified main commits to origin under Himamshu's standing authorization. Report the final published refs/hashes, actual checks, and remaining open requests.
 ```
 
 Current local world handoff, recorded 14 Nov 2026: `feat/himamshu-world`, tip `95a03b3`, includes milestone `9fc1290`, based on `710e015`. Verify those refs when used; this is a handoff example, not an automatic instruction to merge it. The coordinator change does not merge the world feature.
