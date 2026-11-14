@@ -23,3 +23,5 @@ Status: HUD status, resource feedback, and in-scene game HUD refinement complete
   - Dixit: Restyle choice cards as inviting roguelike draft popups with coherent rarity colors, icons, rarity-specific reveal motion, simplified descriptions, and clear resource-impact bar previews. Preserve explicit costs, keyboard access, reduced motion, and text labels; rarity must not imply a mechanically stronger choice.
 - Limits: the requested shared audio, app-shell overlay, and choice-card work is outside Saurav's owned files and is handed to the respective owners above. The HUD itself adds no simulation logic or separate audio engine.
 - Handoff: branch `feat/saurav-hud`; provide milestone commit hashes, changed files, and actual checks to Himamshu.
+
+- Post-merge validation on `origin/main` 71faa94: `npm run typecheck`, `npm test` (70 tests), `npm run build`, and `git diff --check` passed. Build still reports the large physics chunk warning.
