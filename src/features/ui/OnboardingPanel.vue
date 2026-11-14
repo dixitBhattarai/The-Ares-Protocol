@@ -30,7 +30,8 @@ function onStart() {
         <h3>🎯 Mission Goals</h3>
         <ul>
           <li>
-            <strong>Survive {{ mission.maxTurns }} Shifts:</strong> Keep every life-support system running.
+            <strong>{{ mission.gameplayMode === 'station-tasks' ? `Finish ${mission.maxTurns} Jobs:` : `Survive ${mission.maxTurns} Shifts:` }}</strong>
+            {{ mission.gameplayMode === 'station-tasks' ? 'Complete station work while keeping every life-support system running.' : 'Keep every life-support system running.' }}
           </li>
           <li>
             <strong>Reach Science Target:</strong> Collect at least
@@ -50,7 +51,8 @@ function onStart() {
             <kbd>Arrow Keys</kbd> on your keyboard to guide the astronaut around the Martian surface.
           </li>
           <li>
-            <strong>Make Choices:</strong> Each shift presents a real engineering dilemma. Choose the option that balances safety and discovery.
+            <template v-if="mission.gameplayMode === 'station-tasks'"><strong>Work & Protect:</strong> Use station computers to complete jobs and earn benefits. Reserves drain over time. Watch hazard warnings and service the matching system to prevent damage. Pause whenever you need a break.</template>
+            <template v-else><strong>Make Choices:</strong> Each shift presents a real engineering dilemma. Choose the option that balances safety and discovery.</template>
           </li>
           <li>
             <strong>Keyboard Accessible:</strong> Use <kbd>Tab</kbd> to move between buttons and press <kbd>Enter</kbd> or <kbd>Space</kbd> to select.
@@ -92,7 +94,7 @@ function onStart() {
         type="button"
         @click="onStart"
       >
-        🚀 Start Mission (Shift 1)
+        🚀 Start Mission ({{ mission.gameplayMode === 'station-tasks' ? 'Job 1' : 'Shift 1' }})
       </button>
     </div>
   </div>

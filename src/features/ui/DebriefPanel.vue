@@ -13,6 +13,7 @@ const emit = defineEmits<{
 }>();
 
 const isWon = computed(() => props.state.phase === 'won');
+const isStationWork = computed(() => props.mission.gameplayMode === 'station-tasks');
 const debrief = computed(() => props.state.debrief);
 
 const displayTitle = computed(() => {
@@ -134,7 +135,7 @@ function onRestart() {
 
     <!-- Turn-by-Turn Mission History -->
     <section class="history-section" aria-label="Shift by Shift History">
-      <h3>📜 Turn-by-Turn Mission Timeline</h3>
+      <h3>📜 {{ isStationWork ? 'Job-by-Job Mission Timeline' : 'Turn-by-Turn Mission Timeline' }}</h3>
 
       <!-- Render structured TurnRecords if available -->
       <ol v-if="turnRecords.length > 0" class="timeline-list">
@@ -144,12 +145,12 @@ function onRestart() {
           class="timeline-item"
         >
           <div class="timeline-header">
-            <span class="shift-tag">Shift {{ record.shift }}</span>
+            <span class="shift-tag">{{ isStationWork ? 'Job' : 'Shift' }} {{ record.shift }}</span>
             <span class="event-tag">{{ record.eventTitle }}</span>
           </div>
 
           <div class="choice-made">
-            <strong>Decision:</strong> {{ record.choiceLabel }}
+            <strong>{{ isStationWork ? 'Work completed:' : 'Decision:' }}</strong> {{ record.choiceLabel }}
           </div>
           <p class="explanation-text">{{ record.explanation }}</p>
 
@@ -174,7 +175,7 @@ function onRestart() {
         </li>
       </ul>
 
-      <p v-else class="no-history">No shift records logged.</p>
+      <p v-else class="no-history">{{ isStationWork ? 'No job records logged.' : 'No shift records logged.' }}</p>
     </section>
 
     <!-- Action: Play Again -->

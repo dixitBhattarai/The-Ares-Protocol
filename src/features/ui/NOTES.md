@@ -80,3 +80,9 @@
   - `src/App.vue` (minimal non-intrusive integration)
   - `src/assets/*` (Earth, Moon, and Mars telescope textures)
 - **Boundaries**: Strictly within `src/features/ui/**` with minimal hook in `App.vue`.
+
+## Card-free station work handoff — 14 Nov 2026
+
+User explicitly requested no three-card choices, positive completed-work benefits and automatic preventable hazards. Himamshu's coordinated UI/game/App/contracts slice adds TaskBoard.vue, onboarding wording and a guard preventing MissionPanels from showing old DecisionPanel in station-tasks mode. TaskBoard receives typed jobs/state and emits START_TASK/PAUSE only; it never writes balances. Five work-order rows are available, with explicit rewards/prevention. Minigames remain in world and emit checks through App; accessible consoles use those same puzzles. Root/role guides mark older post-task card requirements superseded. Normal UI ownership returns to Dixit after handoff.
+
+Validation: keyboard/button browser flow through Earth/orbit, idle hazard, all six jobs to victory, replay and accessible console at 360px passes without page exceptions or overflow. Desktop/mobile captures inspected. Typecheck, 118 tests and production build pass. Tasks and clocks are authored mechanics; NASA sources provide context. Legacy DecisionPanel remains compatible for non-station-tasks integrations but is unreachable in the playable app. Station-tasks onboarding now says “Finish 6 Jobs” and the debrief labels each record as “Work completed” on a job-by-job timeline; card-mode wording remains for legacy integrations. No UI simulation logic or package/global style edits.

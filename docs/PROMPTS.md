@@ -1,3 +1,5 @@
+> Latest 14 Nov override for all prompts: remove three-card decisions and post-task modifiers. Station jobs pay once on minigame completion. Active-time consumption/hazards happen automatically, with matching maintenance prevention. Read the updated root AGENTS.md and docs/CONTRACTS.md before continuing; older card requirements below are superseded.
+
 # Copy-paste prompts for the six teammates
 
 Publish the scaffold first. Give each person a separate clone or worktree as described in `GIT_WORKFLOW.md`, then paste their whole block into their coding AI. All branches start from the same baseline on main, not from one another. The prompt assumes you opened the correct person's isolated workspace; the AI must inspect current branch/status before editing. Don't run all six prompts in this directory.

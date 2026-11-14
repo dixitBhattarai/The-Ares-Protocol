@@ -11,6 +11,8 @@ import type {
   Phase,
   TurnRecord,
 } from '../../contracts';
+import { reduceStationGame, taskHazardNotice } from './station-game';
+export { STATION_TASKS, taskCompletionId } from './station-game';
 
 export function getChoicePresentation(choice: Choice, event?: MissionEvent): ChoicePresentation {
   if (choice.presentation) return choice.presentation;
@@ -69,6 +71,7 @@ export function getUpcomingHazardNotice(mission: MissionData, turn: number): str
 
 export function createInitialState(mission: MissionData): GameState {
   return {
+    ...(mission.gameplayMode === 'station-tasks' ? {taskRun:{session:0,elapsed:0,completedIds:[],protections:{}}} : {}),
     phase: 'ready',
     turn: 0,
     resources: { ...mission.initialResources },
@@ -77,7 +80,7 @@ export function createInitialState(mission: MissionData): GameState {
     log: [],
     history: [],
     pendingDelayedEffects: [],
-    upcomingHazardNotice: getUpcomingHazardNotice(mission, 0),
+    upcomingHazardNotice: mission.gameplayMode === 'station-tasks' ? taskHazardNotice(0) : getUpcomingHazardNotice(mission, 0),
   };
 }
 
@@ -88,6 +91,7 @@ export function getCurrentEvent(mission: MissionData, state: Readonly<GameState>
 
 // Pure turn-based reducer. Only this module changes simulation state.
 export function reduceGame(state: Readonly<GameState>, action: GameAction, mission: MissionData): GameState {
+  if(mission.gameplayMode==='station-tasks')return reduceStationGame(state,action,mission,()=>createInitialState(mission));
   if (action.type === 'RESTART') return createInitialState(mission);
   if (action.type === 'START' && state.phase === 'ready') return { ...state, phase: 'running' };
   if (action.type === 'PAUSE' && state.phase === 'running') return { ...state, phase: 'paused' };
