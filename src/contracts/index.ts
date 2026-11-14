@@ -139,6 +139,8 @@ export interface WorldAdapter {
   dispose(): void;
 }
 export interface PhysicsAdapter {
+  setDoorOpen?(station: StationId, open: boolean): void;
+  walkPath?(points: readonly Vec3[]): void;
   setCameraYaw?(yaw: number): void;
   enterInterior?(): void;
   exitInterior?(): void;
@@ -151,7 +153,9 @@ export interface PhysicsAdapter {
 }
 // Units: metres, Y up, ground at Y=0. Keep rendering and collision layouts identical.
 export const STATIONS: ReadonlyArray<{ id: StationId; position: Vec3 }> = [
-  { id: 'habitat', position: { x: -5, y: 1, z: 0 } },
-  { id: 'solar', position: { x: 5, y: 1, z: 0 } },
-  { id: 'greenhouse', position: { x: 0, y: 1, z: -6 } },
+  { id: 'habitat', position: { x: -7, y: 1, z: 0 } },
+  { id: 'solar', position: { x: 7, y: 1, z: 0 } },
+  { id: 'greenhouse', position: { x: 0, y: 1, z: -9 } },
 ];
+export const BUILDING_HALF_SIZE = 3.2;
+export const DOOR_HALF_WIDTH = .78;

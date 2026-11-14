@@ -4,6 +4,11 @@ Read root `AGENTS.md` and `docs/CONTRACTS.md`. Own only `src/features/physics/**
 
 ## Task
 
+### Continuous building handoff — 14 Nov
+
+The user explicitly authorized the coordinated App/contracts/world/physics slice replacing Earth/Mars portal teleports with hollow buildings. Read the updated spatial contract: station centers (-7,0), (7,0), (0,-9), half-size 3.2. Keep doors, walls, furniture obstacles and camera aligned. World supplies visuals/door readiness; physics alone moves the astronaut, including guided entry/exit. Legacy interior pose hooks serve the orbit cabin only. This supersedes older portal-first guidance below. Later cross-owner changes still require coordination.
+
+
 ### Current exploration and doorway direction
 
 Support free movement and building entry without requiring an active mission job. Keep floor/wall collisions aligned with the world's documented door portals; a closed door must never permit an entry transition, while an open doorway must be reachable without clipping through the full station box. The shell/world own door intent and visuals; physics alone owns poses and saves/restores the exterior position. Coordinate additive proximity/portal hooks with Rohit rather than importing world internals. Test safe return positions, repeated entry/exit, held-key clearing, pause/replay and no wall bypass. Keep simplified interior movement honestly labeled, with no new jumping or spacecraft physics. Prioritize reliable accessible transitions over a seamless full interior collision redesign before the deadline.

@@ -39,15 +39,19 @@ Canonical types and coordinates: `src/contracts/index.ts` (Rohit-owned). Public 
 ## Spatial Convention
 
 Metres, Y up, ground top Y=0. Surface X/Z -20..20; astronaut clamped to -18..18. Spawn `(0, 0.8, 5)`. Stations located at:
-- `habitat`: `(-5, 1, 0)`
-- `solar`: `(5, 1, 0)`
-- `greenhouse`: `(0, 1, -6)`
+- `habitat`: `(-7, 1, 0)`
+- `solar`: `(7, 1, 0)`
+- `greenhouse`: `(0, 1, -9)`
 
 ## Additive world door/playback hooks — 14 Nov
 
 Himamshu's user-requested door slice adds optional `setDoorState(station, open)`, `isDoorOpen(station)` and `setMotionPaused(paused)` methods to WorldAdapter. Shell owns each door's intent; world renders it and reports fully-open readiness after its 0.4-second slide (instant for reduced motion). Closed or still-opening doors cannot trigger entry. Pausing freezes door and character animations, including Earth/orbit preparation. No second loop is introduced.
 
-Existing `setInterior`, `setLevel`, `setJourney`, `setConsoleHandler`, `setObjective`, `setActivityProgress` and physics `enterInterior`/`exitInterior` remain compatible. This implementation uses cutaway room portals, not seamless building collision geometry. Exterior doors face +Z. Approach/return is station `(x, .8, z + 2.65)`; the entry trigger is within .48m of door center X and relative Z 1.75..2.02, before the unchanged station collider face + capsule radius. Indoor exit is centered X within .55m and Z >= 2.4. Return uses the safe approach point to prevent immediate re-entry. No task or resource cost is required to explore a room. Closing a door changes navigation only; it does not invent shelter/radiation simulation effects.
+Existing hooks remain compatible. Physics `enterInterior`/`exitInterior` now serve only the separate orbit cabin. Earth/Mars use hollow buildings in the exterior world: crossing the doorway never resets the pose or swaps room scenes. `setInterior` selects presentation/console context only.
+
+User-authorized spatial update: `BUILDING_HALF_SIZE=3.2`, ground Y=0, walls height 2.6 and thickness .2. Side walls are local X=±3.1, back Z=-3.1, front Z=3.1 with a centered opening X=±.78 (`DOOR_HALF_WIDTH`). Floor is 6.5 square. Door collider half extents are (.78,1.15,.1), center (0,1.15,3.1). Desks, habitat bunks, greenhouse planters and solar racks also have physics obstacles. Station centers moved apart to prevent the larger rooms overlapping.
+
+Approach is station `(x,.8,z+4.3)`. Presentation considers |local X| and |local Z| <3.05 inside. The shell checks |X|<1.15 and .65m around front Z=3.2 before allowing closure, preventing player entrapment. Optional `PhysicsAdapter.setDoorOpen(station,open)` enables/disables the solid door; App permits passage only after world reports fully-open animation readiness. Optional `walkPath(points: readonly Vec3[])` guides horizontal walking through collisions at normal speed. Manual movement, blur, pause, reset and dispose cancel the route; this is not a pathfinder. Accessible travel *to a door* remains explicit; Enter/Exit buttons walk through the opening. Entry/exit alone grants no reserves, shielding or health effects.
 
 Rohit retains engineering ownership after this explicitly authorized handoff. Task-first job rewards/card/loot migration is separately assigned and not implemented by these hooks.
 
@@ -57,7 +61,7 @@ Rohit retains engineering ownership after this explicitly authorized handoff. Ta
 
 ## Additive exploration camera / Earth hooks — 14 Nov
 
-WorldAdapter optionally supplies getCameraYaw(): number and setEarthOutside(outside: boolean). PhysicsAdapter optionally accepts setCameraYaw(yaw: number). Yaw is radians around world +Y, measured from camera-target +Z; forward input moves opposite that horizontal camera offset. Default/overview yaw is zero. App supplies heading before physics fixed steps. Earth exterior uses the existing station footprints and exterior bounds; entering its training lab uses existing enterInterior/exitInterior hooks. The shell, not world code, owns the stage and pose transitions. Camera controls are updated/disposed inside world and never schedule another RAF.
+WorldAdapter optionally supplies getCameraYaw(): number and setEarthOutside(outside: boolean). PhysicsAdapter optionally accepts setCameraYaw(yaw: number). Yaw is radians around world +Y, measured from camera-target +Z; forward input moves opposite that horizontal camera offset. Default/overview yaw is zero. App supplies heading before physics fixed steps. Earth training lab uses the same continuous world/colliders as Mars. Orbit alone retains a bounded cabin. The shell owns stage changes; physics owns walking poses. Camera controls are updated/disposed inside world and never schedule another RAF.
 
 ## Additive station task cues — 14 Nov
 

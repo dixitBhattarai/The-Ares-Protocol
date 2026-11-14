@@ -1,20 +1,27 @@
 import * as THREE from 'three';
-import { STATIONS, type StationId, type Vec3 } from '../../contracts';
+import { BUILDING_HALF_SIZE, STATIONS, type StationId, type Vec3 } from '../../contracts';
 import type { ModelKit } from './resources';
 
-/** Portals sit in front of the unchanged solid station envelope (+Z face at 1.5m). */
+/** Real door coordinates shared with the hollow building wall colliders. */
 export function doorApproach(id: StationId): Vec3 {
   const station = STATIONS.find(station => station.id === id)!;
-  return { x: station.position.x, y: .8, z: station.position.z + 2.65 };
+  return { x: station.position.x, y: .8, z: station.position.z + BUILDING_HALF_SIZE + 1.1 };
 }
 export function nearbyDoor(pose: Vec3): StationId | null {
   return STATIONS.find(({ position }) => Math.abs(pose.x - position.x) < 1.2
-    && pose.z - position.z >= 1.75 && pose.z - position.z <= 3.6)?.id ?? null;
+    && pose.z - position.z >= BUILDING_HALF_SIZE-.6 && pose.z - position.z <= BUILDING_HALF_SIZE+1.7)?.id ?? null;
+}
+export function insideStation(pose: Vec3): StationId | null {
+  return STATIONS.find(({position})=>Math.abs(pose.x-position.x)<BUILDING_HALF_SIZE-.15 && Math.abs(pose.z-position.z)<BUILDING_HALF_SIZE-.15)?.id ?? null;
+}
+export function doorwayOccupied(pose: Vec3,id:StationId): boolean {
+  const station=STATIONS.find(station=>station.id===id)!;
+  return Math.abs(pose.x-station.position.x)<1.15 && Math.abs(pose.z-station.position.z-BUILDING_HALF_SIZE)<.65;
 }
 export function atDoorThreshold(pose: Vec3, id: StationId): boolean {
   const station = STATIONS.find(station => station.id === id)!;
   return Math.abs(pose.x - station.position.x) < .48
-    && pose.z - station.position.z >= 1.75 && pose.z - station.position.z <= 2.02;
+    && Math.abs(pose.z-station.position.z-BUILDING_HALF_SIZE)<.3;
 }
 export function atRoomExit(pose: Vec3): boolean { return Math.abs(pose.x) < .55 && pose.z >= 2.4; }
 

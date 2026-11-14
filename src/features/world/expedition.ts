@@ -13,10 +13,17 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
   const sun = new THREE.DirectionalLight('#fff0ce', 4); sun.position.set(-5, 6, 9); flight.add(sun);
   const blue = resources.material(new THREE.MeshStandardMaterial({ color: '#247bb9', roughness: .8 }));
   const mars = resources.material(new THREE.MeshStandardMaterial({ color: '#bc694b', roughness: 1 }));
-  kit.sphere(flight, blue, [2, 2, 2], [-6, -1, 0]);
+  const earthFallback=kit.sphere(flight, blue, [2, 2, 2], [-6, -1, 0]);
   nasa.texture(new URL('./assets/earth.jpg', import.meta.url).href, blue);
   nasa.texture(new URL('./assets/mars.jpg', import.meta.url).href, mars);
-  kit.sphere(flight, mars, [1.6, 1.6, 1.6], [6, -1, 0]);
+  const marsFallback=kit.sphere(flight, mars, [1.6, 1.6, 1.6], [6, -1, 0]);
+  for(const [key,diameter,x,y,fallback] of [
+    ['earthGlobe',4,-6,-3,earthFallback],['marsGlobe',3.2,6,-2.6,marsFallback],
+    ['moon',.8,-3.5,-1.8,undefined],
+  ] as const) {
+    const planet=new THREE.Group();planet.position.set(x,y,0);flight.add(planet);
+    void nasa.attach(planet,key,diameter,fallback,true);
+  }
   const starMaterial = resources.material(new THREE.PointsMaterial({ color: '#c4deef', size: .055 }));
   const positions = Array.from({ length: 240 }, (_, i) => Math.sin(i * 37.13) * (i % 3 === 2 ? 3 : 15));
   const stars = resources.geometry(new THREE.BufferGeometry()); stars.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));

@@ -34,5 +34,5 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
     kit.cylinder(scene,kit.materials.trim,[.07,2,.07],[x,1,z]);
     kit.box(scene,kit.materials.ivory,[.05,.08,4],[x,1.7,z+2]);
   }
-  return {scene, labDoor:lab.visual.door};
+  return {scene, stations, labDoor:lab.visual.door};
 }

@@ -6,6 +6,11 @@ Himamshu also owns merge coordination as a separate task. This world-feature pro
 
 ## Task
 
+### Continuous building handoff — 14 Nov
+
+The user explicitly authorized the coordinated App/contracts/world/physics slice replacing Earth/Mars portal teleports with hollow buildings. Read the updated spatial contract: station centers (-7,0), (7,0), (0,-9), half-size 3.2. Keep doors, walls, furniture obstacles and camera aligned. World supplies visuals/door readiness; physics alone moves the astronaut, including guided entry/exit. Legacy interior pose hooks serve the orbit cabin only. This supersedes older portal-first guidance below. Later cross-owner changes still require coordination.
+
+
 ### Current task-first direction (supersedes card-first entry restrictions)
 
 Allow free exploration of the existing Mars level and entry/exit independent of job selection. Build visible open/closed animated doors, readable entrance paths and interior exit controls. Keep exterior portals aligned with physics envelopes; a room transition is acceptable for this prototype, but do not claim seamless geometry or zero-gravity movement. Render supplied job/loot markers and completion effects when Rohit's contracts land; never award resources in world code. Preserve the Mixamo rig and smooth idle/walk blending, cap model budgets, verify free asset licenses and document all credits. Use bright station accents coherently with HUD/UI rather than restyling their files. Continue committing tested world milestones and hand them off to Antigravity for merging.

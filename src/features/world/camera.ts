@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { STATIONS } from '../../contracts';
+import { BUILDING_HALF_SIZE, STATIONS } from '../../contracts';
 import type { Vec3 } from '../../contracts';
 
 /** Fit base + astronaut in camera space, rather than cropping on narrow screens. */
@@ -7,8 +7,8 @@ export function frameOutpost(camera: THREE.OrthographicCamera, aspect: number, p
   insets = { top: 0, bottom: 0 }): void {
   const bounds = new THREE.Box3(new THREE.Vector3(-1.4, 0, 4), new THREE.Vector3(1.4, 2.5, 6.5));
   for (const station of STATIONS) {
-    bounds.expandByPoint(new THREE.Vector3(station.position.x - 1.85, 0, station.position.z - 1.85));
-    bounds.expandByPoint(new THREE.Vector3(station.position.x + 1.85, 2.5, station.position.z + 1.85));
+    bounds.expandByPoint(new THREE.Vector3(station.position.x - BUILDING_HALF_SIZE-.3, 0, station.position.z - BUILDING_HALF_SIZE-.3));
+    bounds.expandByPoint(new THREE.Vector3(station.position.x + BUILDING_HALF_SIZE+.3, 3.4, station.position.z + BUILDING_HALF_SIZE+.3));
   }
   bounds.expandByPoint(new THREE.Vector3(player.x - 1, player.y - .8, player.z - 1));
   bounds.expandByPoint(new THREE.Vector3(player.x + 1, player.y + 1, player.z + 1));

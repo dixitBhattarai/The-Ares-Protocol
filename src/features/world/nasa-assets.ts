@@ -9,6 +9,12 @@ export const NASA_ASSETS = {
   astronaut: new URL('./assets/astronaut.glb', import.meta.url).href,
   satellite: new URL('./assets/eo1.glb', import.meta.url).href,
   rover: new URL('./assets/opportunity.glb', import.meta.url).href,
+  curiosity: new URL('./assets/curiosity.glb', import.meta.url).href,
+  earthGlobe: new URL('./assets/earth-globe.glb', import.meta.url).href,
+  marsGlobe: new URL('./assets/mars-globe.glb', import.meta.url).href,
+  moon: new URL('./assets/moon.glb', import.meta.url).href,
+  olympus: new URL('./assets/olympus-mons.glb', import.meta.url).href,
+  warehouse: new URL('./assets/warehouse.glb', import.meta.url).href,
 };
 
 export function createNasaLoader(resources: WorldResources) {
