@@ -121,6 +121,7 @@ export type GameAction =
   | { type: 'RESTART' }
   | { type: 'CHOOSE'; choiceId: string };
 export interface WorldAdapter {
+  setAvailableTasks?(stations: readonly StationId[], offerId: string): void;
   setEarthOutside?(outside: boolean): void;
   getCameraYaw?(): number;
   setDoorState?(station: StationId, open: boolean): void;
