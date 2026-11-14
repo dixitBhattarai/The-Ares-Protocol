@@ -114,6 +114,7 @@ export interface PendingDelayedEffect {
 }
 
 export interface GameState {
+  fieldSample?: import('./exploration').FieldSample;
   taskRun?: {
     session: number;
     elapsed: number;
@@ -134,6 +135,11 @@ export interface GameState {
   upcomingHazardNotice?: string;
 }
 export type GameAction =
+  | { type: 'START_DIG'; pose: Vec3; suited: boolean; grounded: boolean }
+  | { type: 'START_SAMPLE_RESEARCH'; pose: Vec3; grounded: boolean }
+  | { type: 'FIELD_TICK'; runId: string; seconds: number; pose: Vec3; suited: boolean; grounded: boolean }
+  | { type: 'SAMPLE_RESEARCH_STEP'; runId: string; control: string; pose: Vec3 }
+  | { type: 'CANCEL_SAMPLE' }
   | { type: 'START_TASK'; taskId: string }
   | { type: 'COMPLETE_TASK'; completionId: string }
   | { type: 'CANCEL_TASK' }
@@ -144,6 +150,7 @@ export type GameAction =
   | { type: 'RESTART' }
   | { type: 'CHOOSE'; choiceId: string };
 export interface WorldAdapter {
+  setSampleStage?(stage: import('./exploration').FieldSample['stage'] | 'empty', progress: number): void;
   setPlayerMotion?(motion: import('./exploration').PlayerMotion): void;
   setAvatarActivity?(activity: import('./exploration').AvatarActivity): void;
   setHabitatAccess?(access: import('./habitat').HabitatAccess): void;

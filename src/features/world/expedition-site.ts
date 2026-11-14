@@ -117,7 +117,7 @@ export function createExpeditionSite(kit: ModelKit, resources: WorldResources) {
     const amount = Number.isFinite(progress) ? THREE.MathUtils.clamp(progress, 0, 1) : 0;
     if (active && !reduced && Number.isFinite(seconds)) clock += THREE.MathUtils.clamp(seconds, 0, .1);
     const finished = stage === 'collected' || stage === 'researched';
-    soil.scale.y = stage === 'digging' ? 1 - amount * .7 : finished ? .3 : 1;
+    soil.scale.y = .05 * (stage === 'digging' ? 1 - amount * .7 : finished ? .3 : 1);
     soil.position.y = stage === 'digging' ? .045 - amount * .02 : finished ? .025 : .045;
     core.visible = stage === 'digging' && amount > .2;
     core.scale.y = Math.max(.1, amount);

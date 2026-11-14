@@ -21,7 +21,7 @@ describe('regolith fieldwork presentation', () => {
     expect(sample.visible).toBe(false);
     site.update('digging', .5, .1, true, false);
     expect(core.visible).toBe(true);
-    expect(soil.scale.y).toBeLessThan(1);
+    expect(soil.scale.y).toBeLessThan(.05);
     site.update('collected', 1, .1, true, false);
     expect(core.visible).toBe(false);
     expect(sample.visible).toBe(true);
@@ -30,7 +30,8 @@ describe('regolith fieldwork presentation', () => {
     site.update('empty', 0, 0, false, true);
     expect(core.visible).toBe(false);
     expect(sample.visible).toBe(false);
-    expect(soil.scale.y).toBe(1);
+    expect(soil.scale.y).toBe(.05);
+    expect(new THREE.Box3().setFromObject(soil).getSize(new THREE.Vector3()).y).toBeLessThan(.06);
     expect(site.group.getObjectByName('sample-analysis-check')!.visible).toBe(false);
     resources.dispose();
   });

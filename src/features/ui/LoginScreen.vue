@@ -6,7 +6,7 @@ import cloudsTextureUrl from '../../assets/earth_clouds_1024.png';
 import moonTextureUrl from '../../assets/moon_1024.jpg';
 import { soundFX } from '../game/audio';
 
-const emit = defineEmits<{ start: [] }>();
+const emit = defineEmits<{ start: []; explore: [] }>();
 
 const earthCanvas = ref<HTMLCanvasElement>();
 const showSettings = ref(false);
@@ -202,6 +202,8 @@ onBeforeUnmount(() => {
             <span class="btn-text">Start</span>
             <span class="laser-flare"></span>
           </button>
+
+          <button class="field-menu-btn" type="button" @click="emit('explore')"><span>Mars field mission</span><small>Suit up · collect · discover</small></button>
 
           <button
             class="title-menu-btn"
@@ -568,3 +570,5 @@ onBeforeUnmount(() => {
   }
 }
 </style>
+
+<style scoped>.field-menu-btn{display:grid;gap:5px;justify-items:start;border:1px solid #cbb98e66;border-left:3px solid #ebc88d;border-radius:5px;padding:11px 15px;background:#152932cc;color:#f4e8c7;cursor:pointer;text-align:left}.field-menu-btn span{font-size:17px;font-weight:650}.field-menu-btn small{font-size:10px;letter-spacing:.06em;color:#c2cbbd}.field-menu-btn:hover{background:#2b474b}.field-menu-btn:focus-visible{outline:3px solid #f7dba0;outline-offset:4px}@media(max-width:640px){.field-menu-btn{padding:8px 10px}.field-menu-btn span{font-size:13px}.field-menu-btn small{font-size:8px}}</style>

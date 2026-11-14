@@ -1,5 +1,11 @@
 import * as THREE from 'three';
+import { createExpeditionSite } from './expedition-site';
+import { createVisualUpgrade } from './visual-upgrade';
+import type { FieldSample } from '../../contracts/exploration';
 import { createHabitatDome } from './habitat';
+import { createAvatarTools } from './avatar-tools';
+import { SAMPLE_SITE } from '../../contracts/exploration';
+import type { AvatarActivity, PlayerMotion } from '../../contracts/exploration';
 import { createEvaEquipment } from './eva-suit';
 import { freshHabitatAccess } from '../../contracts/habitat';
 import { STATIONS } from '../../contracts';
@@ -7,7 +13,7 @@ import type { FlightStage, LaunchFlightSnapshot, LandingFlightSnapshot, GameStat
 import { createLaunchView } from './launch-view';
 import { frameOutpost } from './camera';
 import { createGroundShadow, createStation, createTerrain, STATION_NAMES } from './models';
-import { applyAstronautGait, createAstronaut, updateAstronautAnimation } from './astronaut';
+import { setAstronautMotion, setAstronautActivity, resetAstronautActions, applyAstronautGait, createAstronaut, updateAstronautAnimation } from './astronaut';
 import { createModelKit, WorldResources } from './resources';
 import { pickStationAt } from './picking';
 import { applyStationStatus, getStationStatus, getWorldEventNotice } from './status';
@@ -57,7 +63,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     host.appendChild(container);
     scene.background = new THREE.Color('#b87d69');
     const atmosphere=createMarsAtmosphere(scene,resources);cleanups.push(()=>atmosphere.dispose());
-    scene.add(new THREE.HemisphereLight('#d49f85', '#4d2820', 1.7));
+    scene.add(new THREE.HemisphereLight('#c3d9dc', '#64504a', 2.05));
     const sun = new THREE.DirectionalLight('#fff2de', 2.8);
     sun.position.set(-18,10,-35);sun.shadow.radius=2.5;
     sun.castShadow = true;
@@ -101,12 +107,19 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     scene.add(terrain);
     const dome=createHabitatDome(kit,resources);scene.add(dome.group);
     let habitatAccess=freshHabitatAccess();
+    const sampleSite=createExpeditionSite(kit,resources),wayfinding=createVisualUpgrade(kit,resources);scene.add(sampleSite.group,wayfinding.group);
+    let sampleStage:FieldSample['stage']|'empty'='empty',sampleProgress=0;
     const astronaut = createAstronaut(kit);
     const suit = new THREE.Group(); suit.position.y = -.8; astronaut.group.add(suit);
     void nasa.attach(suit, 'astronaut', 1.55, astronaut.fallback);
     astronaut.group.position.copy(playerPose);
     scene.add(astronaut.group);
+    const avatarTools=createAvatarTools(kit);astronaut.group.add(avatarTools.group);
+    let avatarActivity:AvatarActivity={action:'none',progress:0};
+    let avatarMotion:PlayerMotion={grounded:true,verticalSpeed:0,body:'mars'};
     const eva=createEvaEquipment(kit);astronaut.group.add(eva.helmet,eva.pack);
+    const carriedSample=new THREE.Group();carriedSample.name='sealed-regolith-sample';astronaut.group.add(carriedSample);carriedSample.position.set(.28,-.3,-.02);
+    kit.cylinder(carriedSample,kit.materials.ivory,[.065,.22,.065],[0,0,0]);kit.cylinder(carriedSample,kit.materials.orange,[.075,.035,.075],[0,.12,0]);kit.box(carriedSample,kit.materials.glass,[.07,.09,.01],[0,0,.065]);carriedSample.visible=false;
     astronaut.group.traverse(object => { if (object instanceof THREE.Mesh) object.castShadow = true; });
     const playerShadow = createGroundShadow(resources, .42, .32);
     playerShadow.name = 'astronaut-shadow';
@@ -737,6 +750,15 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       },
       isDoorOpen(id) { return level === 'earth' && id === 'habitat' ? earth.labDoor.isOpen() : stations.find(station => station.id === id)?.visual.door.isOpen() ?? false; },
       setConsoleHandler(handler) { if (!disposed) consoleHandler = handler; },
+      setPlayerMotion(motion){avatarMotion=motion;setAstronautMotion(astronaut,motion);},
+      setAvatarActivity(activity){
+        if(activity.action!==avatarActivity.action && activity.action!=='none'){
+          if(firstPerson)setFirstPerson(false,true);cameraMode='follow';follow.reset();cameraDirty=true;
+        }
+        follow.setWorkFocus(activity.action);
+        avatarActivity=activity;setAstronautActivity(astronaut,activity);
+      },
+      setSampleStage(stage,progress){sampleStage=stage;sampleProgress=Number.isFinite(progress)?Math.max(0,Math.min(1,progress)):0;carriedSample.visible=stage==='collected';},
       setHabitatAccess(access) { habitatAccess=access;dome.update(access); },
       setLevel(id) {
         if (disposed || level === id) return;
@@ -804,17 +826,20 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         gaitWasMoving = moving;
         if (distance > .0001) astronaut.group.rotation.y = Math.atan2(dx, dz);
         if (moving) walkCycle = (walkCycle + distance * Math.PI * 2 / .9) % (Math.PI * 2);
-        if (distance >= 1) walkCycle = 0; // A reset/teleport is not a walking stride.
+        if (distance >= 1) {resetAstronautActions(astronaut);avatarTools.reset();walkCycle = 0;} // A reset/teleport is not a walking stride.
         applyAstronautGait(astronaut, walkCycle, moving);
         expedition.pose(pose, moving);
         if (playerPose.x !== pose.x || playerPose.y !== pose.y || playerPose.z !== pose.z) cameraDirty = true;
         playerPose.copy(pose);
         astronaut.group.position.copy(pose);
+        if(avatarActivity.action==='dig')astronaut.group.rotation.y=Math.atan2(SAMPLE_SITE.x-pose.x,SAMPLE_SITE.z-pose.z);
+        else if(avatarActivity.action==='research')astronaut.group.rotation.y=Math.PI;
         playerShadow.position.set(pose.x, .014, pose.z);
         if (redrawShadow) renderer!.shadowMap.needsUpdate = true;
       },
       setState(state) {
         if (disposed || state === lastState) return;
+        if(state.phase==='ready'&&lastState?.phase!=='ready'){resetAstronautActions(astronaut);avatarTools.reset();}
         const notice = getWorldEventNotice(state);
         if (notice !== eventNotice || state.turn !== lastState?.turn) eventReport.open = false;
         eventNotice = notice;
@@ -848,6 +873,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         previousAnimationTime = now;
         const pausedOrEnded = motionPaused || document.hidden || lastState?.phase === 'paused' || lastState?.phase === 'won' || lastState?.phase === 'lost';
         const active = !pausedOrEnded;
+        sampleSite.update(sampleStage==='researching'?'collected':sampleStage,sampleProgress,delta,active,reduceMotion);wayfinding.update(delta,active,reduceMotion);
         container.classList.toggle('ares-world--paused',!active);atmosphere.update(delta,active,reduceMotion);
         machineGroups.forEach(group=>{let remaining=group.userData.pressRemaining??0;if(reduceMotion)remaining=0;else if(active)remaining=Math.max(0,remaining-Math.min(.05,delta));group.userData.pressRemaining=remaining;group.scale.setScalar(1-Math.sin(remaining/.18*Math.PI)*.025);});
         if (isLocked() && (pausedOrEnded || journey !== null)) {
@@ -878,8 +904,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         const buildings = level === 'earth' ? earth.stations : stations;
         buildings.forEach(station => {
           const inside = level === 'earth' ? !earthOutside && station.id === 'habitat' : interior === station.id;
-          station.visual.roof.visible = !(inside && cameraMode === 'overview');
-          station.visual.walls.forEach((wall, index) => { wall.visible = !(inside && cameraMode === 'overview' && (index === 3 || index === 4)); });
+          station.visual.roof.visible = !(inside && (cameraMode === 'overview'||avatarActivity.action==='research'));
+          station.visual.walls.forEach((wall, index) => { wall.visible = !(inside && ((cameraMode === 'overview' && (index === 3 || index === 4))||(avatarActivity.action==='research'&&(index===1||index===2||index===3||index===4)))); });
         });
         if (cameraMode === 'follow' && level !== 'space' && !firstPerson) {
           buildings.forEach(station => station.visual.group.updateMatrixWorld(true));
@@ -898,7 +924,9 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         if (astronaut.group.parent !== scene) scene.add(astronaut.group);
         updateAstronautAnimation(astronaut, delta, active, reduceMotion);
         if (cameraDirty) updateCamera();
+        avatarTools.update(astronaut.group,avatarActivity,delta,active,reduceMotion);
         eva.update(astronaut.group,habitatAccess.suited);
+        if(active&&(avatarActivity.action!=='none'||!avatarMotion.grounded))renderer!.shadowMap.needsUpdate=true;
         renderer!.render(scene, cameraMode === 'follow' ? follow.camera : camera);
       },
       dispose,
