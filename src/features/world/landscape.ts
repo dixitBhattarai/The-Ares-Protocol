@@ -411,3 +411,147 @@ export function createAlienRockFormations(kit: ModelKit, resources: WorldResourc
 
   return group;
 }
+
+/**
+ * Scientifically Realistic NASA Colony Infrastructure:
+ * - Interconnected pressurized corridors linking Habitat, Greenhouse, and Solar Lab
+ * - High-gain 4.4m deep-space communication dish aligned with Earth trajectory
+ * - Cryogenic liquid oxygen/methane life-support synthesis depot (MOXIE / Sabatier)
+ */
+export function createColonyInfrastructure(kit: ModelKit, resources: WorldResources): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'nasa-colony-infrastructure';
+
+  const tunnelMat = resources.material(
+    new THREE.MeshStandardMaterial({
+      color: '#e2ebf0',
+      metalness: 0.35,
+      roughness: 0.3,
+    })
+  );
+  const bellowsMat = resources.material(
+    new THREE.MeshStandardMaterial({
+      color: '#2a353d',
+      metalness: 0.7,
+      roughness: 0.4,
+    })
+  );
+  const goldFoilMat = resources.material(
+    new THREE.MeshStandardMaterial({
+      color: '#e5a528',
+      metalness: 0.88,
+      roughness: 0.22,
+    })
+  );
+  const steelMat = resources.material(
+    new THREE.MeshStandardMaterial({
+      color: '#495a63',
+      metalness: 0.8,
+      roughness: 0.25,
+    })
+  );
+  const beaconLedMat = resources.material(
+    new THREE.MeshBasicMaterial({
+      color: '#ff3b30',
+    })
+  );
+  const guideLightMat = resources.material(
+    new THREE.MeshBasicMaterial({
+      color: '#ffe18b',
+    })
+  );
+
+  // 1. Pressurized Connecting Corridor: Habitat (-7, 0, 0) -> Greenhouse (0, 0, -9)
+  const habCurve = new THREE.LineCurve3(
+    new THREE.Vector3(-5.2, 0.75, -1.8),
+    new THREE.Vector3(-1.8, 0.75, -7.2)
+  );
+  const habTunnelGeo = resources.geometry(new THREE.TubeGeometry(habCurve, 14, 0.5, 12, false));
+  const habTunnel = new THREE.Mesh(habTunnelGeo, tunnelMat);
+  habTunnel.castShadow = true;
+  habTunnel.receiveShadow = true;
+  group.add(habTunnel);
+
+  // 2. Pressurized Connecting Corridor: Solar (7, 0, 0) -> Greenhouse (0, 0, -9)
+  const solarCurve = new THREE.LineCurve3(
+    new THREE.Vector3(5.2, 0.75, -1.8),
+    new THREE.Vector3(1.8, 0.75, -7.2)
+  );
+  const solarTunnelGeo = resources.geometry(new THREE.TubeGeometry(solarCurve, 14, 0.5, 12, false));
+  const solarTunnel = new THREE.Mesh(solarTunnelGeo, tunnelMat);
+  solarTunnel.castShadow = true;
+  solarTunnel.receiveShadow = true;
+  group.add(solarTunnel);
+
+  // Support stanchions and expansion bellows along corridors
+  for (let t = 0.25; t <= 0.75; t += 0.25) {
+    const p1 = habCurve.getPoint(t);
+    kit.cylinder(group, steelMat, [0.08, p1.y, 0.08], [p1.x, p1.y / 2, p1.z]);
+    kit.cylinder(group, bellowsMat, [0.56, 0.18, 0.56], [p1.x, p1.y, p1.z]);
+    kit.sphere(group, guideLightMat, [0.05, 0.05, 0.05], [p1.x, p1.y + 0.55, p1.z]);
+
+    const p2 = solarCurve.getPoint(t);
+    kit.cylinder(group, steelMat, [0.08, p2.y, 0.08], [p2.x, p2.y / 2, p2.z]);
+    kit.cylinder(group, bellowsMat, [0.56, 0.18, 0.56], [p2.x, p2.y, p2.z]);
+    kit.sphere(group, guideLightMat, [0.05, 0.05, 0.05], [p2.x, p2.y + 0.55, p2.z]);
+  }
+
+  // 3. Deep-Space High-Gain Communications Dish (North at x: 0, z: -17)
+  const commsGroup = new THREE.Group();
+  commsGroup.name = 'deep-space-communications-array';
+  commsGroup.position.set(0, 0, -17);
+
+  // Foundation pier
+  kit.cylinder(commsGroup, steelMat, [1.4, 0.8, 1.4], [0, 0.4, 0]);
+  kit.cylinder(commsGroup, bellowsMat, [0.45, 1.6, 0.45], [0, 1.4, 0]);
+
+  // Parabolic dish (4.4m diameter) tilted toward Earth in deep space
+  const dishGeo = resources.geometry(new THREE.ConeGeometry(2.2, 0.65, 32, 1, true));
+  const dish = new THREE.Mesh(dishGeo, tunnelMat);
+  dish.position.set(0, 3.1, 0);
+  dish.rotation.set(-0.85, 0.4, 0);
+  dish.castShadow = true;
+  commsGroup.add(dish);
+
+  // Central sub-reflector feed tripod and signal LED
+  kit.cylinder(dish, steelMat, [0.04, 1.2, 0.04], [0, 0.6, 0]);
+  kit.sphere(dish, beaconLedMat, [0.08, 0.08, 0.08], [0, 1.25, 0]);
+
+  group.add(commsGroup);
+
+  // 4. Cryogenic Life Support & Atmospheric Propellant Depot (MOXIE at x: 15, z: 3)
+  const moxieGroup = new THREE.Group();
+  moxieGroup.name = 'moxie-cryogenic-facility';
+  moxieGroup.position.set(15, 0, 3);
+
+  // Dual cryogenic liquid oxygen & water storage spheres
+  for (const offset of [-1.5, 1.5]) {
+    kit.cylinder(moxieGroup, steelMat, [0.75, 0.5, 0.75], [offset, 0.25, 0]);
+    kit.sphere(moxieGroup, goldFoilMat, [1.35, 1.35, 1.35], [offset, 1.65, 0]);
+    // Pressure indicator valve
+    kit.cylinder(moxieGroup, steelMat, [0.04, 0.4, 0.04], [offset, 3.1, 0]);
+    kit.sphere(moxieGroup, beaconLedMat, [0.06, 0.06, 0.06], [offset, 3.35, 0]);
+  }
+
+  // Atmospheric CO2 intake compressor tower
+  kit.box(moxieGroup, steelMat, [1.2, 2.6, 1.2], [0, 1.3, -1.8]);
+  kit.cylinder(moxieGroup, bellowsMat, [0.55, 0.9, 0.55], [0, 3.0, -1.8]);
+  kit.sphere(moxieGroup, guideLightMat, [0.08, 0.08, 0.08], [0, 3.55, -1.8]);
+
+  // Cryogenic transfer piping with valve handwheels
+  const pipeCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-1.5, 0.6, 0),
+    new THREE.Vector3(0, 0.6, 0),
+    new THREE.Vector3(1.5, 0.6, 0),
+    new THREE.Vector3(1.5, 0.6, -1.8),
+    new THREE.Vector3(0.6, 0.6, -1.8),
+  ]);
+  const pipeGeo = resources.geometry(new THREE.TubeGeometry(pipeCurve, 16, 0.06, 8, false));
+  const pipeMesh = new THREE.Mesh(pipeGeo, steelMat);
+  moxieGroup.add(pipeMesh);
+
+  group.add(moxieGroup);
+
+  return group;
+}
+

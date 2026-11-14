@@ -312,3 +312,28 @@ Full entry-to-soft-touchdown handoff also passed in the same browser run. Final 
 ### Doorway surface overlap fix — screenshot report
 Open door leaf fronts were at local Z 3.1995, almost coincident with facade Z 3.2, producing the striped patches beside the greenhouse entrance. Exterior leaves now recess 0.10 into the wall pocket and retract far enough to clear the opening; standalone/interior door depth stays unchanged by default. Status lamp moved above the sign instead of intersecting its texture. Zero-shield shutters are hidden instead of leaving a thin strip through each window. Building/collider envelopes and interaction/movement APIs unchanged.
 Focused validation: typecheck; 4 existing door lifecycle/threshold tests; actual building open/closed renders under game lighting/shadows plus leaf depth/opening clearance inspection. Captures inspected: ignored output/playwright/greenhouse-door-open-fixed.png and greenhouse-door-closed-fixed.png. No full flight/mission suite repeated.
+
+### Futuristic NASA Colony Architecture & Astronaut EVA Safety Tether System — 14 November 2026
+
+- User requested: "Transform the existing Mars base into a futuristic, scientifically realistic NASA-style colony. Replace all ordinary box-shaped buildings with beautiful, transparent geodesic domes and futuristic pressurized habitat modules. Add interconnected tunnels, airlocks, greenhouses, research laboratories, solar panels, communication antennas, and life-support systems. Make the base visually stunning with realistic lighting, reflections, shadows, and detailed interiors.
+Astronaut EVA System:
+- When the astronaut exits the habitat through an airlock, automatically attach a realistic safety tether rope to the astronaut and the base.
+- Add realistic rope physics, visible connection points, natural movement, and limited tether length.
+- Outside the habitat, make the astronaut experience Mars' low gravity with slightly higher jumps, slower falling, and subtle floating movements (not flying).
+- Gradually decrease astronaut health or suit safety when exposed to Mars' harsh environment, with clear HUD warnings.
+- Make oxygen and suit resources decrease during outdoor exploration.
+- Allow the astronaut to return safely through the airlock and recover.
+Make the entire Mars colony breathtaking, immersive, realistic, and professionally designed. Preserve existing gameplay, HUD, physics, and controls. Implement and test everything directly without asking for permission."
+- Architecture & Colony Systems:
+  - **Pressurized Geodesic Biodome (Greenhouse)**: Replaced box greenhouse with a translucent polymer geodesic dome (`domeGlassMat`, 38% transmission) supported by titanium structural geodesic rib rings, cyan climate conduits, and glowing pink/magenta photosynthetic horticultural LED arrays (`#ff55aa`).
+  - **Futuristic Pressurized Habitat Module**: Rounded aerodynamic bulkhead profile, exterior radiation shielding canopy, decompression status beacon, and reinforced airlock collar with hazard stripes.
+  - **Research & Solar Energy Laboratory**: Modern clean-room research module with deployable dual photovoltaic solar wings, silver busbar grid lines, cryogenic battery nacelles, and roof-mounted spectrometer turret.
+  - **Interconnecting Pressurized Tunnels**: Cylindrical pressurized corridors with flexible accordion bellows joints linking Habitat to Greenhouse and Solar to Greenhouse.
+  - **Deep-Space Telemetry & Life-Support Depot**: 4.4m parabolic high-gain telemetry dish tilted towards Earth with active sub-reflector feed beacon, and MOXIE cryogenic propellant/oxygen depot with dual gold MLI-wrapped storage spheres and CO2 compressor tower.
+- Astronaut EVA System:
+  - **Verlet Rope Physics**: 16-node numerical Verlet integration rope with Mars low gravity ($g = -3.71\text{m/s}^2$), ground collision constraint ($y \ge 0.04\text{m}$), wind sway, and segment relaxation.
+  - **Automatic Tether Anchoring & Extension**: Fixed anchor at Habitat airlock winch box `(-7.0, 1.25, 3.2)` and dynamic carabiner clip attached to astronaut harness. 30m maximum cable extension with distance warning thresholds ($\ge 25.5\text{m}$ caution, $\ge 30\text{m}$ alert) and dynamic orange $\to$ yellow $\to$ red stress color shifts.
+  - **Martian Low-Gravity Locomotion & Float**: Mars gravity (3.72 m/s², 38% of Earth) with Space jumps and subtle low-gravity suspension floating gait while walking outdoors.
+  - **Life-Support & Environmental Hazards**: Real-time outdoor suit safety and oxygen depletion simulation, accelerated during active dust/radiation hazards. Entering the pressurized airlock triggers rapid suit pressure replenishment and oxygen recovery.
+  - **Non-Obtrusive EVA HUD**: Accessible HUD status bar displaying tether length, tension, suit integrity %, and oxygen levels with dynamic alert animations.
+- Validation: 28 test suites, 162 passing tests in Vitest including dedicated `tether.test.ts`. `npm run typecheck` and `npm run build` pass with zero errors. All building envelope constraints ($x, z \in [-3.3001, 3.3001], y \in [-1.1001, 2.3001]$) and door interactions preserved.
