@@ -9,8 +9,19 @@ export const MARS_GRAVITY = 3.72076;
 export const BOUNDARY_MIN = -18;
 export const BOUNDARY_MAX = 18;
 export const GROUND_Y = 0.8;
-export const DEFAULT_SPAWN: Vec3 = { x: 0, y: 0.8, z: 5 };
+export const DEFAULT_SPAWN: Readonly<Vec3> = Object.freeze({ x: 0, y: 0.8, z: 5 });
 export const ASTRONAUT_SPEED = 3.0; // 3 m/s
+
+export const MOVEMENT_KEY_CODES = new Set([
+  'KeyW',
+  'KeyA',
+  'KeyS',
+  'KeyD',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+]);
 
 export function computeMovementVelocity(
   pressedKeys: ReadonlySet<string>,
@@ -69,45 +80,65 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
     .setTranslation(DEFAULT_SPAWN.x, DEFAULT_SPAWN.y, DEFAULT_SPAWN.z)
     .lockRotations();
   const body = world.createRigidBody(bodyDesc);
-  world.createCollider(
+  const capsuleCollider = world.createCollider(
     RAPIER.ColliderDesc.capsule(0.5, 0.3)
       .setFriction(0)
       .setRestitution(0),
     body,
   );
 
-  // Character controller for character navigation
+  // Character controller for kinematic/grounded interaction
   const controller = world.createCharacterController(0.01);
   controller.enableSnapToGround(0.5);
   controller.setSlideEnabled(true);
 
   const pressed = new Set<string>();
+  let isInputPaused = false;
   let isDisposed = false;
 
   const keyDown = (event: KeyboardEvent) => {
-    if ((event.target as HTMLElement | null)?.closest('button, input, textarea, select, [contenteditable]')) return;
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) event.preventDefault();
-    pressed.add(event.code);
+    if (isDisposed || isInputPaused) return;
+    if ((event.target as HTMLElement | null)?.closest?.('button, input, textarea, select, [contenteditable]')) return;
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) {
+      event.preventDefault();
+    }
+    if (MOVEMENT_KEY_CODES.has(event.code)) {
+      pressed.add(event.code);
+    }
   };
+
   const keyUp = (event: KeyboardEvent) => {
+    if (isDisposed) return;
     pressed.delete(event.code);
   };
-  const clear = () => {
+
+  const clearKeys = () => {
     pressed.clear();
   };
 
+  const visibilityChange = () => {
+    if (typeof document !== 'undefined' && document.hidden) {
+      clearKeys();
+    }
+  };
+
   const hasWindow = typeof window !== 'undefined';
+  const hasDoc = typeof document !== 'undefined';
   if (hasWindow) {
     window.addEventListener('keydown', keyDown);
     window.addEventListener('keyup', keyUp);
-    window.addEventListener('blur', clear);
+    window.addEventListener('blur', clearKeys);
+    window.addEventListener('focus', clearKeys);
+  }
+  if (hasDoc) {
+    document.addEventListener('visibilitychange', visibilityChange);
   }
 
   return {
     step(seconds: number) {
       if (isDisposed) return;
       const dt = Math.max(0.001, Math.min(seconds, 0.1));
-      const { vx, vz } = computeMovementVelocity(pressed, ASTRONAUT_SPEED);
+      const { vx, vz } = isInputPaused ? { vx: 0, vz: 0 } : computeMovementVelocity(pressed, ASTRONAUT_SPEED);
       const curLinvel = body.linvel();
       body.setLinvel({ x: vx, y: curLinvel.y, z: vz }, true);
 
@@ -131,17 +162,42 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       }
     },
     getPlayerPose(): Vec3 {
-      if (isDisposed) return DEFAULT_SPAWN;
+      if (isDisposed) return { ...DEFAULT_SPAWN };
       const pose = body.translation();
       return { x: pose.x, y: pose.y, z: pose.z };
+    },
+    reset(pose?: Vec3) {
+      if (isDisposed) return;
+      clearKeys();
+      const target = pose ? { x: pose.x, y: pose.y, z: pose.z } : { ...DEFAULT_SPAWN };
+      body.setTranslation(target, true);
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    },
+    pauseInput() {
+      if (isDisposed) return;
+      isInputPaused = true;
+      clearKeys();
+      const curLinvel = body.linvel();
+      body.setLinvel({ x: 0, y: curLinvel.y, z: 0 }, true);
+    },
+    resumeInput() {
+      if (isDisposed) return;
+      isInputPaused = false;
+      clearKeys();
     },
     dispose() {
       if (isDisposed) return;
       isDisposed = true;
+      clearKeys();
       if (hasWindow) {
         window.removeEventListener('keydown', keyDown);
         window.removeEventListener('keyup', keyUp);
-        window.removeEventListener('blur', clear);
+        window.removeEventListener('blur', clearKeys);
+        window.removeEventListener('focus', clearKeys);
+      }
+      if (hasDoc) {
+        document.removeEventListener('visibilitychange', visibilityChange);
       }
       world.removeCharacterController(controller);
       world.free();
