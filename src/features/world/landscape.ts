@@ -2,28 +2,77 @@ import * as THREE from 'three';
 import { STATIONS } from '../../contracts';
 import { WorldResources, type ModelKit } from './resources';
 
-/** High-detail procedural Martian dust & regolith texture with micro-ripples and iron-oxide grains. */
+/** High-detail, 100% seamless procedural Martian regolith & dust texture based on NASA Mars photography. */
 export function createDustTexture(resources: WorldResources): THREE.DataTexture {
-  const size = 128;
+  const size = 256;
   const pixels = new Uint8Array(size * size * 4);
-  let seed = 703;
+  const PI2 = Math.PI * 2;
+
+  // Authentic NASA Mars regolith color palette (Curiosity & Perseverance Mastcam observations):
+  // 1. Weathered dark basalt granules / shadow crevices
+  const rBasalt = 94, gBasalt = 48, bBasalt = 38;
+  // 2. Iron-oxide oxidized regolith (predominant Martian soil)
+  const rSoil = 186, gSoil = 94, bSoil = 60;
+  // 3. Fine windblown golden dune crest sand
+  const rDune = 212, gDune = 128, bDune = 82;
+  // 4. Sulfate/silica light mineral deposits
+  const rMineral = 224, gMineral = 172, bMineral = 142;
+
   for (let y = 0; y < size; y++) {
+    const v = y / size;
+    const vAng = v * PI2;
     for (let x = 0; x < size; x++) {
-      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-      const grain = (seed >>> 24) / 255;
-      const ripple = Math.sin(x * 0.19 + Math.sin(y * 0.08) * 2) * 3;
-      const duneWave = Math.sin(x * 0.05 + y * 0.03) * 6;
-      const i = (y * size + x) * 4;
-      pixels[i] = Math.min(255, 175 + grain * 26 + ripple + duneWave);
-      pixels[i + 1] = Math.min(255, 96 + grain * 18 + ripple * 0.8 + duneWave * 0.6);
-      pixels[i + 2] = Math.min(255, 68 + grain * 14 + ripple * 0.6 + duneWave * 0.4);
-      pixels[i + 3] = 255;
+      const u = x / size;
+      const uAng = u * PI2;
+
+      // Pure integer harmonic frequencies ensure 100% mathematical periodic tiling (zero edge seams)
+      // 1. Macro wind ripples oriented along Martian prevailing wind vector (~28 degrees)
+      const wave1 = Math.sin(uAng * 4 + vAng * 2) * 0.45;
+      const wave2 = Math.cos(uAng * 8 - vAng * 4 + wave1 * 1.4) * 0.28;
+
+      // 2. Intermediate sand wavelets
+      const ripple1 = Math.sin(uAng * 16 + vAng * 8) * 0.16;
+      const ripple2 = Math.cos(uAng * 24 - vAng * 12 + ripple1 * 2) * 0.11;
+
+      // 3. High-frequency regolith grain noise
+      const grain1 = Math.sin(uAng * 48 + Math.cos(vAng * 48)) * 0.07;
+      const grain2 = Math.cos(uAng * 64 - vAng * 32) * Math.sin(vAng * 64) * 0.05;
+
+      // Combined normalized height factor in [0, 1]
+      const hRaw = (wave1 + wave2 + ripple1 + ripple2 + grain1 + grain2 + 1.15) / 2.3;
+      const h = Math.max(0, Math.min(1, hRaw));
+
+      // Continuous natural gradient blending across authentic Martian soil layers
+      let r: number, g: number, b: number;
+      if (h < 0.35) {
+        const t = h / 0.35;
+        r = rBasalt + t * (rSoil - rBasalt);
+        g = gBasalt + t * (gSoil - gBasalt);
+        b = bBasalt + t * (bSoil - bBasalt);
+      } else if (h < 0.78) {
+        const t = (h - 0.35) / (0.78 - 0.35);
+        r = rSoil + t * (rDune - rSoil);
+        g = gSoil + t * (gDune - gSoil);
+        b = bSoil + t * (bDune - bSoil);
+      } else {
+        const t = (h - 0.78) / (1 - 0.78);
+        r = rDune + t * (rMineral - rDune);
+        g = gDune + t * (gMineral - gDune);
+        b = bDune + t * (bMineral - bDune);
+      }
+
+      const idx = (y * size + x) * 4;
+      pixels[idx] = Math.round(r);
+      pixels[idx + 1] = Math.round(g);
+      pixels[idx + 2] = Math.round(b);
+      pixels[idx + 3] = 255;
     }
   }
+
   const texture = resources.texture(new THREE.DataTexture(pixels, size, size));
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(16, 16);
+  texture.repeat.set(24, 24);
   texture.magFilter = THREE.LinearFilter;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.generateMipmaps = true;
@@ -34,7 +83,7 @@ export function createDustTexture(resources: WorldResources): THREE.DataTexture 
 /**
  * Surface details including flat crater weathering marks, NASA rover tire tracks,
  * and astronaut bootprints. All markings remain perfectly flat (y <= 0.014) to ensure
- * smooth, unobstructed player movement.
+ * smooth, unobstructed player movement, and use hardware polygon offset to eliminate z-fighting.
  */
 export function createSurfaceDetails(resources: WorldResources): THREE.Group {
   const group = new THREE.Group();
@@ -46,8 +95,11 @@ export function createSurfaceDetails(resources: WorldResources): THREE.Group {
     new THREE.MeshBasicMaterial({
       color: '#593e35',
       transparent: true,
-      opacity: 0.08,
+      opacity: 0.1,
       depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     })
   );
   const marks = new THREE.InstancedMesh(ring, pigment, 18);
@@ -63,6 +115,7 @@ export function createSurfaceDetails(resources: WorldResources): THREE.Group {
     transform.updateMatrix();
     marks.setMatrixAt(i, transform.matrix);
   }
+  marks.instanceMatrix.needsUpdate = true;
   group.add(marks);
 
   // 2. Realistic NASA Rover Tracks (Dual chevron treads from Curiosity rover heading to the desert)
@@ -74,6 +127,9 @@ export function createSurfaceDetails(resources: WorldResources): THREE.Group {
       transparent: true,
       opacity: 0.35,
       depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1.5,
+      polygonOffsetUnits: -1.5,
     })
   );
 
@@ -112,6 +168,9 @@ export function createSurfaceDetails(resources: WorldResources): THREE.Group {
       transparent: true,
       opacity: 0.28,
       depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1.5,
+      polygonOffsetUnits: -1.5,
     })
   );
 
