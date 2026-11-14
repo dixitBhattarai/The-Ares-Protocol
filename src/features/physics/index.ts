@@ -106,6 +106,15 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
     if(station.id==='solar')for(const px of [-2,2])box(.4,.8,.55,px,.8,.2);
   }
 
+  // Solid envelope around the Earth launch vehicle and its service gantry.
+  // Keep this aligned with createEarthCampus's launch pad at (12, 0, -14).
+  const earthLaunchVehicleCollider = world.createCollider(
+    RAPIER.ColliderDesc.cuboid(2.6, 6, 1.5)
+      .setTranslation(12, 6.1, -14)
+      .setFriction(0),
+  );
+  earthLaunchVehicleCollider.setEnabled(false);
+
   // Astronaut dynamic rigid body with locked rotations and capsule collider (halfHeight 0.5, radius 0.3)
   const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
     .setTranslation(DEFAULT_SPAWN.x, DEFAULT_SPAWN.y, DEFAULT_SPAWN.z)
@@ -184,6 +193,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       if (isDisposed || !(next in GRAVITY_BY_BODY)) return;
       gravityBody = next;
       world.gravity = { x: 0, y: -GRAVITY_BY_BODY[next], z: 0 };
+      earthLaunchVehicleCollider.setEnabled(next === 'earth');
       jumpRequested = false;
     },
     getGravityInfo() { return describeGravity(gravityBody); },
