@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { StationId, Vec3 } from '../../contracts';
-import { createAstronaut, applyAstronautGait } from './astronaut';
+import { createAstronaut, applyAstronautGait, updateAstronautAnimation } from './astronaut';
 import type { ModelKit, WorldResources } from './resources';
 import { dressRoom, furnishRoom } from './interiors';
 import type { createNasaLoader } from './nasa-assets';
@@ -59,6 +59,7 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
   const rooms = new Map<string, THREE.Group>();
   return {
     flight, room, camera,
+    animate(seconds: number, active: boolean, reduced: boolean) { updateAstronautAnimation(astronaut, seconds, active, reduced); },
     pickControl(pointer: THREE.Vector2) {
       room.updateMatrixWorld(true); camera.updateMatrixWorld();
       const ray = new THREE.Raycaster(); ray.setFromCamera(pointer, camera);

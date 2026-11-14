@@ -1,6 +1,7 @@
 <template>
   <details class="asset-credits"><summary>Models, imagery & music credits</summary>
-    <p>Models and Earth/Mars textures: <a href="https://science.nasa.gov/3d-resources/" target="_blank" rel="noreferrer">NASA 3D Resources</a>. Astronaut, Earth Observing-1 and Opportunity are source assets, resized for this game. Scenes and procedures are authored interpretations; NASA does not endorse this project.</p>
+    <p>Earth Observing-1, Opportunity, fallback suit and Earth/Mars textures: <a href="https://science.nasa.gov/3d-resources/" target="_blank" rel="noreferrer">NASA 3D Resources</a>, resized for this game. Scenes and procedures are authored interpretations; NASA does not endorse this project.</p>
+    <p>Astra character, Breathing Idle and Walking motion: <a href="https://www.mixamo.com/" target="_blank" rel="noreferrer">Adobe Mixamo</a>. Converted and optimized for this game; idle/walk transitions use Three.js animation blending. This is a fictional suit, not a reconstruction of flight-certified equipment.</p>
     <p>“Space (orchestral)” by lasercheese — <a href="https://soundcloud.com/laserost" target="_blank" rel="noreferrer">laserost</a> / <a href="https://www.youtube.com/user/Manofunctional" target="_blank" rel="noreferrer">Manofunctional</a>. <a href="https://opengameart.org/content/space-orchestral" target="_blank" rel="noreferrer">Source</a>, CC BY 3.0.</p>
     <p>“Snowfall” — Music by Kistol. <a href="https://opengameart.org/content/snowfall" target="_blank" rel="noreferrer">Source</a>, CC0. User-supplied non-looped version; repeats may include a quiet gap.</p>
     <p>“happy tune” by syncopika. <a href="https://opengameart.org/content/happy-tune" target="_blank" rel="noreferrer">Source</a>, CC BY 3.0.</p>
