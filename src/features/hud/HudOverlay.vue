@@ -46,6 +46,8 @@ const resourceInfo: Record<ResourceId, { label: string }> = {
 type ReserveMotion = { direction: 'up' | 'down' | ''; key: number; fullKey: number; reachedFull: boolean };
 type ProgressStat = 'science' | 'shelter';
 type StatPop = { key: number; from: number; to: number; max: number };
+type EventIcon = 'solar' | 'storm' | 'air' | 'power' | 'supplies' | 'comms' | 'shelter' | 'alert';
+type HazardToast = { key: number; name: string; body: string; icon: EventIcon };
 const reserveMotion = ref<Record<ResourceId, ReserveMotion>>({
   power: { direction: '', key: 0, fullKey: 0, reachedFull: false },
   oxygen: { direction: '', key: 0, fullKey: 0, reachedFull: false },
@@ -85,7 +87,7 @@ const delayedEffects = computed(() => [...(props.state.pendingDelayedEffects ?? 
 
 const feedback = ref('');
 const feedbackTone = ref('');
-const hazardToast = ref<{ key: number; text: string } | null>(null);
+const hazardToast = ref<HazardToast | null>(null);
 let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
 let reserveTimer: ReturnType<typeof setTimeout> | undefined;
 let hazardTimer: ReturnType<typeof setTimeout> | undefined;
@@ -179,7 +181,16 @@ watch(
   () => [props.state.lastHazardNotice, props.state.turn] as const,
   ([notice], [previousNotice, previousTurn]) => {
     if (!notice || (notice === previousNotice && props.state.turn === previousTurn)) return;
-    hazardToast.value = { key: ++hazardKey, text: notice };
+    const record = props.state.history?.at(-1);
+    const event = props.mission.events.find(item => item.id === record?.eventId);
+    const colon = notice.indexOf(':');
+    const hasNamedHazard = colon > 0 && colon < 56;
+    hazardToast.value = {
+      key: ++hazardKey,
+      name: hasNamedHazard ? notice.slice(0, colon).trim() : event?.title ?? 'Outpost event',
+      body: hasNamedHazard ? notice.slice(colon + 1).trim() : notice,
+      icon: eventIcon(event?.title ?? record?.eventTitle ?? '', notice),
+    };
     if (hazardTimer) clearTimeout(hazardTimer);
     hazardTimer = setTimeout(() => { hazardToast.value = null; }, 5200);
   },
@@ -205,6 +216,18 @@ onUnmounted(() => {
 
 function meterText(value: number, level: string): string {
   return `${value} of 100 simplified game units. ${level} reserve.`;
+}
+
+function eventIcon(title: string, notice: string): EventIcon {
+  const description = `${title} ${notice}`.toLowerCase();
+  if (/radiation|solar|particle|space weather/.test(description)) return 'solar';
+  if (/dust|storm|wind/.test(description)) return 'storm';
+  if (/oxygen|air|pressure|scrubber/.test(description)) return 'air';
+  if (/power|battery|electric|solar array/.test(description)) return 'power';
+  if (/food|supply|greenhouse|plant/.test(description)) return 'supplies';
+  if (/communication|radio|signal|comms/.test(description)) return 'comms';
+  if (/shelter|habitat|shield/.test(description)) return 'shelter';
+  return 'alert';
 }
 
 function onViewportPointerMove(event: PointerEvent): void {
@@ -418,12 +441,21 @@ function toggleStat(id: ProgressStat): void {
     <p class="units-note">Simplified game units · not real spacecraft readings</p>
   </section>
   </Teleport>
-  <Teleport to="body">
+  <Teleport :to="hudTarget">
     <div v-if="hazardToast && state.phase === 'running'" ref="hazardToastElement" :key="hazardToast.key" class="achievement-toast" role="status" aria-live="polite" aria-atomic="true">
-      <span class="toast-medal" aria-hidden="true"><span>!</span></span>
+      <span class="toast-medal" aria-hidden="true">
+        <svg v-if="hazardToast.icon === 'solar'" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9 7 7m10 10 2.1 2.1m0-14.2L17 7M7 17l-2.1 2.1" /></svg>
+        <svg v-else-if="hazardToast.icon === 'storm'" viewBox="0 0 24 24"><path d="M4 14.5A4.5 4.5 0 0 1 5.7 6a6.5 6.5 0 0 1 12.4 1.1A3.8 3.8 0 0 1 19 14.5" /><path d="m13 11-3 5h3l-2 5 6-7h-3l2-3" /></svg>
+        <svg v-else-if="hazardToast.icon === 'air'" viewBox="0 0 24 24"><path d="M3 7h12a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 17h8" /></svg>
+        <svg v-else-if="hazardToast.icon === 'power'" viewBox="0 0 24 24"><path d="M13.4 2.8 5.8 13h5.1l-.5 8.2L18.2 10h-5.1l.3-7.2Z" /></svg>
+        <svg v-else-if="hazardToast.icon === 'supplies'" viewBox="0 0 24 24"><path d="M12 21V9m0 4c-4 0-6-2-6-5 4 0 6 2 6 5Zm0-3c0-4 2-6 6-6 0 4-2 6-6 6Z" /></svg>
+        <svg v-else-if="hazardToast.icon === 'comms'" viewBox="0 0 24 24"><path d="m12 21 4-12H8l4 12Zm0-15V3m-4 3a6 6 0 0 1 8 0M5 4a10 10 0 0 1 14 0" /></svg>
+        <svg v-else-if="hazardToast.icon === 'shelter'" viewBox="0 0 24 24"><path d="M12 3 20 6v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-3Z" /><path d="M8 12h8m-4-4v8" /></svg>
+        <svg v-else viewBox="0 0 24 24"><path d="M12 3 22 20H2L12 3Z" /><path d="M12 9v5m0 3h.01" /></svg>
+      </span>
       <span class="toast-copy">
-        <strong>✦ MISSION UPDATE ✦</strong>
-        <span>{{ hazardToast.text }}</span>
+        <strong>✦ OUTPOST EVENT ✦</strong>
+        <span class="toast-message"><b>{{ hazardToast.name }}</b><span>{{ hazardToast.body }}</span></span>
       </span>
       <span class="toast-spark" aria-hidden="true">✦</span>
     </div>
@@ -533,14 +565,17 @@ function toggleStat(id: ProgressStat): void {
 .delayed-item { display: grid; grid-template-columns: auto 1fr; gap: .3rem; margin: .12rem 0 0; color: #fff8e9; font-size: .56rem; }
 .delayed-timing { color: #f4d28f; font-weight: 800; white-space: nowrap; }
 .units-note { display: none; }
-.achievement-toast { --toast-gold: #f3c76f; box-sizing: border-box; position: fixed; z-index: 1000; top: 48%; left: 50%; display: grid; grid-template-columns: 3.1rem minmax(0, 1fr) 1rem; align-items: center; gap: .85rem; width: min(440px, calc(100vw - 2rem)); min-height: 104px; padding: .8rem 1rem; border: 2px solid #f4d48e; border-radius: 12px; background: linear-gradient(110deg, rgb(60 48 34 / 98%), rgb(35 43 42 / 98%) 45%, rgb(30 37 40 / 98%)); color: #fff8e8; box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 24px rgb(244 196 104 / 25%), inset 0 1px 0 rgb(255 248 220 / 22%); font: 650 .9rem/1.4 system-ui, sans-serif; animation: toast-in .52s cubic-bezier(.16,1.35,.4,1) both, toast-pulse .95s .55s 3 ease-in-out, toast-out .42s 4.75s ease-in forwards; }
+.achievement-toast { --toast-gold: #f3c76f; box-sizing: border-box; position: absolute; z-index: 12; top: 12px; left: 50%; display: grid; grid-template-columns: 3.1rem minmax(0, 1fr) 1rem; align-items: center; gap: .85rem; width: min(440px, calc(100% - 2rem)); min-height: 104px; padding: .8rem 1rem; border: 2px solid #f4d48e; border-radius: 12px; background: linear-gradient(110deg, rgb(60 48 34 / 98%), rgb(35 43 42 / 98%) 45%, rgb(30 37 40 / 98%)); color: #fff8e8; box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 24px rgb(244 196 104 / 25%), inset 0 1px 0 rgb(255 248 220 / 22%); font: 650 .9rem/1.4 system-ui, sans-serif; animation: toast-in .52s cubic-bezier(.16,1.35,.4,1) both, toast-pulse .95s .55s 3 ease-in-out, toast-out .42s 4.75s ease-in forwards; }
 .achievement-toast::before, .achievement-toast::after { position: absolute; width: 9px; height: 9px; border: 1px solid var(--toast-gold); background: #624b31; content: ''; transform: rotate(45deg); }
 .achievement-toast::before { top: -6px; left: 18%; }
 .achievement-toast::after { right: 18%; bottom: -6px; }
 .toast-medal { width: 3rem; height: 3rem; display: grid; place-items: center; border: 2px solid #ffe6a8; border-radius: 50%; background: radial-gradient(circle at 35% 28%, #fff0b0, #e5a847 55%, #a65d2d); box-shadow: 0 0 18px rgb(248 197 103 / 45%), inset 0 1px 4px #fff7d9; }
-.toast-medal span { width: 1.55rem; height: 1.55rem; display: grid; place-items: center; border: 2px solid #835026; border-radius: 50%; color: #573b20; font-size: 1rem; font-weight: 950; }
+.toast-medal svg { width: 1.75rem; height: 1.75rem; fill: none; stroke: #573b20; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.65; }
 .toast-copy { display: grid; gap: .3rem; }
 .toast-copy > strong { color: #ffdc96; font-size: .68rem; font-weight: 950; letter-spacing: .1em; text-shadow: 0 1px #50391f; }
+.toast-message { display: grid; gap: .12rem; }
+.toast-message > b { color: #ffdc96; font-size: .84rem; font-weight: 900; line-height: 1.15; }
+.toast-message > span { color: #fff8e8; font-size: .82rem; }
 .toast-spark { align-self: start; color: #ffe6a8; font-size: 1rem; text-shadow: 0 0 10px #ffd779; animation: spark-spin 1.6s ease-in-out infinite; }
 @keyframes reserve-hover-bop { 0%, 100% { transform: scale(1) rotate(0); } 35% { transform: scale(1.16) rotate(-7deg); } 70% { transform: scale(1.12) rotate(6deg); } }
 @keyframes stat-icon-spin { 0% { transform: rotate(-24deg) scale(.88); } 55% { transform: rotate(205deg) scale(1.12); } 100% { transform: rotate(360deg) scale(1); } }
@@ -553,9 +588,9 @@ function toggleStat(id: ProgressStat): void {
 @keyframes reserve-shimmy { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
 @keyframes reserve-shine { 0% { opacity: .9; transform: translateX(-120%); } 100% { opacity: 0; transform: translateX(150%); } }
 @keyframes reserve-critical-pulse { 0%, 100% { box-shadow: inset 0 1px 2px rgb(0 0 0 / 20%); } 50% { box-shadow: 0 0 7px color-mix(in srgb, var(--reserve-color), transparent 52%), inset 0 1px 2px rgb(0 0 0 / 20%); } }
-@keyframes toast-in { 0% { opacity: 0; transform: translate(-50%, -45%) scale(.68); } 68% { opacity: 1; transform: translate(-50%, -51%) scale(1.045); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes toast-in { 0% { opacity: 0; transform: translate(-50%, -18px) scale(.72); } 68% { opacity: 1; transform: translate(-50%, 4px) scale(1.035); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
 @keyframes toast-pulse { 0%, 100% { box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 24px rgb(244 196 104 / 25%), inset 0 1px 0 rgb(255 248 220 / 22%); } 50% { box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 35px rgb(255 215 133 / 58%), inset 0 1px 0 rgb(255 248 220 / 35%); } }
-@keyframes toast-out { to { opacity: 0; transform: translate(-50%, -46%) scale(.92); } }
+@keyframes toast-out { to { opacity: 0; transform: translate(-50%, -9px) scale(.96); } }
 @keyframes spark-spin { 50% { transform: rotate(40deg) scale(1.25); } }
 @media (max-width: 420px) {
   .hud-header { top: 50px; left: 10px; }
@@ -573,7 +608,7 @@ function toggleStat(id: ProgressStat): void {
   .stat-widget.is-expanded .stat-detail { width: calc(100% - 2.2rem); }
   .achievement-toast { grid-template-columns: 2.5rem minmax(0, 1fr) .7rem; gap: .55rem; min-height: 90px; padding: .68rem .72rem; font-size: .82rem; }
   .toast-medal { width: 2.45rem; height: 2.45rem; }
-  .toast-medal span { width: 1.3rem; height: 1.3rem; }
+  .toast-medal svg { width: 1.5rem; height: 1.5rem; }
   .toast-copy > strong { font-size: .58rem; }
 }
 @media (prefers-reduced-motion: reduce) {
