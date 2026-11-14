@@ -4,6 +4,15 @@ Read root `AGENTS.md` and `docs/CONTRACTS.md`. Own only `src/features/ui/**`, in
 
 ## Task
 
+### Latest task/reward/automatic hazard direction — 14 Nov
+
+Supersedes older card requirements below: no three-card decisions or post-task cards in the playable loop. Any station job can be started, minigame completion gives one positive payout, and six completed jobs end the mission. Negatives come from active-time reserve consumption and automatic warned hazards; matching maintenance prevents hazard damage. Read root AGENTS.md and docs/CONTRACTS.md for the implemented optional station-tasks mode, action tokens and pause/reset rules. Himamshu's explicit user-requested cross-feature handoff is recorded in the local notes; normal ownership resumes afterward. Do not reintroduce card-first or post-task choice gates.
+
+
+### Current task-first direction
+
+Design the post-task three-card choice, each with a plain benefit, cost/drawback and duration. Cards appear after completion, resolve once, and must not require choosing a card just to enter a building. Keep task selection distinct from reward/modifier selection; avoid double payouts. Add or adapt local UI for the three reusable minigame families after Rohit coordinates contracts; each needs keyboard/touch alternatives and forgiving instructions. Keep onboarding and debrief tied to actual effects. Use cohesive brighter station accents, illustrated buttons, large readable type and gentle success feedback; no flashing or color-only meaning. Do not change HUD, world, global layout or balances. Preserve existing MissionPanels compatibility during migration and record missing shell/API wiring in NOTES.md.
+
 Build the child's complete start → tutorial → choice → pause → results → retry journey. Add a useful debrief and science credits. Keep `MissionPanels.vue` props `state`, `mission`, `event` and `action` emit compatible; split local child components freely.
 
 All commands emit typed `GameAction`; never mutate props, recompute balances, import the game reducer or fetch NASA data. Saurav owns in-game resource meters; don't duplicate his HUD. Himamshu owns the canvas. No App/global style/package changes.

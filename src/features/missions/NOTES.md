@@ -1,6 +1,66 @@
 # Missions Handoff — Genius (NASA Data & Mission Architect)
 
-## Status: COMPLETE
+## Current Status — 14 Nov 2026
+
+### Already integrated
+
+- The original six-shift mission and May 2024 DONKI evidence were merged to `main` as `a8d9a39` (with the game alert wording reconciliation in `500c830`). The merge log records passing typecheck, tests and build.
+- Integrated mission content includes oxygen vs science, shelter vs exploration, a solar-weather hazard with a shielding threshold, greenhouse trade-offs, delayed Earth communications, and a final science vs reserves decision.
+- Rohit's game reducer supports the authored shelter hazard and delayed effects; Saurav's HUD surfaces hazard/delayed feedback; Dixit's UI includes decisions, debrief and a source-attribution drawer. These existing surfaces should consume the current mission fields without a new UI/API change for the bundled CME source.
+- The refreshable DONKI update was merged to `main` in `e4abf24` and recorded in `9386a29`. The feature branch also contains `2907fb1`, which removed the optional launch-failure idea from the notes; no launch-failure mechanic was implemented.
+
+### Current snapshot update workflow
+
+- The refresh script is [scripts/refresh-donki-snapshot.mjs](./scripts/refresh-donki-snapshot.mjs). It downloads a bounded NASA DONKI CME query, validates it, preserves the raw response and selected observation, and replaces `data/donki-cme-snapshot.json` only after a successful response. It uses `NASA_API_KEY` if set, otherwise `DEMO_KEY`; the key is not stored in the snapshot.
+- To refresh manually, open a terminal at the repository root while online and run:
+
+  ```sh
+  node src/features/missions/scripts/refresh-donki-snapshot.mjs
+  ```
+
+  By default it queries the previous seven UTC days. To choose a date window, run:
+
+  ```sh
+  node src/features/missions/scripts/refresh-donki-snapshot.mjs 2026-11-07 2026-11-14
+  ```
+
+- After refreshing, inspect the snapshot diff and validate before committing:
+
+  ```sh
+  git diff -- src/features/missions/data/donki-cme-snapshot.json
+  npm test
+  npm run typecheck
+  npm run build
+  ```
+
+  If the checks pass, commit only the intended missions paths on `feat/genius-missions`, push that branch, and ask Himamshu to merge it. The deployed static game changes only after that merge and the normal deployment. The game itself never makes NASA requests and keeps using its bundled snapshot offline.
+
+### Which archived data is used in events
+
+- **DONKI CME snapshot (`data/donki-cme-snapshot.json`)**: imported by `index.ts`. Its observation date and estimated CME speed appear in the Shift 2 shelter decision and Shift 3 authored drill; its source is also credited in Shift 6. The CME does not calculate or trigger the hazard or reserve losses. Those remain authored mechanics, not measured Mars damage or crew dose.
+- **InSight weather snapshot (`data/insight-mars-weather-raw.json`)**: imported by `index.ts`. Sol 675 pressure is shown in Shift 1 text; wind and temperature are shown in Shift 6 text. It is a static local snapshot and the DONKI refresh script does not update it.
+- **CSA food and NASA DSN references**: their source records are shown for attribution and inform the Shift 4/5 teaching concepts, but they are not local API snapshots.
+- **Historical May 2024 DONKI raw fixture**: retained for provenance/tests; it is not the active CME snapshot imported by `index.ts`.
+- **Other unverified fixtures**: `nasa-apis-extra-raw.json` and `donki-flr-sep-may2024-raw.json` are not active event inputs or mission sources. Do not treat them as verified evidence until their provenance and raw responses are checked.
+- No extra UI/API work is needed to show the current source fields: the existing source drawer renders mission source metadata and the decision panel renders event descriptions. Verify those in the integrated browser flow after a snapshot refresh.
+
+### Integration checks and handoff
+
+- The refresh merge recorded in `docs/MERGE_LOG.md` passed project tests, typecheck and production build. Later integrated work may add tests, so rerun the current suite after refreshing instead of relying on the historical test count.
+- To hand off a new snapshot update, tell Himamshu the feature branch, commit hash, exact owned paths, validation commands/results, and any remaining caveats. Ask Dixit only for a UI check if the displayed source/wording needs verification; ask Rohit if gameplay rules or contracts must change.
+- Current feature branch is published and integrated; it contains the launch-failure note removal. Unverified extra fixtures remain outside the feature handoff unless validated and deliberately added.
+
+### Copy-ready team messages
+
+**Template to Himamshu after a future refresh:**
+
+> Missions handoff: `feat/genius-missions`, commit `<hash>`, scope `src/features/missions/**`. Refreshed bundled DONKI snapshot and verified the observation mapping to the authored Shift 2/3 shelter drill; no live game requests. Checks: `<test/typecheck/build results>`. Please queue this branch for the normal serial merge.
+
+**To Dixit (UI):**
+
+> The refreshed DONKI mission source needs no UI code change: `SourceCredits` already renders source title/link/date/units/mapping and `DecisionPanel` renders the event description. Please verify the new CME source card and authored-drill wording during integration.
+
+## Original Mission Milestone: Integrated
 
 Branch: `feat/genius-missions`  
 Owned Paths: `src/features/missions/**` only.
@@ -22,7 +82,7 @@ Authored six distinct, deterministic shifts matching `docs/HACKATHON_PLAN.md` wi
 
 ### B. Verified NASA Archived Observation & Sources
 - **Archived Data Mode**: `dataMode: 'archived'`.
-- **Primary NASA Source (`nasa-donki-cme-2024`)**:
+- **Historical NASA Source (`nasa-donki-cme-2024`)**:
   - Raw JSON fixture: `src/features/missions/data/donki-cme-may2024-raw.json`.
   - Event: Coronal Mass Ejection `2024-05-11T01:36:00-CME-001` associated with X5.8 flare from NOAA Active Region 13664.
   - Observing instruments: SOHO LASCO C2/C3, STEREO A SECCHI/COR2, SDO AIA 193.

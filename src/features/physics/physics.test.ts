@@ -319,6 +319,24 @@ describe('Reset, Pause, Focus and Lifecycle Hooks', () => {
     physics.dispose();
   });
 
+  it('keeps WASD movement active while a button has focus', async () => {
+    const physics = await createPhysics();
+    const mockButton = {
+      closest: (selector: string) => selector.includes('button'),
+    };
+
+    window.dispatchEvent({
+      type: 'keydown',
+      code: 'KeyD',
+      target: mockButton,
+    } as any);
+
+    for (let i = 0; i < 30; i++) physics.step(1 / 60);
+    expect(physics.getPlayerPose().x).toBeGreaterThan(0.5);
+
+    physics.dispose();
+  });
+
   it('prevents default scroll behavior on arrow keys', async () => {
     const physics = await createPhysics();
     const preventDefault = vi.fn();

@@ -1,4 +1,10 @@
 import type { MissionData } from '../../contracts';
+import donkiSnapshot from './data/donki-cme-snapshot.json';
+import insightWeatherRaw from './data/insight-mars-weather-raw.json';
+
+const sol675 = insightWeatherRaw['675'];
+const donkiObservation = donkiSnapshot.observation;
+const donkiMetadata = donkiSnapshot.metadata;
 
 export function loadMission(): MissionData {
   return {
@@ -10,54 +16,56 @@ export function loadMission(): MissionData {
     dataMode: 'archived',
     sources: [
       {
-        id: 'nasa-donki-cme-2024',
-        title: 'NASA DONKI Solar Coronal Mass Ejection (CME) 2024-05-11',
-        url: 'https://ccmc.gsfc.nasa.gov/DONKI/view/CME/30742/-1',
-        retrievedAt: '2026-11-14T05:40:00Z',
-        observedAt: '2024-05-11T01:36Z',
+        id: 'nasa-donki-cme-snapshot',
+        title: `NASA DONKI CME observation (${donkiObservation.startTime.slice(0, 10)})`,
+        url: donkiMetadata.queryUrl,
+        retrievedAt: donkiMetadata.retrievedAt,
+        observedAt: donkiObservation.startTime,
         mode: 'archived',
-        units: 'km/s (CME expansion velocity: 1820 km/s, half-angle: 48 deg)',
-        licenseNotes: 'NASA open data (CCMC / DONKI). NASA non-endorsement statement: NASA does not endorse commercial products or games. Simplified for educational gameplay.',
-        mapping: 'Extreme solar particle event models the Shift 3 space weather alert. Regolith shelter shielding (>=15) mitigates severe life-support and solar array damage.',
+        units: `CME analysis speed ${donkiObservation.speedKmPerSecond} km/s (${donkiObservation.analysisType} analysis)`,
+        licenseNotes: 'NASA CCMC / DONKI open data. NASA non-endorsement statement: NASA data, imagery, and technical information may not be used to state or imply the endorsement by NASA or by any NASA employee of a commercial product, service, or activity, or used in any manner that might mislead.',
+        mapping: 'The archived CME observation is shown as context for the authored shelter drill in Shifts 2–3; it is not a measurement of Mars conditions, crew dose, or the game reserve losses.',
       },
       {
-        id: 'nasa-moxie-isru',
-        title: 'NASA Perseverance Rover MOXIE (Mars Oxygen ISRU Experiment)',
-        url: 'https://mars.nasa.gov/mars2020/spacecraft/instruments/moxie/',
+        id: 'nasa-insight-weather',
+        title: 'NASA InSight Mars Weather Service API',
+        url: 'https://api.nasa.gov/insight_weather/?feedtype=json&ver=1.0',
         retrievedAt: '2026-11-14T05:40:00Z',
-        observedAt: '2021-04-20T00:00Z',
+        observedAt: '2020-10-19T00:00Z',
         mode: 'archived',
-        units: 'g/hr O2 (solid oxide electrolysis at 800 deg C producing ~12 g O2/hr at ~300 W)',
-        licenseNotes: 'NASA / JPL-Caltech open mission record. NASA non-endorsement applies.',
-        mapping: 'Inspires Shift 1 oxygen generation choice: electrolysis of Martian atmospheric CO2 generates breathable oxygen at the cost of electrical power and scrubber maintenance supplies.',
+        units: `Pressure ${sol675.PRE.av} Pa, Temp ${sol675.AT.av} C, Wind ${sol675.HWS.av} m/s`,
+        licenseNotes: 'NASA / JPL-Caltech open data. Non-endorsement applies.',
+        mapping: 'Grounds Shift 1 MOXIE CO2 pressure constraints and Shift 6 weather telemetry.',
       },
       {
         id: 'csa-space-food-toolkit',
-        title: 'CSA Deep Space Food Production & Plant Growth Toolkit',
+        title: 'CSA Deep Space Food Production Toolkit',
         url: 'https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/',
         retrievedAt: '2026-11-14T05:40:00Z',
+        observedAt: '2026-01-01T00:00Z',
         mode: 'archived',
-        units: 'Controlled Environment Agriculture (photoperiod, nutrient solution, daily caloric intake)',
+        units: 'Controlled Environment Agriculture (photoperiod, nutrient loop)',
         licenseNotes: 'Canadian Space Agency open educational material. Non-endorsement applies.',
-        mapping: 'Inspires Shift 4 greenhouse dilemma: high-intensity LED grow lamps consume heavy electrical power to yield food and botanical data, while conserving power draws down stored rations.',
+        mapping: 'Informs Shift 4 greenhouse LED power draw vs stored supply consumption.',
       },
       {
         id: 'nasa-dsn-light-delay',
-        title: 'NASA Deep Space Network (DSN) & Mars Interplanetary Comms',
+        title: 'NASA Deep Space Network (DSN) Light-Time Delay',
         url: 'https://www.nasa.gov/directorates/somd/space-communications-navigation-program/deep-space-network/',
         retrievedAt: '2026-11-14T05:40:00Z',
+        observedAt: '2026-01-01T00:00Z',
         mode: 'archived',
-        units: 'Light travel delay (c = 300,000 km/s; 3.0 to 22.3 min one-way latency)',
-        licenseNotes: 'NASA SCaN / DSN educational record. NASA non-endorsement applies.',
-        mapping: 'Inspires Shift 5 communications decision: demonstrates speed-of-light 1-turn communication delay for scientific data confirmation from Earth.',
+        units: 'Speed of light c (3 to 22 min one-way latency)',
+        licenseNotes: 'NASA SCaN / DSN educational record. Non-endorsement applies.',
+        mapping: 'Informs Shift 5 1-turn delayed science validation from Earth.',
       },
     ],
     events: [
       {
         id: 'shift-1-oxygen-vs-science',
         title: 'Oxygen Production vs Science Equipment',
-        description: 'Outpost power is limited on Sol 1. Decide whether to run the oxygen generator to build breathable air buffers or power surface science sensors.',
-        sourceIds: ['nasa-moxie-isru'],
+        description: `InSight telemetry records ${sol675.PRE.av} Pa atmospheric pressure at Elysium Planitia. Decide whether to run MOXIE CO2 electrolysis or power surface science sensors.`,
+        sourceIds: ['nasa-insight-weather'],
         choices: [
           {
             id: 'oxygen',
@@ -82,8 +90,8 @@ export function loadMission(): MissionData {
       {
         id: 'shift-2-shelter-vs-exploration',
         title: 'Shelter Preparation vs Exploration',
-        description: 'Orbital telemetry warns of rising solar activity. Prepare radiation shielding for the habitat or extend rover exploration.',
-        sourceIds: ['nasa-donki-cme-2024'],
+        description: `DONKI recorded a CME on ${donkiObservation.startTime} with an estimated speed of ${donkiObservation.speedKmPerSecond} km/s. This shelter drill is an authored what-if, not a measured Mars hazard. Prepare shelter or explore?`,
+        sourceIds: ['nasa-donki-cme-snapshot'],
         choices: [
           {
             id: 'shield',
@@ -108,8 +116,8 @@ export function loadMission(): MissionData {
       {
         id: 'shift-3-solar-weather-alert',
         title: 'Solar Weather Hazard Response',
-        description: 'A powerful solar particle storm strikes Mars! The outpost must respond while the radiation hazard impacts surface operations.',
-        sourceIds: ['nasa-donki-cme-2024'],
+        description: `Respond to an authored solar-weather shelter drill inspired by the DONKI CME observed ${donkiObservation.startTime} (${donkiObservation.speedKmPerSecond} km/s). The modeled reserve losses are not measured Mars damage or crew radiation dose.`,
+        sourceIds: ['nasa-donki-cme-snapshot'],
         hazard: {
           minShielding: 15,
           mitigatedLoss: { power: -4, oxygen: -2 },
@@ -204,8 +212,8 @@ export function loadMission(): MissionData {
       {
         id: 'shift-6-final-science-vs-reserves',
         title: 'Final Science Push vs Reserve Stabilization',
-        description: 'The expedition shift rotation concludes. Decide whether to make a final science push to reach mission goals or stabilize outpost life support for the incoming crew.',
-        sourceIds: ['nasa-donki-cme-2024', 'nasa-moxie-isru'],
+        description: `With ${sol675.HWS.av} m/s winds and ${sol675.AT.av}°C temperature readings from InSight, decide whether to make a final science push or stabilize outpost life support.`,
+        sourceIds: ['nasa-insight-weather', 'nasa-donki-cme-snapshot'],
         choices: [
           {
             id: 'research',

@@ -4,6 +4,15 @@ Read root `AGENTS.md` and `docs/CONTRACTS.md`. Own only `src/features/hud/**`, i
 
 ## Task
 
+### Latest task/reward/automatic hazard direction — 14 Nov
+
+Supersedes older card requirements below: no three-card decisions or post-task cards in the playable loop. Any station job can be started, minigame completion gives one positive payout, and six completed jobs end the mission. Negatives come from active-time reserve consumption and automatic warned hazards; matching maintenance prevents hazard damage. Read root AGENTS.md and docs/CONTRACTS.md for the implemented optional station-tasks mode, action tokens and pause/reset rules. Himamshu's explicit user-requested cross-feature handoff is recorded in the local notes; normal ownership resumes afterward. Do not reintroduce card-first or post-task choice gates.
+
+
+### Current task-first direction
+
+Show available station jobs, the selected job, its base reward/cost and progress using Rohit's supplied snapshots. Separate a task payout from a later card modifier in feedback so children can explain each change. Support capped exploration discoveries without inventing balances or randomizing in the HUD. Use brighter station colors, friendly icons, readable large controls and short success feedback with reduced-motion support. Keep door/interaction prompts and cards from obscuring the player. Rohit coordinates any new props/contracts; retain compatibility and do not implement the new reducer or App routing. The intended order is explore → chosen station minigame → task outcome → one of three trade-off cards → explore, not card selection before entry.
+
 Make a readable in-game status HUD for ages 7–12: power, air, supplies, current shift, science goal and shelter status. Explain resource changes with words/numbers and gentle visual feedback. Keep `HudOverlay.vue` props `state` and `mission` compatible. Components beneath it are yours.
 
 You own the status display, not the welcome/decision/pause/results screens (Dixit), state reducer (Rohit), or canvas (Himamshu). Import contracts and your own helpers only. Never directly mutate props, allocate an engine, fetch data or implement a second simulation.

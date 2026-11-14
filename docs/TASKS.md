@@ -1,4 +1,27 @@
+# Latest task-loop direction — 14 November
+
+The latest user instruction supersedes the card-related acceptance below. Implemented handoff: freely choose a station job or use a 3D computer, finish its minigame, receive a positive payout once, keep exploring. No three-card decisions before or after work. Five reusable job types cover air, shelter, power, plants and science. Six completions end the mission. Active-time system consumption and warned hazards happen without completing jobs; service matching systems to prevent hazard damage. Pause/hidden tabs freeze time. Root AGENTS.md and docs/CONTRACTS.md describe the exact optional mode and handoff.
+
+Himamshu: continuous interiors, markers and computer entry. Saurav: supplied reserve/hazard/progress feedback. Dixit: work orders, onboarding, pause and debrief. Anshu: movement/input lifecycle. Genius: NASA context/provenance, without representing authored timers as observations. Rohit: authoritative tasks/rewards/timers and shell integration. Antigravity: serial main integration.
+
+---
+
 # Six owners, six task areas
+
+## Active update: explore, task, outcome, cards
+
+The 14 Nov user-approved direction in root AGENTS.md supersedes the original card-first scaffold acceptance below. This is assigned work, not a claim that the migration is complete. Keep each implementation in its owner's feature branch, with additive contracts coordinated by Rohit and serial merging by Antigravity.
+
+| Owner | Next deliverable | Acceptance |
+| --- | --- | --- |
+| Himamshu | Free building exploration, animated open/close doors, readable local models | Enter without an active task; closed doors block portal entry; walk through open door; safe exit; keyboard/touch controls; local licensed optimized assets; disposal |
+| Saurav | Brighter task-aware HUD | Available/current job, separate task payout and card effect feedback, reserves readable, player/door prompts unobscured |
+| Dixit | Three minigame families and post-task card UI | Air leak, power connections, greenhouse balance with accessible alternatives; exactly three post-task cards; benefits/costs/durations visible; no card-first entry gate |
+| Anshu | Reliable door portal/movement support | Shared coordinates, safe exterior return, closed-door checks composed by shell, no wall bypass, pause/restart/focus reliability |
+| Genius | Station job variants and trade-off content | Stable IDs, seeded optional variants, distinct base outcomes and modifiers; essential jobs always available; bounded loot; honest NASA mapping |
+| Rohit | Validated task → outcome → card state machine and wiring | Once-only completion and card resolution, six-job pacing, tested modifier lifecycle/reset, capped one-time finds, additive contracts and backwards-compatible migration |
+
+Scope guard: one Mars map plus existing Earth/orbit introductions, 2–3 available jobs, three reusable minigames, modest exploration finds. No mandatory idle timeout, giant open world or uncontrolled random resource economy. Existing six shifts remain until the coordinated migration is complete.
 
 Saurav and Dixit were both assigned HUD/UI. Their work is split below to create six independent tracks. Rohit implements shared app wiring/contracts; Himamshu runs the Git merge queue. Every owner, including Rohit, hands completed branches to Himamshu. Everyone can implement against the supplied stubs and contracts immediately.
 

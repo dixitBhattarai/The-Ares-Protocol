@@ -43,6 +43,7 @@ export function createAstronaut(kit: ModelKit): AstronautVisual {
 
 /** Animate only the visual rig. The caller supplies distance-based cycle and pose. */
 export function applyAstronautGait(visual: AstronautVisual, cycle: number, moving: boolean): void {
+  for (const child of visual.group.children) if (typeof child.userData.animateSuit === 'function') child.userData.animateSuit(cycle, moving);
   const swing = moving && Number.isFinite(cycle) ? Math.sin(cycle) : 0;
   visual.legs.forEach((leg, index) => {
     const side = index ? -1 : 1;
@@ -50,4 +51,10 @@ export function applyAstronautGait(visual: AstronautVisual, cycle: number, movin
     leg.position.y = -.3 + Math.abs(swing) * .01 + Math.max(0, side * swing) * .025;
   });
   visual.arms.forEach((arm, index) => { arm.rotation.x = (index ? 1 : -1) * swing * .12; });
+}
+
+export function updateAstronautAnimation(visual: AstronautVisual, seconds: number, active: boolean, reduced: boolean): void {
+  for (const child of visual.group.children) {
+    if (typeof child.userData.updateSuit === 'function') child.userData.updateSuit(seconds, active, reduced);
+  }
 }

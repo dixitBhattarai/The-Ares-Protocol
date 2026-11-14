@@ -9,6 +9,15 @@ export interface Effect {
   shielding?: number;
   science?: number;
 }
+export interface StationTask {
+  id: string;
+  station: StationId;
+  title: string;
+  steps: readonly string[];
+  reward: Effect;
+  benefit: string;
+  prevention: string;
+}
 export interface DelayedEffectDef {
   delayTurns: number;
   description: string;
@@ -58,6 +67,7 @@ export interface SourceRecord {
   mapping: string;
 }
 export interface MissionData {
+  gameplayMode?: 'station-tasks';
   id: string;
   title: string;
   maxTurns: number;
@@ -102,6 +112,13 @@ export interface PendingDelayedEffect {
 }
 
 export interface GameState {
+  taskRun?: {
+    session: number;
+    elapsed: number;
+    completedIds: readonly string[];
+    activeTaskId?: string;
+    protections: Partial<Record<StationId, number>>;
+  };
   phase: Phase;
   turn: number;
   resources: Resources;
@@ -115,24 +132,51 @@ export interface GameState {
   upcomingHazardNotice?: string;
 }
 export type GameAction =
+  | { type: 'START_TASK'; taskId: string }
+  | { type: 'COMPLETE_TASK'; completionId: string }
+  | { type: 'CANCEL_TASK' }
+  | { type: 'TICK'; seconds: number }
   | { type: 'START' }
   | { type: 'PAUSE' }
   | { type: 'RESUME' }
   | { type: 'RESTART' }
   | { type: 'CHOOSE'; choiceId: string };
 export interface WorldAdapter {
+  setAvailableTasks?(stations: readonly StationId[], offerId: string): void;
+  setEarthOutside?(outside: boolean): void;
+  getCameraYaw?(): number;
+  setDoorState?(station: StationId, open: boolean): void;
+  isDoorOpen?(station: StationId): boolean;
+  setMotionPaused?(paused: boolean): void;
   setLevel?(level: 'earth' | 'space' | null): void;
   setConsoleHandler?(handler: ((index: number) => void) | null): void;
   setInterior?(station: StationId | null): void;
   setJourney?(progress: number | null): void;
   setObjective?(station: StationId | null): void;
   setActivityProgress?(progress: number): void;
+  setFlightStage?(stage: FlightStage | null, progress: number): void;
   setPlayerPose(pose: Vec3): void;
   setState(state: Readonly<GameState>): void;
   render(): void;
   dispose(): void;
 }
+export type GravityBody = 'earth' | 'orbit' | 'mars';
+export type FlightStage = 'launch' | 'orbit-autopilot' | 'transfer' | 'landing' | 'touchdown';
+export type FlightControlKey = 'KeyW' | 'KeyA' | 'KeyS' | 'KeyD' | 'Space';
+export interface FlightControlStep { key: FlightControlKey; action: string; explanation: string }
+export interface GravityInfo {
+  body: GravityBody;
+  gravityMS2: number;
+  relativeToEarth: number;
+  jumpHeightM: number;
+  canJump: boolean;
+}
 export interface PhysicsAdapter {
+  setGravityBody?(body: GravityBody): void;
+  getGravityInfo?(): GravityInfo;
+  setDoorOpen?(station: StationId, open: boolean): void;
+  walkPath?(points: readonly Vec3[]): void;
+  setCameraYaw?(yaw: number): void;
   enterInterior?(): void;
   exitInterior?(): void;
   step(seconds: number): void;
@@ -144,7 +188,9 @@ export interface PhysicsAdapter {
 }
 // Units: metres, Y up, ground at Y=0. Keep rendering and collision layouts identical.
 export const STATIONS: ReadonlyArray<{ id: StationId; position: Vec3 }> = [
-  { id: 'habitat', position: { x: -5, y: 1, z: 0 } },
-  { id: 'solar', position: { x: 5, y: 1, z: 0 } },
-  { id: 'greenhouse', position: { x: 0, y: 1, z: -6 } },
+  { id: 'habitat', position: { x: -7, y: 1, z: 0 } },
+  { id: 'solar', position: { x: 7, y: 1, z: 0 } },
+  { id: 'greenhouse', position: { x: 0, y: 1, z: -9 } },
 ];
+export const BUILDING_HALF_SIZE = 3.2;
+export const DOOR_HALF_WIDTH = .78;

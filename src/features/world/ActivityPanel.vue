@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { StationId } from '../../contracts';
+import StationMinigame from './StationMinigame.vue';
 defineProps<{ station: StationId; title: string; steps: readonly string[]; impact: string; progress: number; inside: boolean; feedback: string; paused: boolean }>();
 defineEmits<{ control: [value: string]; travel: []; enter: []; exit: []; cancel: []; pause: [] }>();
 </script>
@@ -9,18 +10,17 @@ defineEmits<{ control: [value: string]; travel: []; enter: []; exit: []; cancel:
     <h2>{{ title }}</h2>
     <p class="impact">On completion: {{ impact }}</p>
     <template v-if="!inside">
-      <p>Walk to the {{ station }}, then select its module or press E at the door. Finish the procedure inside to apply this shift’s choice.</p>
-      <button @click="$emit('enter')">Enter nearby module (E)</button>
+      <p>Walk to the {{ station }} door. Press E to open it, then walk through or use Enter room. Finish the minigame inside to earn the job reward.</p>
+      <button @click="$emit('enter')">Enter nearby module</button>
       <button @click="$emit('travel')">Accessible travel to task door</button>
     </template>
     <template v-else>
-      <p>Move with WASD / arrows. Click the numbered 3D console screens or use these controls in order:</p>
-      <ol><li v-for="(step, i) in steps" :key="step" :class="{ done: i < progress }">{{ i < progress ? '✓ ' : '' }}{{ step }}</li></ol>
-      <div class="controls"><button v-for="step in [...steps].reverse()" :key="step" :disabled="paused || progress >= steps.length" @click="$emit('control', step)">{{ step }}</button></div>
+      <StationMinigame :station="station" :title="title" :progress="progress" :paused="paused" @complete="stage => stage === progress && $emit('control', steps[stage])" />
+      <details><summary>Procedure notes</summary><ol><li v-for="(step, i) in steps" :key="step" :class="{ done: i < progress }">{{ i < progress ? '✓ ' : '' }}{{ step }}</li></ol></details>
       <button @click="$emit('exit')">Exit module</button>
     </template>
     <p role="status">{{ feedback }}</p>
-    <p class="note">No shift cost or reward is applied until the procedure is complete. Storm outcomes use authored game rules, not medical predictions.</p>
+    <p class="note">The reward is paid once when all checks are complete. Outpost systems and hazards continue while you work; use Pause for a break. These are authored game rules, not medical predictions.</p>
     <div class="actions"><button @click="$emit('pause')">{{ paused ? 'Resume activity' : 'Pause activity' }}</button><button @click="$emit('cancel')">Cancel task</button></div>
   </section>
 </template>

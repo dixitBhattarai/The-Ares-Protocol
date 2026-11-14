@@ -8,7 +8,21 @@ Build a browser game for children ages 7–12 managing a small Mars outpost. Tea
 
 Stack: Vue 3 + TypeScript for screens; Three.js for the world; Rapier for movement/collisions; Vite; npm with the committed lockfile. No backend, login, multiplayer, extra state library or engine migration for the MVP.
 
-## Exclusive ownership
+## Current gameplay direction — latest 14 November update
+
+The user's latest request supersedes all three-card and post-task modifier requirements below or in older prompts. Remove decision cards from the playable loop. Players freely explore and use station computers or the work-order list to start any job. Completing the minigame pays one explicit positive reward once; six completed jobs lead to a debrief. Jobs may repeat, with science progress still awarded when reserves are capped. No card selection before or after a job.
+
+Negatives occur automatically during active mission time: routine life-support consumption every 20 seconds and a warned hazard every 30 seconds. Matching air/power/plant maintenance prevents corresponding hazard damage for 60 active seconds; shelter score 15 prevents solar-storm damage. Routine consumption continues even with maintenance protection. These numbers are authored game mechanics, not NASA forecasts, dose estimates or medical predictions. Pause/hidden tabs stop the simulation; replay clears its clock/protection/rewards. Opportunity cost is the time spent doing one job while other systems need care.
+
+For this explicitly requested implementation, Himamshu authors the necessary game, UI, App/contracts, world activity wording and coordination documentation slice in his isolated branch. Record exact paths/validation in game, UI and world notes. Existing owners retain their roles after handoff; do not edit their dirty checkouts. Antigravity continues main integration. The legacy CHOOSE reducer/API remains compatible for older integrations, but App uses station-tasks mode and does not display the old cards.
+
+Use a cohesive brighter space palette, recognizable station colors, large illustrated controls, short friendly instructions and restrained success effects. Keep danger legible through icons/text, respect reduced motion, and do not obscure navigation with the card panel. Show explicit door state; allow exploration entry without selecting a job, and support open/close plus an easy exit.
+
+Prefer well-made lightweight rigged models and coherent materials. Free downloads are authorized when their actual license permits incorporation into this game. Verify source/usage rights, keep credits and hashes, optimize textures/mesh size, bundle locally, retain load-failure fallbacks and never assume "free" means unrestricted. No new package or paid asset purchase is implied.
+
+For this update only, Himamshu is explicitly assigned edits to root and all six feature AGENTS.md files and coordination task/prompt docs. His door integration may edit App.vue, additive world contracts and world files under the user's requested coordinated gameplay/door scope. Record the exact handoff in world/NOTES.md; Rohit retains subsequent engineering ownership. This does not transfer other feature implementation ownership or authorize editing another agent's dirty checkout. Antigravity retains the serial merge queue in main.
+
+## Exclusive ownership (unchanged)
 
 | Person | Primary task | Allowed feature files | Branch |
 | --- | --- | --- | --- |

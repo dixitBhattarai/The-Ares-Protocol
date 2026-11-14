@@ -6,12 +6,12 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 
 | Branch | Reported tip | Scope | State |
 | --- | --- | --- | --- |
-| `feat/himamshu-world` | `97547fe` | `src/features/world/**`, `src/App.vue`, `src/contracts/index.ts` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors `8764bfa`; NASA assets, detailed interiors, and playable Earth/orbit preflight merged by `c644a59`; checks passed |
-| `feat/rohit-game` | `a17ea4b` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory `72f8f65`; audio synthesis, star badges, keyboard navigation `b7c9c33`; contextual station procedures, console audio, and direct decision mode merged by `44a7120`; checks passed |
-| `feat/saurav-hud` | `1d6902a` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations `4d07adf`; in-game status polish `86c1beb`; science & shelter readout softening `44ff31e`; expandable science and shelter buttons `f994aa7`; stat icon spin and numerator progress roll merged by `667ae75`; checks passed |
-| `feat/anshu-physics` | `4108654` | `src/features/physics/**` | Grounded astronaut controller, reset and pause merged by `dfe1d24`; checks passed |
-| `feat/dixit-ui` | `0637603` | `src/features/ui/**` | Onboarding, decisions, pause, debrief replay & sources merged by `55799b3`; checks passed |
-| `feat/genius-missions` | `66a5322` | `src/features/missions/**` | Six teaching decisions & NASA CME evidence merged by `a8d9a39`; alert wording reconciled by `500c830`; checks passed |
+| `feat/himamshu-world` | `a510847` | `src/features/world/**`, `src/App.vue`, `src/contracts/index.ts`, `docs/CONTRACTS.md`, `src/features/physics/**`, `src/features/game/**`, `src/features/ui/**` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors `8764bfa`; NASA assets, detailed interiors, and playable Earth/orbit preflight `c644a59`; procedural suit rig `2a4f7f7`; Mixamo locomotion clips `0fae932`; openable doors & free building exploration `79ad90d`; third-person exploration & outdoor Earth campus merged by `e82fa10`; station minigames and task cues merged by `e05925c`; walk-through interiors & optimized environment models merged by `dded677`; paid station tasks and card-free gameplay loop merged by `42dd960`; work interactables and outpost visual refresh merged by `0fac3be`; checks passed |
+| `feat/rohit-game` | `4d02fd0` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory `72f8f65`; audio synthesis, star badges, keyboard navigation `b7c9c33`; contextual station procedures `44a7120`; full-reserve sound, in-viewport deck overlay, and roguelike choice cards merged by `828493c`; checks passed |
+| `feat/saurav-hud` | `603b5df` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations `4d07adf`; in-game status polish `86c1beb`; science & shelter readout softening `44ff31e`; expandable science and shelter buttons `f994aa7`; stat icon spin and numerator progress roll `667ae75`; gentle cursor parallax and motion polish `afff7e4`; viewport event toast details `94ce20e`; playful reserve meter visuals `d77cb4c`; Earth & orbit stage HUD displays merged by `17f518b`; checks passed |
+| `feat/anshu-physics` | `7122c7b` | `src/features/physics/**` | Grounded astronaut controller, reset and pause merged by `dfe1d24`; WASD movement on focused buttons merged by `3e854a1`; checks passed |
+| `feat/dixit-ui` | `aea6ba9` | `src/features/ui/**`, `src/App.vue`, `src/assets/**` | Initial onboarding, decisions, pause, debrief replay & sources `55799b3`; cinematic splash screen, Mars observatory menu, and 3D Earth view merged by `b4549b4`; audio volume/mute synthesizer controls and command deck mission info toggle controls merged by `c36bd06`; checks passed |
+| `feat/genius-missions` | `87c2189` | `src/features/missions/**` | Six teaching decisions & NASA CME evidence `a8d9a39`; alert wording reconciled by `500c830`; refreshable DONKI snapshot and raw NASA datasets `e4abf24`; observation details and NASA API documentation merged by `15ea38e`; checks passed |
 
 Verify refs, scope and checks before a merge; this table is not authorization to merge. Anshu and Dixit have no published branch recorded at this review.
 
@@ -180,6 +180,141 @@ Himamshu issued a standing mandate authorizing the merge coordinator to automati
    - Changes: Thin circular outline with one-shot spin on icon hover/focus; background-free progress feedback pop with numerator roll animation and gentle denominator nudge; shift update description placed below heading.
    - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (10 test files, 74 tests passed); `npm run build` passed cleanly.
 
+### 14 Nov 2026 — Rohit (game), Himamshu (world), and Saurav (HUD) continuation integration
+
+1. **`feat/rohit-game` (tip `4d02fd0`)**:
+   - Merged as `828493c`, preserving Rohit's commits `8653e0c` and `4d02fd0`.
+   - Scope: `src/App.vue`, `src/contracts/index.ts`, `src/features/game/NOTES.md`, `src/features/game/audio.ts`, `src/features/game/game.test.ts`, `src/features/game/index.ts`. All paths owned by Rohit.
+   - Changes: Synthesizer full-reserve ascending chime ($D5 \to A5 \to D6$) triggered when any resource crosses to 100%; in-viewport command deck overlay allowing full-screen surface exploration with toggle (`KeyC`); roguelike choice cards with additive rarity types (`vital`, `hazard-response`, `experimental`, `standard`), presentation badges, and tactile hover states.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (10 test files, 75 tests passed); `npm run build` passed cleanly.
+
+2. **`feat/himamshu-world` (tip `bd51017`)**:
+   - Merged as `2a4f7f7`, preserving Himamshu's commit `bd51017`.
+   - Scope: `src/features/world/CREDITS.md`, `src/features/world/NOTES.md`, `src/features/world/astronaut.ts`, `src/features/world/index.ts`, `src/features/world/nasa-assets.ts`, `src/features/world/resources.ts`, `src/features/world/suit-rig.test.ts`, `src/features/world/suit-rig.ts`. All paths owned by Himamshu.
+   - Changes: Procedural suit rig for the NASA astronaut model, binding animated joints and limb rotations to player movement vectors and posture states; added unit tests in `suit-rig.test.ts`.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (11 test files, 78 tests passed); `npm run build` passed cleanly.
+
+3. **`feat/saurav-hud` (tip `2bdacef`)**:
+   - Merged as `afff7e4`, preserving Saurav's commits `5f6aedd`, `50eaced`, and `2bdacef`.
+   - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
+   - Changes: Eased sub-pixel cursor parallax with distinct directions and depths across HUD elements and hazard toast (disabled on reduced-motion); softened low-reserve meter pulse; progress pop positioned beside icon.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (11 test files, 78 tests passed); `npm run build` passed cleanly.
+
+### 14 Nov 2026 — Himamshu (world) and Saurav (HUD) locomotion and event toast integration
+
+1. **`feat/himamshu-world` (tip `21ce887`)**:
+   - Merged as `0fae932`, preserving Himamshu's commit `21ce887`.
+   - Scope: `src/features/world/**` (including `assets/astra.glb`, `manifest.json`, `astronaut.ts`, `expedition.ts`, `index.ts`, `locomotion.ts`, `locomotion.test.ts`, `nasa-assets.ts`, `prepare-mixamo.py`, `AssetCredits.vue`, `CREDITS.md`, `NOTES.md`).
+   - Changes: Integrated Mixamo astronaut idle and walking locomotion blend tree with speed-matched stride, weight transitions, animation mixer lifecycle management, and unit tests in `locomotion.test.ts`. Added Blender Mixamo animation extraction script and updated 3D asset manifest.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (12 test files, 81 tests passed); `npm run build` passed cleanly.
+
+2. **`feat/saurav-hud` (tip `c5973b1`)**:
+   - Merged as `94ce20e`, preserving Saurav's commits `8af0f6f`, `164ff68`, and `c5973b1`.
+   - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
+   - Changes: Surfaced viewport event toast details and contextual telemetry cues, matching the updated command deck aesthetic.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (12 test files, 81 tests passed); `npm run build` passed cleanly.
+
+### 14 Nov 2026 — Himamshu (world) openable doors and free building exploration integration
+
+1. **`feat/himamshu-world` (tip `20a8f9d`)**:
+   - Merged as `79ad90d`, preserving Himamshu's commits `5573049` and `20a8f9d`.
+   - Scope: `docs/CONTRACTS.md`, `src/App.vue`, `src/contracts/index.ts`, `src/features/world/ActivityPanel.vue`, `src/features/world/DoorPanel.vue`, `src/features/world/NOTES.md`, `src/features/world/doors.test.ts`, `src/features/world/doors.ts`, `src/features/world/expedition.ts`, `src/features/world/index.ts`, `src/features/world/interiors.ts`, `src/features/world/models.ts`, plus documentation updates in `AGENTS.md`, `docs/TASKS.md`, `docs/PROMPTS.md`, and all feature `AGENTS.md` files.
+   - Changes: User-approved gameplay direction assigning task-first exploration, randomized job offers, post-task card trade-offs, and cohesive station visuals. Added animated split sliding doors to all three Mars outpost modules (Habitat, Solar Station, Greenhouse) and matching interior front exits. Walk-in and walk-out transitions, E key or visual button open/close controls with door-readiness gating (instant in reduced-motion mode). Bounded interior exploration permitted without gating on active job selection; existing 3-step procedures remain intact. Exploration ribbon controls under viewport with accessible door travel. Additive contracts: `setDoorState`, `isDoorOpen`, and `setMotionPaused` (fixing cosmetic idle during preparation pause). Added unit tests in `doors.test.ts`.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (13 test files, 84 tests passed); `npm run build` passed cleanly in 1.11s with all client assets bundled.
+
+### 14 Nov 2026 — Himamshu (world) third-person exploration and outdoor Earth campus integration
+
+1. **`feat/himamshu-world` (tip `9df93f0`)**:
+   - Merged as `e82fa10`, preserving Himamshu's commits `e82521e` and `9df93f0`.
+   - Scope: `docs/CONTRACTS.md`, `src/App.vue`, `src/contracts/index.ts`, `src/features/physics/camera-movement.test.ts`, `src/features/physics/index.ts`, `src/features/physics/NOTES.md`, `src/features/world/PreparationPanel.vue`, `src/features/world/earth.ts`, `src/features/world/expedition.ts`, `src/features/world/follow-camera.ts`, `src/features/world/index.ts`, `src/features/world/world.css`, `src/features/world/NOTES.md`.
+   - Changes: Perspective third-person follow camera with drag/touch rotation, wheel/pinch zoom, and accessible rotate/zoom/reset controls using installed Three.js OrbitControls addon (suppressing accidental clicks during drags); outdoor Earth training campus with grass, walking paths, training buildings, distant launch vehicle, and openable training lab door; camera-heading relative movement mapping via additive `WorldAdapter.setEarthOutside/getCameraYaw` and `PhysicsAdapter.setCameraYaw` with unit tests in `camera-movement.test.ts`.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (14 test files, 87 tests passed); `npm run build` passed cleanly in 1.18s.
+
+### 14 Nov 2026 — Himamshu (world) station minigames and task availability cues integration
+
+1. **`feat/himamshu-world` (tip `278c91e`)**:
+   - Merged as `e05925c`, preserving Himamshu's commit `278c91e`.
+   - Scope: `docs/CONTRACTS.md`, `src/App.vue`, `src/contracts/index.ts`, `src/features/world/ActivityPanel.vue`, `src/features/world/NOTES.md`, `src/features/world/StationMinigame.vue`, `src/features/world/index.ts`, `src/features/world/minigame.test.ts`, `src/features/world/minigame.ts`, `src/features/world/world.css`. All paths within Himamshu's assigned feature and coordinated gameplay/door integration scope.
+   - Changes: Accessible station-computer minigames for all three modules (Habitat air leak patch panel, Solar power-cell circuit alignment, Greenhouse hydroponic leaf inspection and root watering) with keyboard/touch alternative buttons; floating 3D station status labels with gentle bob and hover lift; task availability cues ('!' exclamation badges on stations offering tasks, and a 5s dismissible banner notification with synthesized audio chime); additive contract `setAvailableTasks` on `WorldAdapter`; unit tests in `minigame.test.ts`.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (15 test files, 91 tests passed); `npm run build` passed cleanly in 943ms.
+
+### 14 Nov 2026 — Genius (missions) refreshable DONKI snapshot and raw NASA datasets integration
+
+1. **`feat/genius-missions` (tip `2ecab55`)**:
+   - Merged as `e4abf24`, preserving Genius's commits `4a9315f`, `45a8eab`, `8d59925`, `d45957a`, `ebe9358`, and `2ecab55`.
+   - Scope: `src/features/missions/**` (`NOTES.md`, `data/PROVENANCE.md`, `data/donki-cme-snapshot.json`, `data/donki-flr-sep-may2024-raw.json`, `data/insight-mars-weather-raw.json`, `data/nasa-apis-extra-raw.json`, `index.ts`, `missions.test.ts`, `scripts/refresh-donki-snapshot.mjs`, `scripts/refresh-donki-snapshot.test.mjs`). All paths owned by Genius.
+   - Changes: Maintainer script `scripts/refresh-donki-snapshot.mjs` for date-bounded NASA DONKI CME queries; local bundled snapshot for 2026-11-07 through 2026-11-14 with selected observation `2026-11-13T21:24:00-CME-001` (analysis speed 474 km/s); provenance documentation in `data/PROVENANCE.md`; raw NASA API dataset fixtures; updated source descriptions distinguishing authored shelter drill / reserve loss from measured Mars crew dose; unit tests in `scripts/refresh-donki-snapshot.test.mjs` and `missions.test.ts`.
+   - Cross-feature request recorded: Genius requests Rohit (game) consider a 1% once-per-expedition pre-flight launch safety abort with Dixit (UI) presenting the non-graphic stop and retry action.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (16 test files, 95 tests passed); `npm run build` passed cleanly in 818ms.
+
+### 14 Nov 2026 — Genius (missions), Saurav (HUD), and Dixit (UI) serial integration
+
+1. **`feat/genius-missions` (tip `87c2189`)**:
+   - Merged as `15ea38e`, preserving Genius's commit `87c2189`.
+   - Scope: `src/features/missions/NOTES.md`. All paths owned by Genius.
+   - Changes: Expanded observation snapshot details, NASA API query guidance, and documented distinction between measured Mars sensor data and authored simulation models.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (16 test files, 95 tests passed); `npm run build` passed cleanly.
+
+2. **`feat/saurav-hud` (tip `45d52be`)**:
+   - Merged as `d77cb4c`, preserving Saurav's commits `b053a2d`, `8035c96`, and `45d52be`.
+   - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
+   - Changes: Playful reserve meter visuals with rounded pill meters, distinct resource-colored gauge tracks, refined warning states, and refreshed micro-interactions.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (16 test files, 95 tests passed); `npm run build` passed cleanly.
+
+3. **`feat/dixit-ui` (tip `a974254`)**:
+   - Merged as `b4549b4`, preserving Dixit's commits `797f857`, `ef0565a`, and integration merge `a974254`.
+   - Scope: `src/features/ui/SplashScreen.vue`, `src/features/ui/LoginScreen.vue`, `src/features/ui/NOTES.md`, `src/App.vue`, and assets in `src/assets/**`.
+   - Changes: Cinematic splash screen featuring Ares logo with 2.5s timed transition; Mars observatory title and login screen with interactive 3D telescope view of Earth, Moon, and atmospheric cloud layers; start mission action button initiating the game sequence.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (16 test files, 95 tests passed); `npm run build` passed cleanly in 1.06s.
+
+### 14 Nov 2026 — Saurav (HUD) Earth and orbit stage HUD displays integration
+
+1. **`feat/saurav-hud` (tip `603b5df`)**:
+   - Merged as `17f518b`, preserving Saurav's commits `097963f` and `603b5df`.
+   - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
+   - Changes: Integrated Earth launch checklist readout and orbital flight trajectory indicators into in-viewport HUD during preflight/preparation phases, matching the aesthetic of the active Mars mission overlay.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (16 test files, 95 tests passed); `npm run build` passed cleanly in 1.12s.
+
+### 14 Nov 2026 — Himamshu (world) walk-through interiors and optimized environment models integration
+
+1. **`feat/himamshu-world` (tip `4463852`)**:
+   - Merged as `dded677`, preserving Himamshu's commits `f8e44cb` and `4463852`.
+   - Scope: `docs/CONTRACTS.md`, `src/App.vue`, `src/contracts/index.ts`, `src/features/physics/AGENTS.md`, `src/features/physics/NOTES.md`, `src/features/physics/building-movement.test.ts`, `src/features/physics/index.ts`, `src/features/world/**`. All paths within Himamshu's assigned feature, coordinated gameplay/door scope, and shared building collision contracts.
+   - Changes: Replaced interior room portal transitions with continuous hollow, walk-through 6.4m outpost buildings in the outdoor scene (Habitat, Solar Station, Greenhouse) with Rapier solid walls, doorways, and interior furniture colliders; door readiness gating and doorway clearance checks; perspective follow camera shortening against interior walls/ceilings; optimized environment 3D assets (NASA/JPL-Caltech Earth and Mars globes, RenderX Moon, Curiosity rover, SebastianSosnowski Olympus Mons terrain, Nicholas-3D warehouse); CC BY 4.0 provenance documentation and asset hashes in `CREDITS.md`; additive physics contract `setDoorOpen` and unit tests in `building-movement.test.ts`.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (17 test files, 101 tests passed); `npm run build` passed cleanly in 1.54s.
+
+### 14 Nov 2026 — Himamshu (world) paid station tasks and card-free gameplay loop integration
+
+1. **`feat/himamshu-world` (tip `a11637f`)**:
+   - Merged as `42dd960`, preserving Himamshu's sync commit `c53fb5e` and feature commit `a11637f`.
+   - Scope: `AGENTS.md`, `docs/CONTRACTS.md`, `docs/PROMPTS.md`, `docs/TASKS.md`, `src/App.vue`, `src/contracts/index.ts`, `src/features/game/AGENTS.md`, `src/features/game/NOTES.md`, `src/features/game/index.ts`, `src/features/game/station-game.test.ts`, `src/features/game/station-game.ts`, `src/features/hud/AGENTS.md`, `src/features/missions/AGENTS.md`, `src/features/physics/AGENTS.md`, `src/features/ui/AGENTS.md`, `src/features/ui/DebriefPanel.vue`, `src/features/ui/MissionPanels.vue`, `src/features/ui/NOTES.md`, `src/features/ui/OnboardingPanel.vue`, `src/features/ui/TaskBoard.vue`, `src/features/world/AGENTS.md`, `src/features/world/ActivityPanel.vue`, `src/features/world/NOTES.md`.
+   - Changes: User-requested card-free gameplay direction replacing the three-card decision loop with five persistent station work orders in `src/features/game/station-game.ts`; one-time positive payout upon interactive minigame completion; six completed jobs trigger mission debrief; active-time resource consumption (every 20s) and warned space hazards (every 30s); matching maintenance grants 60s hazard immunity and shelter $\ge 15$ blocks solar storms; validated start/cancel/complete tokens; fallback mission clock on engine initialization failure; unit tests in `station-game.test.ts`.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (18 test files, 118 tests passed); `npm run build` passed cleanly in 1.52s.
+
+### 14 Nov 2026 — Anshu (physics) WASD movement on focused buttons integration
+
+1. **`feat/anshu-physics` (tip `7122c7b`)**:
+   - Merged as `3e854a1`, preserving Anshu's commit `7122c7b`.
+   - Scope: `src/features/physics/NOTES.md`, `src/features/physics/index.ts`, `src/features/physics/physics.test.ts`. All paths owned by Anshu.
+   - Changes: Restricted keyboard input suppression to text-entry elements (`input`, `textarea`, `select`, `[contenteditable]`), keeping WASD and arrow keys active when focus is on interactive buttons (such as station action buttons or command deck controls); added regression test in `physics.test.ts`.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (18 test files, 119 tests passed); `npm run build` passed cleanly in 2.26s.
+
+### 14 Nov 2026 — Dixit (UI) audio settings and command deck controls integration
+
+1. **`feat/dixit-ui` (tip `aea6ba9`)**:
+   - Merged as `c36bd06`, preserving Dixit's commits `d7518d1`, `a7d46bf`, and `aea6ba9`.
+   - Scope: `src/App.vue`, `src/features/ui/LoginScreen.vue`. All paths owned by Dixit or within minimal shell controls.
+   - Changes: Connected sound volume slider and mute checkbox to `soundFX.enabled` in outpost audio synthesizer with an accessible test sound tone button; updated command deck toggle button in viewport header to display "ℹ Mission Info" / "✕ Close Deck" across mission phases; added corner close button (`deck-close-corner-btn`) to dismiss deck overlay.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (18 test files, 119 tests passed); `npm run build` passed cleanly in 1.05s.
+
+### 14 Nov 2026 — Himamshu (world) work interactables and outpost visual refresh integration
+
+1. **`feat/himamshu-world` (tip `a510847`)**:
+   - Merged as `0fac3be`, preserving Himamshu's sync commit `5bf27c1` and feature commit `a510847`.
+   - Scope: `src/App.vue`, `src/features/world/**` (`AGENTS.md`, `AssetCredits.vue`, `CREDITS.md`, `NOTES.md`, `assets/space-man.glb`, `atmosphere.ts`, `buildings.ts`, `earth.ts`, `follow-camera.ts`, `index.ts`, `interactables.test.ts`, `interactables.ts`, `interiors.ts`, `models.ts`, `nasa-assets.ts`, `shell.css`, `tools/prepare-space-man.py`, `work-machines.ts`, `world.css`). All paths within Himamshu's assigned feature and coordinated gameplay/door scope.
+   - Changes: Five physical interactive machines inside outpost modules (Habitat air patch panel and life-support console, Solar power cell and battery switchboard, Greenhouse hydroponic bed control) with proximity detection, eligible glow, raycast hover/click and keyboard focus/Enter/E activation. World-local additive API `setInteractables`, `onInteract`, `setPrompt` via `WorkWorldAdapter`. Replaced `TaskBoard` in `App.vue` with physical machine interaction workflow; accessible single-machine fallback cycling. Outpost visual refresh with atmospheric sky shader gradient, directional warm sun, static soft shadows, room-ambient color balance (amber Habitat, blue-white Solar, green Greenhouse), and optimized Sloyd Space Man astronaut suit model exhibit (CC BY 4.0, 470KB). Added unit tests in `interactables.test.ts`.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (19 test files, 123 tests passed); `npm run build` passed cleanly in 1.39s with all assets bundled.
+
 ### Updated open requests
 
 - **Rohit / Saurav / Dixit**: Verify overall HUD and UI visual balance in the browser once all panels are rendered together on the new mission-control dashboard.
@@ -193,3 +328,18 @@ For each completed merge, append:
 - Open requests and responsible owner; stop the queue while an unresolved conflict/check failure remains.
 
 Record a merge hash in a later log-only commit or final handoff; do not amend shared history just to insert a commit's own hash. Remote publication and deployment status must be stated separately.
+
+### 14 November — verified backup spaceflight integration
+
+User explicitly requested merging all branches and recovering `backup/uncommitted-changes` (`00bd30f`). Integrated on `codex/integrate-spaceflight` from main `3097b43`, preserving the newer card-free machine jobs, glass outpost UI, model credits and follow-camera framing while recovering guided launch/landing, orbit preparation, spacecraft telemetry, first-person controls and gravity-dependent jumping.
+
+Resolved nine overlapping files semantically. Shell fixes resume walking after touchdown, reopen the flight deck at each stage, map four Earth checks onto the three physical consoles, preserve P for pause and Space for jump, and set gravity after async physics initialization. World picking aims through the locked crosshair and releases mouse lock when a machine opens. Physics retains WASD on focused buttons while Space activates buttons without also jumping; blur/pause clears queued jumps. The new headless jump test supplies the browser performance clock required by Rapier profiling.
+
+Validation: typecheck passed; all 141 tests in 24 files passed; production build passed (existing large-chunk advisory remains). Production browser at 1440x1000: four Earth checks, four launch prompts, flight pause/resume, three orbit checks, six landing prompts and touchdown; all five machine types, six-job victory, replay and accessible machine fallback; first-person V toggle, E starts a job and releases mouse lock, third-person restoration. At 360x800: no document overflow; minigame and camera/door controls reachable. No runtime/console errors during the flight and six-job scripts. Local artifacts: `output/playwright/merge-spaceflight-mars.png`, `world-refresh-mobile-minigame.png`, `merge-camera-mobile.png` (ignored).
+
+Limits: flight sequence timing and deployment prompts are authored, simplified gameplay; telemetry does not drive victory or stage timing. Orbit uses zero effective cabin-controller acceleration to represent free fall, not absence of gravitational attraction. Native pointer-lock crosshair clicking was not separately tested with a physical mouse; keyboard work interaction and release behavior were browser-tested. Optional spacecraft Rapier contact backend is not selected or validated. npm/package-lock remains the active install workflow; the backup's pnpm lock is retained as recovered history.
+
+Main integration: backup merge resolution committed as 131cfcb (parents 3097b43 and 00bd30f); merged into main as 7c8a647. Main was clean and unchanged remotely after fetch. Main typecheck, all 141 tests and build passed again; its source tree matches the browser-tested integration commit. All six published team feature tips and the backup tip are ancestors of main. Original commits/authorship preserved; no branch deleted or history rewritten.
+
+### 14 November — hands-on minigames / camera direction
+Merged codex/hands-on-minigames (8576342): non-inverted right-click orbit, dust/sealant brushing, drag-to-connect battery cables, animated root watering and survey mineral scanning. Five world-only files; reward/API contract unchanged. Focused checks per user request: typecheck, 10 existing minigame/first-person tests, Vite build, browser workbench smoke (dust/cable completion once, watering, scan), actual OrbitControls yaw sign and 360px layout. Final feedback copy follows build; no full flight/mission suite repeated. Detailed handoff in world/NOTES.md. Clean main source matches feature except this log.

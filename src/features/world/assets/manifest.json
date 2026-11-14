@@ -58,5 +58,11 @@
     "file": "music/space.flac",
     "bytes": 6594210,
     "sha256": "ca0b8058a4640d19d8f9d95dfca40ee2053a30c993726faf1d82b0ef751ab2d1"
+  },
+  {
+    "file": "astra.glb",
+    "bytes": 2788968,
+    "sha256": "6223262260a2ede9a5711c42aa2f1d0cf3b052123631ebb06d737896575b4d62",
+    "source": "Adobe Mixamo: Astra, Breathing Idle, Walking; downloaded 2026-11-14, converted and optimized with Blender"
   }
 ]

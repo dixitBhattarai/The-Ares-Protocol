@@ -4,6 +4,15 @@ Read root `AGENTS.md`, `docs/CONTRACTS.md` and `docs/HACKATHON_PLAN.md`. Own onl
 
 ## Task
 
+### Latest task/reward/automatic hazard direction — 14 Nov
+
+Supersedes older card requirements below: no three-card decisions or post-task cards in the playable loop. Any station job can be started, minigame completion gives one positive payout, and six completed jobs end the mission. Negatives come from active-time reserve consumption and automatic warned hazards; matching maintenance prevents hazard damage. Read root AGENTS.md and docs/CONTRACTS.md for the implemented optional station-tasks mode, action tokens and pause/reset rules. Himamshu's explicit user-requested cross-feature handoff is recorded in the local notes; normal ownership resumes afterward. Do not reintroduce card-first or post-task choice gates.
+
+
+### Current task-first content direction
+
+Supply a small pool of station jobs and three useful post-task trade-off cards per offer, coordinated through Rohit's additive schema. Jobs themselves have explicit base outcomes; cards add a distinct benefit, cost/drawback or temporary modifier. Author air-leak, power-connection and greenhouse-balance variants suitable for ages 7–12; use stable IDs and seeded selection for reproducible demos. Preserve six shifts/completed jobs and meaningful power/air/food/shelter/communications trade-offs. Essential progression must remain available without waiting; optional finds are small and capped, not infinite resources. Separate authored random encounters from archived NASA observations. Never claim crop growth is instant, solar activity predicts disease, or the prototype trains real astronauts. Keep current loadMission compatibility until Rohit's migration is agreed; do not silently rewrite the reducer/contracts.
+
 Author six short, deterministic shifts teaching engineering trade-offs. Integrate at least one verified real NASA observation into a decision/consequence, with a local raw fixture and transparent mapping. Favor one well-explained evidence source over superficial API breadth.
 
 Preserve synchronous `loadMission(): MissionData`. Bundle a curated snapshot; don't make the demo depend on live API, credentials, CORS, rate limits or today's random event. If evidence can't be retrieved, keep `authored-demo` and report the limitation, not fabricated NASA values.

@@ -1,21 +1,29 @@
 <script setup lang="ts">
 // Integration shell: Rohit owns this file. Himamshu's layout handoff is recorded in world/NOTES.md.
-import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
 import { STATIONS } from './contracts';
-import type { GameAction, PhysicsAdapter, Vec3, WorldAdapter, StationId } from './contracts';
-import { createInitialState, getCurrentEvent, reduceGame } from './features/game';
+import type { FlightStage, GravityBody, GameAction, PhysicsAdapter, Vec3, WorldAdapter, StationId, MissionData } from './contracts';
+import { createInitialState, getCurrentEvent, reduceGame, STATION_TASKS, taskCompletionId } from './features/game';
 import { soundFX } from './features/game/audio';
 import { loadMission } from './features/missions';
 import HudOverlay from './features/hud/HudOverlay.vue';
 import MissionPanels from './features/ui/MissionPanels.vue';
+import { usableMachines, WORK_MACHINES, type WorkWorldAdapter } from './features/world/interactables';
+import SpaceflightPanel from './features/ui/SpaceflightPanel.vue';
+import SplashScreen from './features/ui/SplashScreen.vue';
+import LoginScreen from './features/ui/LoginScreen.vue';
 import ActivityPanel from './features/world/ActivityPanel.vue';
-import { getActivity, advanceActivity, type Activity } from './features/game/activities';
+import { advanceActivity, type Activity } from './features/game/activities';
 import VisualPreflightMinigame from './features/game/VisualPreflightMinigame.vue';
 import AssetCredits from './features/world/AssetCredits.vue';
+import DoorPanel from './features/world/DoorPanel.vue';
+import { doorApproach, doorwayOccupied, insideStation, nearbyDoor } from './features/world/doors';
 import { advancePreparation, PREPARATION, type PreparationLevel } from './features/world/preflight';
 import { createMusic } from './features/world/music';
+import { createSpacecraftSim, type SpacecraftSim } from './features/physics/spacecraft';
+import { advanceFlightControls, flightCommandForControl, FLIGHT_CONTROL_STEPS, type FlightControlKey } from './features/game/spaceflight';
 
-const mission = loadMission();
+const mission:MissionData = {...loadMission(),gameplayMode:'station-tasks'};
 const state = shallowRef(createInitialState(mission));
 const host = ref<HTMLElement>();
 const commandPanel = ref<HTMLElement>();
@@ -23,31 +31,170 @@ const graphicsError = ref('');
 const stationMessage = ref('Click a base module to inspect systems, or use WASD / Arrow keys to walk.');
 const soundEnabled = ref(true);
 const directDecisionMode = ref(false);
+const accessibleMachineIndex=ref(0);
+const accessibleMachine=computed(()=>WORK_MACHINES[accessibleMachineIndex.value%WORK_MACHINES.length]);
 const deckVisible = ref(true);
-const activeActivity = shallowRef<(Activity & { choiceId: string; impact: string }) | null>(null);
+const activeActivity = shallowRef<(Activity & { taskId: string; completionId: string; impact: string }) | null>(null);
 const activityProgress = ref(0);
 const activityFeedback = ref('');
 const interior = ref<StationId | null>(null);
 const nearby = ref<StationId | null>(null);
+const doorsOpen = ref<Record<StationId, boolean>>({ habitat: false, solar: false, greenhouse: false });
+const doorReady = ref(false);
 const flightProgress = ref<number | null>(null);
+const flightStage = ref<FlightStage | null>(null);
+const flightControlProgress = ref(0);
+const flightFeedback = ref('');
+let flightStageElapsed = 0;
+// The bundled flight sim supplies telemetry and responds to simple throttle/attitude commands; stage timing remains authored for a short, child-friendly mission.
+let flightSim: SpacecraftSim | undefined;
+const flightTelemetry = ref('');
+const gravityLabel = ref('');
+function setGravity(body: GravityBody) {
+  physics?.setGravityBody?.(body);
+  const info = physics?.getGravityInfo?.();
+  gravityLabel.value = !info ? '' : info.canJump
+    ? `Gravity: ${info.gravityMS2.toFixed(2)} m/s² (${Math.round(info.relativeToEarth * 100)}% of Earth) · press Space to jump — about ${info.jumpHeightM.toFixed(2)} m high here`
+    : 'Orbit cabin: free fall feels weightless. Gravity still acts on the spacecraft; the simplified cabin controller does not jump.';
+}
+function startFlightSim(preset: string, timeScale = 1, paused = false) {
+  stopFlightSim();
+  try {
+    flightSim = createSpacecraftSim(preset);
+    flightSim.setTimeScale(timeScale);
+    if (paused) flightSim.pause();
+  } catch (error) { console.warn('Flight sim unavailable', error); flightSim = undefined; }
+}
+function stopFlightSim() { flightSim?.dispose(); flightSim = undefined; flightTelemetry.value = ''; }
+function mayResumeFlightSim() {
+  if (flightStage.value === 'launch') return flightControlProgress.value >= 2;
+  if (flightStage.value === 'landing') return flightControlProgress.value >= 3;
+  return flightStage.value !== null;
+}
+function stepFlightSim(seconds: number) {
+  if (!flightSim) return;
+  try {
+    flightSim.step(seconds);
+    const s = flightSim.getSnapshot().spacecraft;
+    flightTelemetry.value = `Flight computer · altitude ${(s.altitude_m / 1000).toFixed(1)} km · speed ${(s.speed_m_s / 1000).toFixed(2)} km/s · propellant ${Math.round(s.propellant_mass_kg).toLocaleString()} kg · Δv ${Math.round(s.delta_v_remaining_m_s).toLocaleString()} m/s`;
+  } catch (error) { console.warn('Flight sim failed', error); stopFlightSim(); }
+}
 let arrivalComplete = false;
-let orbitComplete = false;
 let music: ReturnType<typeof createMusic> | undefined;
 const preparation = ref<PreparationLevel | null>(null);
+const earthOutside = ref(false);
 const preparationProgress = ref(0);
 const preparationFeedback = ref('');
 const preparationPaused = ref(false);
 const nearConsole = ref(false);
 let remoteConsole = false;
 
+function updateFlightStage(stage: FlightStage | null, progress = 0) {
+  if(stage)deckVisible.value=true;
+  flightStage.value = stage;
+  flightProgress.value = stage === null ? null : Math.max(0, Math.min(1, progress));
+  flightStageElapsed = 0;
+  world?.setJourney?.(null);
+  world?.setFlightStage?.(stage, progress);
+}
+
 function beginPreparation(level: PreparationLevel) {
-  flightProgress.value = null; world?.setJourney?.(null);
+  deckVisible.value=true;
+  updateFlightStage(null);
+  world?.setJourney?.(null);
+  stopFlightSim();
   preparation.value = level; preparationProgress.value = 0; preparationFeedback.value = ''; preparationPaused.value = false; nearConsole.value = false; remoteConsole = false;
-  world?.setLevel?.(level); world?.setActivityProgress?.(0); physics?.enterInterior?.(); physics?.resumeInput?.();
-  stationMessage.value = level === 'earth' ? 'Earth preparation lab: walk to the console and complete your departure checks.' : 'Orbital cabin: establish the navigation link before continuing to Mars.';
+  earthOutside.value = level === 'earth';
+  world?.setLevel?.(level); world?.setEarthOutside?.(earthOutside.value); world?.setActivityProgress?.(0);
+  if (earthOutside.value) { const spawn=doorApproach('habitat');physics?.reset?.({...spawn,z:spawn.z+1});setDoor('habitat',true); }
+  else physics?.enterInterior?.();
+  setGravity(level === 'earth' ? 'earth' : 'orbit');
+  physics?.resumeInput?.();
+  stationMessage.value = level === 'earth' ? 'Earth departure checks: fuel, crew air, food and water cargo, guidance batteries and the launch window.' : 'Orbital cabin: establish the navigation link before the compressed Mars transfer.';
   music?.setPaused(false); music?.select(level); music?.unlock();
 }
-function togglePreparationPause() { preparationPaused.value = !preparationPaused.value; music?.setPaused(preparationPaused.value); if (preparationPaused.value) physics?.pauseInput?.(); else physics?.resumeInput?.(); }
+
+function beginLaunchSequence() {
+  earthOutside.value = false;
+  world?.setEarthOutside?.(false);
+  preparation.value = null;
+  physics?.exitInterior?.();
+  physics?.pauseInput?.();
+  world?.setLevel?.(null);
+  world?.setActivityProgress?.(0);
+  preparationPaused.value = false;
+  flightControlProgress.value = 0;
+  flightFeedback.value = 'Boarded and strapped in. Press Space to begin the countdown.';
+  startFlightSim('EARTH_LAUNCH_ASCENT', 10, true);
+  updateFlightStage('launch', 0);
+  music?.setPaused(false); music?.select('space');
+}
+
+function beginMarsTransfer() {
+  preparationPaused.value = false;
+  flightControlProgress.value = 0;
+  flightFeedback.value = 'Course checked. Autopilot has the Mars transfer.';
+  startFlightSim('EARTH_MARS_TRANSFER', 20);
+  updateFlightStage('transfer', 0);
+  physics?.pauseInput?.();
+  world?.setLevel?.(null);
+  music?.select('space');
+}
+
+function beginMarsLanding() {
+  preparationPaused.value = false;
+  flightControlProgress.value = 0;
+  flightFeedback.value = 'Mars approach confirmed. Use small steering and thrust corrections.';
+  startFlightSim('MARS_POWERED_DESCENT', 3, true);
+  updateFlightStage('landing', 0);
+  physics?.pauseInput?.();
+  world?.setLevel?.(null);
+}
+
+function operateFlightControl(key: FlightControlKey) {
+  const stage = flightStage.value;
+  if ((stage !== 'launch' && stage !== 'landing') || preparationPaused.value) return;
+  const completedAction = FLIGHT_CONTROL_STEPS[stage][flightControlProgress.value]?.action ?? 'Flight control';
+  const result = advanceFlightControls(stage, flightControlProgress.value, key);
+  if (!result.accepted) {
+    flightFeedback.value = result.expected ? `Use ${result.expected.key === 'Space' ? 'Space' : result.expected.key.replace('Key', '')}: ${result.expected.action}.` : 'The flight sequence is complete.';
+    return;
+  }
+  const command = flightCommandForControl(stage, key, flightControlProgress.value);
+  if (command) flightSim?.command(command);
+  if (key === 'KeyW') flightSim?.resume();
+  if (stage === 'landing' && key === 'Space' && flightControlProgress.value === FLIGHT_CONTROL_STEPS.landing.length - 1) {
+    flightSim?.command({ action: 'set_throttle', throttle: 0.2 });
+    flightSim?.setTimeScale(10);
+  }
+  flightControlProgress.value = result.progress;
+  flightProgress.value = stage === 'launch'
+    ? Math.max(0, (result.progress - 1) / (FLIGHT_CONTROL_STEPS.launch.length - 1))
+    : result.progress / FLIGHT_CONTROL_STEPS.landing.length;
+  const nextStep = FLIGHT_CONTROL_STEPS[stage][result.progress]?.action;
+  flightFeedback.value = result.complete ? (stage === 'launch' ? 'Guidance is taking over for orbital insertion.' : 'Landing controls are set. Autopilot is completing touchdown.') : `${completedAction} complete. Next: ${nextStep}.`;
+  world?.setFlightStage?.(stage, flightProgress.value);
+  if (result.complete && stage === 'launch') updateFlightStage('orbit-autopilot', 0);
+  if (result.complete && stage === 'landing') updateFlightStage('touchdown', 0);
+}
+
+function togglePreparationPause() {
+  preparationPaused.value = !preparationPaused.value;
+  music?.setPaused(preparationPaused.value);
+  if (preparationPaused.value) { physics?.pauseInput?.(); flightSim?.pause(); }
+  else { if (!flightStage.value) physics?.resumeInput?.(); if (mayResumeFlightSim()) flightSim?.resume(); }
+  world?.setMotionPaused?.(preparationPaused.value || state.value.phase === 'paused');
+}
+function enterEarthLab(accessible = true) {
+  if (preparation.value !== 'earth' || preparationPaused.value || !earthOutside.value) return;
+  if (accessible) {setDoor('habitat',true);physics?.resumeInput?.();const station=STATIONS.find(station=>station.id==='habitat')!;physics?.walkPath?.([doorApproach('habitat'),{x:station.position.x,y:.8,z:station.position.z}]);}
+  preparationFeedback.value = 'Walking into the training lab. Manual movement cancels guided walking.';
+}
+function leaveEarthLab() {
+  if (preparation.value !== 'earth' || preparationPaused.value || earthOutside.value) return;
+  setDoor('habitat',true);physics?.resumeInput?.();const station=STATIONS.find(station=>station.id==='habitat')!;physics?.walkPath?.([{x:station.position.x,y:.8,z:station.position.z+2},doorApproach('habitat')]);
+  preparationFeedback.value = 'Walking back outdoors through the same doorway.';
+}
 function operatePreparation(control: string) {
   const level = preparation.value;
   if (!level || preparationPaused.value) return;
@@ -56,10 +203,10 @@ function operatePreparation(control: string) {
   if (next === preparationProgress.value) { preparationFeedback.value = 'Follow the procedure in order.'; return; }
   preparationProgress.value = next; world?.setActivityProgress?.(next); preparationFeedback.value = `Check ${next} complete.`;
   if (next === PREPARATION[level].steps.length) {
+    earthOutside.value = false; world?.setEarthOutside?.(false);
     preparation.value = null; physics?.exitInterior?.(); world?.setLevel?.(null); world?.setActivityProgress?.(0);
-    if (level === 'space') orbitComplete = true;
-    music?.select('space'); flightProgress.value = 0;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) finishArrival();
+    if (level === 'earth') beginLaunchSequence();
+    else beginMarsTransfer();
   }
 }
 
@@ -78,15 +225,44 @@ function skipPreparation() {
 }
 
 function finishArrival() {
-  flightProgress.value = null; world?.setJourney?.(null);
-  if (!orbitComplete) { beginPreparation('space'); return; }
-  arrivalComplete = true; music?.select('mars'); stationMessage.value = 'Landed on Mars. Choose a shift job, then walk to its module.'; dispatch({ type: 'START' });
+  if (flightStage.value === 'orbit-autopilot') {
+    flightSim?.pause();
+    beginPreparation('space');
+    return;
+  }
+  if (flightStage.value === 'transfer') { beginMarsLanding(); return; }
+  if (flightStage.value === 'touchdown') {
+    stopFlightSim();
+    updateFlightStage(null);
+    arrivalComplete = true;deckVisible.value=false;physics?.reset?.({x:0,y:.8,z:6});setGravity('mars');music?.select('mars'); stationMessage.value = 'Touchdown complete. Mars gravity is 3.72 m/s², about 38% of Earth gravity. Walk inside a station and use a glowing machine to work.'; dispatch({ type: 'START' });
+  }
 }
-function leaveModule() { physics?.exitInterior?.(); world?.setInterior?.(null); interior.value = null; physics?.resumeInput?.(); }
-function cancelActivity() {
-  soundFX.playRestart();
-  leaveModule();
-  activeActivity.value = null;
+function setDoor(id: StationId, open: boolean) { doorsOpen.value = { ...doorsOpen.value, [id]: open }; doorReady.value = false; world?.setDoorState?.(id, open); }
+function toggleDoor() {
+  if (state.value.phase !== 'running') return;
+  const id = interior.value ?? nearby.value;
+  if (!id) return;
+  if(doorsOpen.value[id] && doorwayOccupied(physics!.getPlayerPose(),id)) {stationMessage.value='Step clear of the doorway before closing it.';return;}
+  setDoor(id, !doorsOpen.value[id]);
+  stationMessage.value = `${id} door ${doorsOpen.value[id] ? 'opening — walk through when ready' : 'closed'}.`;
+}
+function leaveModule() {
+  const id = interior.value;
+  if(!id || state.value.phase!=='running')return;
+  setDoor(id,true);physics?.resumeInput?.();const station=STATIONS.find(station=>station.id===id)!;
+  physics?.walkPath?.([{x:station.position.x,y:.8,z:station.position.z+2},doorApproach(id)]);
+  stationMessage.value='Walking out through the door. Use WASD to take control.';
+}
+function travelToDoor(id: StationId) {
+  if (state.value.phase !== 'running') return;
+  leaveModule(); physics?.reset?.(doorApproach(id)); nearby.value = id;
+  doorReady.value = false;
+  stationMessage.value = `At the ${id} entrance. Open the door with E or the button.`;
+}
+function cancelActivity(cancelSimulation=true) {
+  if(cancelSimulation)state.value=reduceGame(state.value,{type:'CANCEL_TASK'},mission);
+  if(cancelSimulation)soundFX.playRestart();
+  activeActivity.value = null;deckVisible.value=false;
   activityProgress.value = 0;
   world?.setActivityProgress?.(0);
   world?.setObjective?.(null);
@@ -94,21 +270,20 @@ function cancelActivity() {
 function enterModule(id: StationId | null = nearby.value) {
   if (state.value.phase !== 'running' || interior.value) return;
   if (!id || nearby.value !== id) { activityFeedback.value = 'Walk closer to the door first, or use accessible travel.'; return; }
-  if (activeActivity.value && activeActivity.value.station !== id) { activityFeedback.value = `Your task is at the ${activeActivity.value.station}.`; return; }
-  if (!activeActivity.value) { stationMessage.value = 'Choose a shift task first, then enter its module.'; return; }
-  interior.value = id; physics?.enterInterior?.(); world?.setInterior?.(id); activityFeedback.value = 'Read the procedure, then use the console controls in order.';
+  if (!doorsOpen.value[id] || !(world?.isDoorOpen?.(id) ?? true)) { stationMessage.value = 'Open the door and let it finish sliding first.'; return; }
+  physics?.resumeInput?.();const station=STATIONS.find(station=>station.id===id)!;
+  physics?.walkPath?.([doorApproach(id),{x:station.position.x,y:.8,z:station.position.z}]);
+  stationMessage.value=`Walking through the ${id} doorway.`;
 }
 function travelToTask() {
   if (!activeActivity.value || state.value.phase !== 'running') return;
-  leaveModule();
-  const station = STATIONS.find(s => s.id === activeActivity.value!.station)!;
-  physics?.reset?.({ x: station.position.x, y: .8, z: station.position.z + 2.6 });
-  nearby.value = station.id;
-  activityFeedback.value = 'At the task door. Enter the module to work.';
+  travelToDoor(activeActivity.value.station);
+  setDoor(activeActivity.value.station, true);
+  activityFeedback.value = 'Door opening. Walk through or choose Enter room once open.';
 }
 function operateControl(control: string) {
   const task = activeActivity.value;
-  if (!task || interior.value !== task.station || state.value.phase !== 'running') return;
+  if (!task || (!directDecisionMode.value && !graphicsError.value && interior.value !== task.station) || state.value.phase !== 'running') return;
   const next = advanceActivity(task, activityProgress.value, control);
   if (next === activityProgress.value) {
     soundFX.playWarning();
@@ -119,8 +294,8 @@ function operateControl(control: string) {
   world?.setActivityProgress?.(next);
   activityFeedback.value = `Step ${next} complete.`;
   if (next === task.steps.length) {
-    cancelActivity();
-    dispatch({ type: 'CHOOSE', choiceId: task.choiceId }, true);
+    cancelActivity(false);
+    dispatch({type:'COMPLETE_TASK',completionId:task.completionId});
     stationMessage.value = `Completed ${task.title}. ${state.value.lastHazardNotice ?? 'Reserves and mission history now show the result.'}`;
   } else {
     soundFX.playDecision();
@@ -133,13 +308,31 @@ const stationDescriptions: Record<string, string> = {
   greenhouse: 'Hydroponic Greenhouse: Recycles air, grows food supplies, and reduces consumable replenishment stress.',
 };
 
-let world: WorldAdapter | undefined;
+let world: (WorldAdapter & Partial<WorkWorldAdapter>) | undefined;
 let physics: PhysicsAdapter | undefined;
 let frame = 0;
 let disposed = false;
 let accumulator = 0;
+let missionSeconds=0;
+const showSplash = ref(true);
+const showLogin = ref(true);
+
+function onSplashDone() {
+  showSplash.value = false;
+}
+
+function onLoginStart() {
+  showLogin.value = false;
+  dispatch({ type: 'START' });
+}
+
 let lastNearStation: string | null = null;
 let currentSelectedStation: string | null = null;
+let lastTaskNotice = '';
+const availableTaskStations = computed<StationId[]>(() => {
+  if (activeActivity.value) return [activeActivity.value.station];
+  return [...new Set(STATION_TASKS.map(task=>task.station))];
+});
 
 function toggleSound() {
   soundEnabled.value = !soundEnabled.value;
@@ -147,62 +340,39 @@ function toggleSound() {
   music?.setEnabled(soundEnabled.value); music?.unlock();
 }
 
-function dispatch(action: GameAction, procedureComplete = false) {
-  if (action.type === 'START' && !arrivalComplete && world && !graphicsError.value) {
+function dispatch(action: GameAction) {
+  if (action.type === 'START' && !directDecisionMode.value && !arrivalComplete && world && !graphicsError.value) {
     if (!preparation.value && flightProgress.value === null) beginPreparation('earth');
     return;
   }
-  if (action.type === 'CHOOSE' && !procedureComplete && state.value.phase === 'running' && physics && !graphicsError.value && !directDecisionMode.value) {
-    if (activeActivity.value) return;
-    const event = getCurrentEvent(mission, state.value);
-    const choice = event?.choices.find(c => c.id === action.choiceId);
-    if (!event || !choice) return;
-    const impact = [...Object.entries(choice.effect.resources ?? {}).map(([name, value]) => `${name} ${value! > 0 ? '+' : ''}${value}`), ...(choice.effect.shielding ? [`shelter +${choice.effect.shielding}`] : []), ...(choice.effect.science ? [`science +${choice.effect.science}`] : []), ...(choice.delayedEffect ? [`Delayed: ${choice.delayedEffect.description}`] : [])].join(' · ');
-    activeActivity.value = { ...getActivity(event, choice), choiceId: choice.id, impact };
-    activityProgress.value = 0; activityFeedback.value = `Go to the ${activeActivity.value.station} to carry out your plan.`;
-    world?.setObjective?.(activeActivity.value.station);
-    return;
+  if(action.type==='START'&&state.value.phase==='ready'&&(directDecisionMode.value||graphicsError.value)){arrivalComplete=true;setGravity('mars');world?.setLevel?.(null);world?.setJourney?.(null);music?.select('mars');}
+  if(action.type==='CHOOSE')return;
+  if(action.type==='START_TASK') {
+    const previous=state.value;state.value=reduceGame(state.value,action,mission);
+    if(state.value===previous)return;
+    const task=STATION_TASKS.find(task=>task.id===action.taskId)!;
+    activeActivity.value={...task,taskId:task.id,completionId:taskCompletionId(state.value,task.id),impact:task.benefit+' · '+task.prevention};
+    activityProgress.value=0;activityFeedback.value='Finish the station minigame to earn this reward.';
+    world?.setObjective?.(task.station);deckVisible.value=true;return;
   }
-  if (action.type === 'RESTART') { cancelActivity(); preparation.value = null; orbitComplete = false; arrivalComplete = false; flightProgress.value = null; world?.setJourney?.(null); world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
+  if (action.type === 'RESTART') { missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
   if (action.type === 'PAUSE' && state.value.phase === 'running') music?.setPaused(true);
   if (action.type === 'RESUME' && state.value.phase === 'paused') music?.setPaused(false);
   const previousState = state.value;
   state.value = reduceGame(state.value, action, mission);
-  if (state.value !== previousState) {
+  if (state.value !== previousState && action.type!=='TICK') {
     void nextTick(() => { if (commandPanel.value) commandPanel.value.scrollTop = 0; });
   }
 
   if (action.type === 'START') {
+    if(state.value.phase==='running')physics?.resumeInput?.();
     soundFX.playStart();
-  } else if (action.type === 'CHOOSE') {
-    const prevRes = previousState.resources;
-    const nextRes = state.value.resources;
-    const filledTo100 = (['power', 'oxygen', 'supplies'] as const).some(
-      key => prevRes[key] < 100 && nextRes[key] === 100
-    );
-
-    if (state.value.phase === 'won') {
-      soundFX.playVictory();
-    } else if (state.value.phase === 'lost') {
-      soundFX.playDepleted();
-    } else if (state.value.lastHazardNotice) {
-      soundFX.playHazard();
-    } else if (filledTo100) {
-      soundFX.playFullReserve();
-    } else if (action.choiceId === 'comms') {
-      soundFX.playTransmission();
-    } else if (action.choiceId === 'oxygen') {
-      soundFX.playOxygen();
-    } else if (action.choiceId === 'shield') {
-      soundFX.playShield();
-    } else {
-      soundFX.playDecision();
-    }
-
-    const { power, oxygen, supplies } = state.value.resources;
-    if (state.value.phase === 'running' && (power <= 20 || oxygen <= 20 || supplies <= 20)) {
-      setTimeout(() => soundFX.playWarning(), 180);
-    }
+  } else if(action.type==='COMPLETE_TASK'||action.type==='TICK') {
+    if(state.value.phase==='won'&&previousState.phase!=='won')soundFX.playVictory();
+    else if(state.value.phase==='lost'&&previousState.phase!=='lost')soundFX.playDepleted();
+    else if(state.value.lastHazardNotice!==previousState.lastHazardNotice)soundFX.playHazard();
+    else if(action.type==='COMPLETE_TASK'&&state.value!==previousState)soundFX.playDecision();
+    if(state.value.phase==='won'||state.value.phase==='lost'){cancelActivity(false);deckVisible.value=true;physics?.pauseInput?.();music?.setPaused(true);}
   } else if (action.type === 'RESTART') {
     soundFX.playRestart();
     if (physics?.reset) {
@@ -220,15 +390,29 @@ function dispatch(action: GameAction, procedureComplete = false) {
   }
 }
 
+function advanceMissionTime(elapsed:number) {
+  if(state.value.phase==='running'&&!document.hidden&&!preparation.value&&flightProgress.value===null){
+    missionSeconds+=elapsed;
+    if(missionSeconds>=1){missionSeconds-=1;dispatch({type:'TICK',seconds:1});}
+  }else missionSeconds=0;
+}
+
 function pauseWhenHidden() {
-  if (document.hidden && preparation.value) { preparationPaused.value = true; physics?.pauseInput?.(); music?.setPaused(true); }
+  if (document.hidden && (preparation.value || flightStage.value)) { preparationPaused.value = true; physics?.pauseInput?.(); flightSim?.pause(); music?.setPaused(true); }
   if (document.hidden) dispatch({ type: 'PAUSE' });
 }
 
 let lastCheckedPose = { x: 999, y: 999, z: 999 };
 function checkStationProximity(pose: Vec3) {
-  if (interior.value) { nearby.value = null; return; }
-  nearby.value = STATIONS.find(s => Math.hypot(pose.x - s.position.x, pose.z - s.position.z) < 3.8)?.id ?? null;
+  if (preparation.value || flightProgress.value !== null || state.value.phase !== 'running') return;
+  const inside=insideStation(pose);
+  if(inside!==interior.value) {
+    interior.value=inside;world?.setInterior?.(inside);
+    if(inside && !activeActivity.value)deckVisible.value=false;
+    stationMessage.value=inside?`Inside the ${inside}. Walk back through the same door to leave.`:'Outside on Mars. Your position stays in the same world.';
+  }
+  if(inside){nearby.value=null;return;}
+  nearby.value = nearbyDoor(pose);
   if (currentSelectedStation) return;
   const dx = pose.x - lastCheckedPose.x;
   const dz = pose.z - lastCheckedPose.z;
@@ -247,14 +431,38 @@ function checkStationProximity(pose: Vec3) {
   }
   if (lastNearStation !== null) {
     lastNearStation = null;
-    stationMessage.value = 'Astronaut walking on Mars. Click modules or use decision cards below.';
+    stationMessage.value = 'Astronaut walking on Mars. Visit a station computer to work.';
   }
 }
 
 function handleGlobalKeydown(event: KeyboardEvent) {
   if ((event.target as HTMLElement | null)?.closest('button, input, textarea, select, [contenteditable]')) return;
-  if (preparation.value && event.code === 'KeyP') { togglePreparationPause(); return; }
-  if (event.code === 'KeyE') { if (interior.value) leaveModule(); else enterModule(); return; }
+  if ((preparation.value || flightStage.value) && event.code === 'KeyP') { event.preventDefault(); togglePreparationPause(); return; }
+  if (flightStage.value) {
+    if (event.code === 'Space' || event.code === 'Enter') {
+      if (flightStage.value === 'orbit-autopilot' || flightStage.value === 'transfer' || flightStage.value === 'touchdown') {
+        event.preventDefault(); if (!preparationPaused.value) finishArrival();
+      } else if (!event.repeat) {
+        event.preventDefault(); operateFlightControl('Space');
+      }
+      return;
+    }
+    const flightKey = event.code === 'KeyW' || event.code === 'KeyA' || event.code === 'KeyS' || event.code === 'KeyD' ? event.code : undefined;
+    if (flightKey && !event.repeat && (flightStage.value === 'launch' || flightStage.value === 'landing')) {
+      event.preventDefault(); operateFlightControl(flightKey as FlightControlKey); return;
+    }
+    return;
+  }
+  if (preparation.value === 'earth' && event.code === 'KeyE') {
+    event.preventDefault();
+    if (!event.repeat && !preparationPaused.value && (!earthOutside.value || nearbyDoor(physics!.getPlayerPose()) === 'habitat')) {
+      if(doorsOpen.value.habitat && doorwayOccupied(physics!.getPlayerPose(),'habitat'))preparationFeedback.value='Step clear of the doorway before closing it.';
+      else setDoor('habitat',!doorsOpen.value.habitat);
+    }
+    return;
+  }
+  if(event.code==='KeyE'&&state.value.phase==='running'&&!activeActivity.value&&interior.value&&physics&&usableMachines(physics.getPlayerPose(),interior.value).length)return;
+  if (event.code === 'KeyE') { event.preventDefault(); if (!event.repeat) toggleDoor(); return; }
   if (event.code === 'KeyM') {
     toggleSound();
     return;
@@ -283,17 +491,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
     return;
   }
   if (state.value.phase === 'running') {
-    const currentEvent = getCurrentEvent(mission, state.value);
-    if (!currentEvent) return;
-    if (['Digit1', 'Numpad1'].includes(event.code) && currentEvent.choices[0]) {
-      dispatch({ type: 'CHOOSE', choiceId: currentEvent.choices[0].id });
-    } else if (['Digit2', 'Numpad2'].includes(event.code) && currentEvent.choices[1]) {
-      dispatch({ type: 'CHOOSE', choiceId: currentEvent.choices[1].id });
-    } else if (['Digit3', 'Numpad3'].includes(event.code) && currentEvent.choices[2]) {
-      dispatch({ type: 'CHOOSE', choiceId: currentEvent.choices[2].id });
-    } else if (['Digit4', 'Numpad4'].includes(event.code) && currentEvent.choices[3]) {
-      dispatch({ type: 'CHOOSE', choiceId: currentEvent.choices[3].id });
-    } else if (event.code === 'KeyP' || event.code === 'Space') {
+    if (event.code === 'KeyP') { // Space is reserved for jumping.
       event.preventDefault();
       dispatch({ type: 'PAUSE' });
     }
@@ -321,14 +519,17 @@ onMounted(async () => {
     ]);
     if (disposed) return;
     world = createWorld(host.value!, station => {
-      if (activeActivity.value && nearby.value === station) { enterModule(station); return; }
+      if (nearby.value === station && state.value.phase === 'running') { toggleDoor(); return; }
       currentSelectedStation = station;
-      stationMessage.value = stationDescriptions[station] || `Selected: ${station}. Use decision cards below to manage operations.`;
+      stationMessage.value = stationDescriptions[station] || `Selected: ${station}. Use its computer to work.`;
     });
+    world.onInteract?.(id=>dispatch({type:'START_TASK',taskId:id}));
     physics = await createPhysics();
+    setGravity(preparation.value==='earth'?'earth':preparation.value==='space'?'orbit':'mars');
     world.setConsoleHandler?.(index => {
-      if (preparation.value) operatePreparation(PREPARATION[preparation.value].steps[index]);
-      else if (activeActivity.value) operateControl(activeActivity.value.steps[index]);
+      if (preparation.value) {const steps=PREPARATION[preparation.value].steps;const progress=preparationProgress.value;operatePreparation(steps[index===progress%3?progress:index]);}
+      else if (activeActivity.value && interior.value === activeActivity.value.station) { deckVisible.value = true; activityFeedback.value = 'Station computer ready. Finish the minigame checks in the command deck.'; }
+      else if(interior.value) {stationMessage.value='Approach a glowing machine and press E.';}
     });
     if (disposed) {
       physics.dispose();
@@ -338,12 +539,19 @@ onMounted(async () => {
     const tick = (now: number) => {
       const elapsed = Math.min((now - previous) / 1000, 0.1);
       previous = now;
-      if (flightProgress.value !== null && !document.hidden) {
-        flightProgress.value = Math.min(1, flightProgress.value + elapsed / 8);
-        world!.setJourney?.((orbitComplete ? .5 : 0) + flightProgress.value * .5);
-        if (flightProgress.value >= 1) finishArrival();
+      if (flightStage.value && !document.hidden && !preparationPaused.value) {
+        const stage = flightStage.value;
+        stepFlightSim(elapsed);
+        if (stage === 'orbit-autopilot' || stage === 'transfer' || stage === 'touchdown') {
+          const duration = stage === 'orbit-autopilot' ? 4 : stage === 'transfer' ? 8 : 3;
+          flightStageElapsed += elapsed;
+          flightProgress.value = Math.min(1, flightStageElapsed / duration);
+          if (flightProgress.value >= 1) finishArrival();
+        }
+        if (flightStage.value === stage) world!.setFlightStage?.(stage, flightProgress.value ?? 0);
       }
       if (state.value.phase === 'running' || (preparation.value && !preparationPaused.value)) {
+        physics!.setCameraYaw?.(world!.getCameraYaw?.() ?? 0);
         accumulator = Math.min(accumulator + elapsed, 0.1);
         while (accumulator >= 1 / 60) {
           physics!.step(1 / 60);
@@ -352,12 +560,30 @@ onMounted(async () => {
       } else {
         accumulator = 0;
       }
-      const pose = physics!.getPlayerPose();
-      nearConsole.value = pose.z < -.4;
+      advanceMissionTime(elapsed);
+      let pose = physics!.getPlayerPose();
+      if (preparation.value === 'earth') {
+        const outside=insideStation(pose)!=='habitat';
+        if(outside!==earthOutside.value){earthOutside.value=outside;world!.setEarthOutside?.(outside);}
+        const lab=STATIONS.find(station=>station.id==='habitat')!;
+        nearConsole.value=!outside && Math.abs(pose.x-lab.position.x)<2.6 && pose.z<lab.position.z-1;
+      } else nearConsole.value=pose.z<-.4;
       checkStationProximity(pose);
+      pose = physics!.getPlayerPose();
+      const usable=state.value.phase==='running'&&!activeActivity.value&&!preparation.value&&flightProgress.value===null?usableMachines(pose,interior.value):[];
+      world!.setInteractables?.(usable);world!.setPrompt?.(usable[0]?'E · '+usable[0].label:'');
       world!.setPlayerPose(pose);
       world!.setState(state.value);
+      if (state.value.phase === 'running') {
+        const offerId=`${mission.id}:station-work`;
+        world!.setAvailableTasks?.(availableTaskStations.value,offerId);
+        if (lastTaskNotice!==offerId && availableTaskStations.value.length) {lastTaskNotice=offerId;soundFX.playDecision();}
+      } else if (state.value.phase !== 'paused') {world!.setAvailableTasks?.([], '');lastTaskNotice='';}
+      world!.setMotionPaused?.(preparationPaused.value || state.value.phase === 'paused');
       world!.render();
+      for(const station of STATIONS)physics!.setDoorOpen?.(station.id,doorsOpen.value[station.id] && (world!.isDoorOpen?.(station.id) ?? true));
+      const doorId = interior.value ?? nearby.value;
+      doorReady.value = !!doorId && (world!.isDoorOpen?.(doorId) ?? doorsOpen.value[doorId]);
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
@@ -366,13 +592,22 @@ onMounted(async () => {
     world = undefined;
     physics?.dispose();
     physics = undefined;
-    graphicsError.value = '3D engine could not start. You can still play the complete mission using the accessible decision panels below.';
+    graphicsError.value = '3D engine could not start. You can still play the complete mission using the accessible station consoles below.';
     console.error('3D startup failed', error);
+    // Engine startup failed before its loop began. Run the same mission clock alone.
+    let previous=performance.now();
+    const fallbackTick=(now:number)=>{
+      if(disposed)return;
+      advanceMissionTime(Math.min((now-previous)/1000,.1));previous=now;
+      frame=requestAnimationFrame(fallbackTick);
+    };
+    if(!disposed)frame=requestAnimationFrame(fallbackTick);
   }
 });
 
 onBeforeUnmount(() => {
   music?.dispose();
+  stopFlightSim();
   disposed = true;
   cancelAnimationFrame(frame);
   document.removeEventListener('visibilitychange', pauseWhenHidden);
@@ -385,7 +620,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <SplashScreen v-if="showSplash" @finished="onSplashDone" />
+  <LoginScreen v-if="showLogin" @start="onLoginStart" />
   <main class="ares-app">
+
+    <div class="mission-layout">
+
+      <section class="world-panel" aria-label="Mars surface exploration">
     <header class="app-header">
       <div class="brand">
         <span class="brand-planet" aria-hidden="true" />
@@ -400,10 +641,10 @@ onBeforeUnmount(() => {
           type="button"
           class="mode-btn"
           @click="directDecisionMode = !directDecisionMode"
-          :title="directDecisionMode ? 'Switch to 3D Expedition Mode' : 'Switch to Direct Decisions Mode'"
-          :aria-label="directDecisionMode ? 'Direct Decision Mode active. Click to switch to 3D Station Procedures.' : '3D Station Procedures active. Click to switch to Direct Decisions Mode.'"
+          :title="directDecisionMode ? 'Use walking and station computers' : 'Use accessible station consoles'"
+          :aria-label="directDecisionMode ? 'Accessible consoles active. Switch to walking.' : 'Walking mode active. Enable accessible consoles.'"
         >
-          {{ directDecisionMode ? '⚡ Direct Mode' : '🚀 3D Procedures' }}
+          {{ directDecisionMode ? 'Accessible consoles' : 'Walk & work' }}
         </button>
         <button v-if="state.phase === 'ready' && !preparation && flightProgress === null" class="launch-btn" @click="dispatch({ type: 'START' })">Begin expedition <span aria-hidden="true">↗</span></button>
         <button
@@ -417,22 +658,20 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </header>
-    <div class="mission-layout">
       <div class="hud-container">
-        <HudOverlay :state="state" :mission="mission" />
+        <HudOverlay :key="state.taskRun?.session ?? 0" :state="state" :mission="mission" />
       </div>
-      <section class="world-panel" aria-label="Mars surface exploration">
         <div class="surface-header">
-          <span><span class="live-dot" aria-hidden="true" /> {{ preparation === 'earth' ? 'EARTH / PREPARATION LAB' : preparation === 'space' ? 'ORBIT / COMMUNICATIONS CABIN' : flightProgress !== null ? 'EXPEDITION / IN TRANSIT' : 'OUTPOST ARES / SURFACE VIEW' }}</span>
+          <span><span class="live-dot" aria-hidden="true" /> {{ preparation === 'earth' ? 'EARTH / PREPARATION LAB' : preparation === 'space' ? 'ORBIT / COMMUNICATIONS CABIN' : flightStage === 'launch' || flightStage === 'orbit-autopilot' ? 'EARTH / LAUNCH VEHICLE' : flightStage === 'transfer' ? 'EXPEDITION / AUTOPILOT TRANSFER' : flightStage === 'landing' || flightStage === 'touchdown' ? 'MARS / LANDING APPROACH' : 'OUTPOST ARES / SURFACE VIEW' }}</span>
           <div class="surface-actions">
             <button
-              v-if="state.phase === 'running'"
               type="button"
-              class="deck-toggle-btn"
-              :aria-label="deckVisible ? 'Hide Command Deck' : 'Show Command Deck'"
+              class="deck-toggle-btn info-btn"
+              :aria-label="deckVisible ? 'Hide Mission Deck' : 'Show Mission Deck / Info'"
+              :title="deckVisible ? 'Hide Mission Deck (Press C)' : 'Show Mission Deck (Press C)'"
               @click="deckVisible = !deckVisible"
             >
-              {{ deckVisible ? '◨ Hide Deck' : '📋 Command Deck' }}
+              {{ deckVisible ? '✕ Close Deck' : 'ℹ Mission Info' }}
             </button>
             <span>SECTOR 01</span>
           </div>
@@ -441,14 +680,22 @@ onBeforeUnmount(() => {
           ref="host"
           class="viewport"
           role="region"
-          aria-label="Interactive 3D Mars Outpost Viewport"
+          :aria-label="flightStage ? 'Rocket ascent, transfer or Mars landing view' : preparation === 'earth' ? 'Interactive Earth launch site' : preparation === 'space' ? 'Orbital cabin view' : 'Interactive 3D Mars Outpost Viewport'"
         />
-        <div v-if="flightProgress !== null" class="arrival-overlay" role="status">
-          <h2>{{ orbitComplete ? 'Orbit → Mars' : 'Earth → Orbit' }}</h2><p>{{ orbitComplete ? 'Transfer to Ares Outpost' : 'Ascending to the communications cabin' }}</p>
-          <progress :value="flightProgress" max="1" aria-label="Journey to Mars" />
-          <p>Condensed journey · not real travel time or scale</p><button @click="finishArrival">Skip transfer</button>
+        <div v-if="state.taskRun && (state.phase==='running'||state.phase==='paused')" class="task-warning">
+          <p>{{ state.upcomingHazardNotice?.split(' Game forecast')[0] }}</p><p v-if="state.lastHazardNotice">{{ state.lastHazardNotice }}</p>
+          <button @click="dispatch({type:state.phase==='paused'?'RESUME':'PAUSE'})">{{ state.phase==='paused'?'Resume mission':'Pause mission' }}</button>
         </div>
-        <p class="scene-status" role="status">
+        <DoorPanel v-if="arrivalComplete && state.phase === 'running' && !preparation && flightProgress === null"
+          :station="interior ?? nearby" :inside="!!interior" :open="!!doorsOpen[interior ?? nearby ?? 'habitat']"
+          :ready="doorReady" :paused="false" @toggle="toggleDoor" @enter="enterModule()" @exit="leaveModule" @travel="travelToDoor" />
+        <div v-if="flightStage" class="arrival-overlay" role="status">
+          <h2>{{ flightStage === 'launch' ? 'Launch control' : flightStage === 'orbit-autopilot' ? 'Autopilot to orbit' : flightStage === 'transfer' ? 'Earth → Mars' : flightStage === 'landing' ? 'Mars descent' : 'Touchdown' }}</h2>
+          <p>{{ flightFeedback }}</p>
+          <p v-if="flightStage === 'transfer'">A compressed autopilot journey · not real travel time or scale</p>
+          <p v-if="flightStage === 'landing' || flightStage === 'touchdown'">Mars gravity: 3.72 m/s² — about 38% of Earth’s 9.81 m/s².</p>
+        </div>
+        <p class="scene-status" :class="{ 'graphics-error': !!graphicsError }" role="status">
           <span v-if="currentSelectedStation" class="selected-badge">
             MODULE: {{ currentSelectedStation.toUpperCase() }}
             <button
@@ -461,7 +708,8 @@ onBeforeUnmount(() => {
           </span>
           {{ graphicsError || stationMessage }}
         </p>
-        <div class="surface-footer"><span>STYLIZED MARS OUTPOST</span><span>WASD / ARROWS <span aria-hidden="true">·</span> SELECT A MODULE</span></div>
+        <p v-if="gravityLabel && flightProgress === null" class="scene-status" role="status">{{ gravityLabel }}</p>
+        <div class="surface-footer"><span>{{ flightStage ? 'COMPRESSED SPACEFLIGHT SEQUENCE' : preparation ? 'EARTH / ORBIT PREPARATION' : 'STYLIZED MARS OUTPOST' }}</span><span>{{ flightStage ? 'W / S THRUST · A / D STEER · SPACE CONFIRM' : 'WASD / ARROWS · SELECT A MODULE' }}</span></div>
 
         <!-- Coherent In-Viewport Overlay Host for Shell UI Panels -->
         <aside
@@ -476,7 +724,16 @@ onBeforeUnmount(() => {
         >
           <div class="command-heading">
             <span>YOUR NEXT MOVE</span>
-            <span>{{ state.phase === 'ready' ? 'BRIEFING' : state.phase === 'running' ? 'DECISION DESK' : 'MISSION DESK' }}</span>
+            <div class="heading-controls">
+              <span>{{ flightStage ? 'FLIGHT DECK' : state.phase === 'ready' ? 'BRIEFING' : state.phase === 'running' ? 'STATION JOBS' : 'MISSION DESK' }}</span>
+              <button
+                type="button"
+                class="deck-close-corner-btn"
+                title="Hide window (Press C or click to close)"
+                aria-label="Close window"
+                @click="deckVisible = false"
+              >✕</button>
+            </div>
           </div>
           <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
             {{ state.upcomingHazardNotice }}
@@ -490,8 +747,12 @@ onBeforeUnmount(() => {
             @pause="togglePreparationPause"
             @skip="skipPreparation"
           />
-          <ActivityPanel v-else-if="activeActivity" :station="activeActivity.station" :title="activeActivity.title" :steps="activeActivity.steps" :impact="activeActivity.impact" :progress="activityProgress" :inside="interior === activeActivity.station" :feedback="activityFeedback" :paused="state.phase === 'paused'" @control="operateControl" @travel="travelToTask" @enter="enterModule()" @exit="leaveModule" @cancel="cancelActivity" @pause="dispatch({ type: state.phase === 'paused' ? 'RESUME' : 'PAUSE' })" />
-          <section v-else-if="flightProgress !== null" style="padding:18px" aria-label="In transit"><h2>{{ orbitComplete ? 'Mars transfer' : 'Earth departure' }}</h2><p>Flight systems are carrying the expedition to the next playable stage.</p></section>
+          <SpaceflightPanel v-else-if="flightStage" :stage="flightStage" :progress="flightProgress ?? 0" :step="flightControlProgress" :feedback="flightFeedback" :telemetry="flightTelemetry" :paused="preparationPaused" :controls="flightStage === 'landing' ? FLIGHT_CONTROL_STEPS.landing : FLIGHT_CONTROL_STEPS.launch" @control="operateFlightControl" @pause="togglePreparationPause" @continue="finishArrival" />
+          <ActivityPanel v-else-if="activeActivity" :station="activeActivity.station" :title="activeActivity.title" :steps="activeActivity.steps" :impact="activeActivity.impact" :progress="activityProgress" :inside="directDecisionMode || !!graphicsError || interior === activeActivity.station" :feedback="activityFeedback" :paused="state.phase === 'paused'" @control="operateControl" @travel="travelToTask" @enter="enterModule()" @exit="leaveModule" @cancel="cancelActivity" @pause="dispatch({ type: state.phase === 'paused' ? 'RESUME' : 'PAUSE' })" />
+          <section v-else-if="state.phase==='running'" class="exploration-info" aria-label="Exploration information">
+            <h2>Find a glowing machine</h2><p>Walk inside a station. Press E near a machine or click it to work.</p><p>{{ state.turn }} / {{ mission.maxTurns }} jobs finished. Watch the hazard forecast.</p>
+            <div v-if="directDecisionMode || graphicsError" aria-label="Accessible machine focus"><h3>{{ accessibleMachine.label }}</h3><button @click="dispatch({type:'START_TASK',taskId:accessibleMachine.id})">Use focused machine</button><button @click="accessibleMachineIndex++">Focus next machine</button></div>
+          </section>
           <MissionPanels v-else
             :state="state"
             :mission="mission"
@@ -507,6 +768,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .world-panel { position: relative; }
+.task-warning{padding:8px 14px;background:#173d49;border-top:1px solid #e7c680;color:#fff3c8;font-size:12px;line-height:1.5}.task-warning p{margin:4px 0}.task-warning button{padding:7px 12px;}
 .arrival-overlay { position: absolute; inset: 50px 0 auto; padding: 20px; text-align: center; color: #e9e8d6; pointer-events: none; text-shadow: 0 2px 6px #000; }
 .arrival-overlay button { pointer-events: auto; }
 .ares-app { max-width: 1800px; margin: auto; padding: 0 22px 20px; }
@@ -528,8 +790,12 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
 .surface-header, .surface-footer, .command-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; color: #a6bbc2; font-size: 9px; font-weight: 650; letter-spacing: .1em; }
 .surface-header { border-bottom: 1px solid #34434a; color: #e2e6d9; z-index: 4; }
 .surface-actions { display: flex; align-items: center; gap: 8px; }
-.deck-toggle-btn { font-size: 10px; font-weight: 700; padding: 4px 10px; background: #1c303c; border: 1px solid #4a6677; border-radius: 6px; color: #d0e4ee; cursor: pointer; }
-.deck-toggle-btn:hover { background: #284455; color: #ffffff; }
+.deck-toggle-btn { font-size: 10px; font-weight: 700; padding: 4px 10px; background: #1c303c; border: 1px solid #4a6677; border-radius: 6px; color: #d0e4ee; cursor: pointer; transition: all 0.2s ease; }
+.deck-toggle-btn:hover { background: #284455; color: #ffffff; border-color: #61b3dc; }
+.deck-toggle-btn.info-btn { display: inline-flex; align-items: center; gap: 4px; }
+.heading-controls { display: flex; align-items: center; gap: 8px; }
+.deck-close-corner-btn { background: none; border: none; color: #8fa6b2; font-size: 13px; font-weight: bold; cursor: pointer; padding: 2px 6px; border-radius: 4px; line-height: 1; }
+.deck-close-corner-btn:hover { color: #ffffff; background: rgba(255, 255, 255, 0.12); }
 .surface-footer { border-top: 1px solid #34434a; font-size: 8px; z-index: 4; }
 .live-dot { display: inline-block; width: 5px; height: 5px; margin-right: 7px; border-radius: 50%; background: #9ac5b5; box-shadow: 0 0 0 3px #9ac5b514; }
 .viewport { position: relative; flex: 1; min-height: 380px; overflow: hidden; background: #765040; }
@@ -623,3 +889,5 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
   .surface-footer span:last-child { max-width: 130px; text-align: right; }
 }
 </style>
+
+<style scoped src="./features/world/shell.css"></style>

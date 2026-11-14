@@ -6,6 +6,7 @@ export class WorldResources {
   private readonly geometries = new Set<THREE.BufferGeometry>();
   private readonly materials = new Set<THREE.Material>();
   private readonly textures = new Set<THREE.Texture>();
+  private readonly skeletons = new Set<THREE.Skeleton>();
   private disposed = false;
 
   geometry<T extends THREE.BufferGeometry>(geometry: T): T {
@@ -22,10 +23,13 @@ export class WorldResources {
     this.textures.add(texture);
     return texture;
   }
+  skeleton(skeleton: THREE.Skeleton): THREE.Skeleton { this.skeletons.add(skeleton); return skeleton; }
 
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.skeletons.forEach(skeleton => skeleton.dispose());
+    this.skeletons.clear();
     this.textures.forEach(texture => texture.dispose());
     this.materials.forEach(material => material.dispose());
     this.geometries.forEach(geometry => geometry.dispose());

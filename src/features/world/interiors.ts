@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { ModelKit, WorldResources } from './resources';
 
-export function dressRoom(room: THREE.Scene, kit: ModelKit, resources: WorldResources) {
+export function dressRoom(room: THREE.Object3D, kit: ModelKit, resources: WorldResources) {
   const steel = resources.material(new THREE.MeshStandardMaterial({ color: '#536973', metalness: .65, roughness: .4 }));
   const light = resources.material(new THREE.MeshBasicMaterial({ color: '#c2ede6' }));
   for (let x = -2.5; x <= 2.5; x++) for (let z = -2.5; z <= 2.5; z++) {
@@ -19,19 +19,18 @@ export function dressRoom(room: THREE.Scene, kit: ModelKit, resources: WorldReso
     const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(-2.75,y,2.5),new THREE.Vector3(-2.75,y,-2.7),new THREE.Vector3(2.6,y,-2.7)]);
     room.add(new THREE.Mesh(resources.geometry(new THREE.TubeGeometry(curve, 18, .035, 6, false)), steel));
   }
-  // Airlock surround and pressure door sit behind the room's movement boundary.
-  kit.box(room, steel, [1.35, 2, .12], [-2.82, 1.05, 1.8]).rotation.y = Math.PI / 2;
-  kit.box(room, kit.materials.dark, [.08, 1.65, .9], [-2.7, 1, 1.8]);
-  kit.box(room, light, [.04, .35, .22], [-2.64, 1.25, 1.8]);
+  // The interactive exit is placed at the front (+Z), aligned with room movement.
   return { steel, light };
 }
 
 export function furnishRoom(equipment: THREE.Group, id: string, kit: ModelKit, screens: THREE.MeshStandardMaterial[], steel: THREE.Material) {
-  for (const [i, x] of [-1.8, 0, 1.8].entries()) {
-    kit.box(equipment, kit.materials.ivory, [1.3, .85, .75], [x, .43, -2.2]);
-    const monitor = kit.box(equipment, kit.materials.dark, [1.05, .64, .13], [x, 1.24, -2]);
+  const consolePositions = id === 'earth' ? [-2.1, -.7, .7, 2.1] : [-1.8, 0, 1.8];
+  const deskWidth = id === 'earth' ? .95 : 1.3;
+  for (const [i, x] of consolePositions.entries()) {
+    kit.box(equipment, kit.materials.ivory, [deskWidth, .85, .75], [x, .43, -2.2]);
+    const monitor = kit.box(equipment, kit.materials.dark, [deskWidth * .82, .64, .13], [x, 1.24, -2]);
     monitor.rotation.x = -.1;
-    const control = kit.box(equipment, screens[i], [.91, .48, .025], [x, 1.25, -1.92]);
+    const control = kit.box(equipment, screens[i], [deskWidth * .72, .48, .025], [x, 1.25, -1.92]);
     control.userData.controlIndex = i;
     kit.box(equipment, steel, [1.28, .08, .62], [x, .94, -1.9]);
     for (let j = 0; j < 5; j++) kit.box(equipment, j === 0 ? kit.materials.orange : kit.materials.trim, [.1, .035, .15], [x - .36 + j * .18, 1, -1.7]);
@@ -62,6 +61,7 @@ export function furnishRoom(equipment: THREE.Group, id: string, kit: ModelKit, s
     for (const z of [-.5,1.7]) kit.cylinder(equipment, steel, [.025,1.5,.025], [x,1,z]);
   }
   if (id === 'solar' || id === 'space') for (const x of [-2, 2]) {
+    if(id==='solar'&&x===2){kit.box(equipment,steel,[.8,.12,1.1],[x,.06,.2]);continue;}
     kit.box(equipment, steel, [.8, 1.6, 1.1], [x,.8,.2]);
     for (let y = .3; y < 1.5; y += .3) kit.box(equipment, kit.materials.dark, [.65,.2,.04], [x,y,.78]);
     kit.box(equipment, screens[0], [.12,.08,.045], [x + .2,1.5,.8]);

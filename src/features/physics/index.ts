@@ -1,10 +1,30 @@
 import RAPIER from '@dimforge/rapier3d-compat';
-import { STATIONS } from '../../contracts';
-import type { PhysicsAdapter, Vec3 } from '../../contracts';
+import { BUILDING_HALF_SIZE, DOOR_HALF_WIDTH, STATIONS } from '../../contracts';
+import type { GravityBody, GravityInfo, PhysicsAdapter, StationId, Vec3 } from '../../contracts';
 
 // Documented Mars surface gravity: 3.72076 m/s² ~ 3.72 m/s² downward.
 // Citation: Williams, D. R. (2024), "Mars Fact Sheet", NASA Goddard Space Flight Center / NSSDC.
 export const MARS_GRAVITY = 3.72076;
+// Standard gravity (CGPM 1901): 9.80665 m/s². Orbit cabin: free fall, so no weight (0 m/s²).
+export const EARTH_GRAVITY = 9.80665;
+export const GRAVITY_BY_BODY: Readonly<Record<GravityBody, number>> = { earth: EARTH_GRAVITY, orbit: 0, mars: MARS_GRAVITY };
+// Same leg-push take-off speed everywhere, so only gravity changes the height.
+// Tune the whole jump feel here: Earth jump height in metres. The astronaut is ~1.55 m tall (world attaches the model at 1.55 m;
+// collider is 1.6 m). 0.3 m is a heavy-spacesuit jump (a bare-handed standing jump is ~0.5 m), which also keeps Mars (~0.8 m,
+// about half the body height) believable next to the character.
+export const EARTH_JUMP_HEIGHT_M = 0.3;
+export const JUMP_SPEED = Math.sqrt(2 * EARTH_GRAVITY * EARTH_JUMP_HEIGHT_M);
+
+export function describeGravity(body: GravityBody): GravityInfo {
+  const g = GRAVITY_BY_BODY[body];
+  return {
+    body,
+    gravityMS2: g,
+    relativeToEarth: g / EARTH_GRAVITY,
+    jumpHeightM: g > 0 ? (JUMP_SPEED * JUMP_SPEED) / (2 * g) : 0,
+    canJump: g > 0,
+  };
+}
 
 export const BOUNDARY_MIN = -18;
 export const BOUNDARY_MAX = 18;
@@ -50,6 +70,11 @@ export function clampAstronautPosition(
   };
 }
 
+export function rotateMovement(vx: number, vz: number, yaw: number): { vx: number; vz: number } {
+  const angle = Number.isFinite(yaw) ? yaw : 0;
+  return { vx: vx * Math.cos(angle) + vz * Math.sin(angle), vz: -vx * Math.sin(angle) + vz * Math.cos(angle) };
+}
+
 export async function createPhysics(): Promise<PhysicsAdapter> {
   await RAPIER.init();
 
@@ -65,14 +90,20 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       .setRestitution(0),
   );
 
-  // Station colliders (habitat at -5,1,0; solar at 5,1,0; greenhouse at 0,1,-6; each 3x2x3 with half extents 1.5, 1, 1.5)
+  const doors = new Map<StationId,RAPIER.Collider>();
+  const doorStates = new Map<StationId,boolean>();
+  // Hollow shells: same world, solid walls, and an actual opening on the +Z face.
   for (const station of STATIONS) {
-    world.createCollider(
-      RAPIER.ColliderDesc.cuboid(1.5, 1, 1.5)
-        .setTranslation(station.position.x, station.position.y, station.position.z)
-        .setFriction(0)
-        .setRestitution(0),
-    );
+    const {x,z}=station.position, h=BUILDING_HALF_SIZE;
+    const box=(hx:number,hy:number,hz:number,px:number,py:number,pz:number)=>world.createCollider(RAPIER.ColliderDesc.cuboid(hx,hy,hz).setTranslation(x+px,py,z+pz).setFriction(0));
+    box(.1,1.3,h,-h+.1,1.3,0);box(.1,1.3,h,h-.1,1.3,0);box(h,1.3,.1,0,1.3,-h+.1);
+    const half=(h-DOOR_HALF_WIDTH)/2;
+    for(const side of [-1,1])box(half,1.3,.1,side*(DOOR_HALF_WIDTH+half),1.3,h-.1);
+    doors.set(station.id,box(DOOR_HALF_WIDTH,1.15,.1,0,1.15,h-.1));
+    for(const px of [-1.8,0,1.8])box(.65,.45,.38,px,.45,-2.2);
+    if(station.id==='greenhouse')for(const px of [-1.65,1.65])box(.525,.34,1.15,px,.34,.6);
+    if(station.id==='habitat')box(.625,.9,1,-2,.9,-.1);
+    if(station.id==='solar')for(const px of [-2,2])box(.4,.8,.55,px,.8,.2);
   }
 
   // Astronaut dynamic rigid body with locked rotations and capsule collider (halfHeight 0.5, radius 0.3)
@@ -96,14 +127,25 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   let isInputPaused = false;
   let isDisposed = false;
   let outsidePose: Vec3 | undefined;
+  let cameraYaw = 0;
+  let walkingPath: Vec3[] = [];
+  let gravityBody: GravityBody = 'mars';
+  let jumpRequested = false;
 
   const keyDown = (event: KeyboardEvent) => {
     if (isDisposed || isInputPaused) return;
-    if ((event.target as HTMLElement | null)?.closest?.('button, input, textarea, select, [contenteditable]')) return;
+    if ((event.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')) return;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) {
       event.preventDefault();
     }
+    if (event.code === 'Space') {
+      if((event.target as HTMLElement|null)?.closest?.('button,summary,a'))return;
+      event.preventDefault();
+      if (!event.repeat) jumpRequested = true;
+      return;
+    }
     if (MOVEMENT_KEY_CODES.has(event.code)) {
+      walkingPath=[];
       pressed.add(event.code);
     }
   };
@@ -115,6 +157,8 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
 
   const clearKeys = () => {
     pressed.clear();
+    walkingPath=[];
+    jumpRequested=false;
   };
 
   const visibilityChange = () => {
@@ -136,12 +180,33 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   }
 
   return {
+    setGravityBody(next) {
+      if (isDisposed || !(next in GRAVITY_BY_BODY)) return;
+      gravityBody = next;
+      world.gravity = { x: 0, y: -GRAVITY_BY_BODY[next], z: 0 };
+      jumpRequested = false;
+    },
+    getGravityInfo() { return describeGravity(gravityBody); },
+    setDoorOpen(station,open) { if(isDisposed||doorStates.get(station)===open)return;doorStates.set(station,open);doors.get(station)?.setEnabled(!open); },
+    walkPath(points) { if(isDisposed||isInputPaused)return;pressed.clear();walkingPath=points.filter(point=>[point.x,point.y,point.z].every(Number.isFinite)).map(point=>({...point})); },
+    setCameraYaw(yaw) { cameraYaw = Number.isFinite(yaw) ? yaw : 0; },
     step(seconds: number) {
       if (isDisposed) return;
       const dt = Math.max(0.001, Math.min(seconds, 0.1));
-      const { vx, vz } = isInputPaused ? { vx: 0, vz: 0 } : computeMovementVelocity(pressed, ASTRONAUT_SPEED);
+      const input = computeMovementVelocity(pressed, ASTRONAUT_SPEED);
+      let movement = rotateMovement(input.vx, input.vz, cameraYaw);
+      if(walkingPath.length&&!isInputPaused) {
+        const pose=body.translation(),target=walkingPath[0],dx=target.x-pose.x,dz=target.z-pose.z,distance=Math.hypot(dx,dz);
+        if(distance<.08) {walkingPath.shift();movement={vx:0,vz:0};}
+        else {const speed=Math.min(ASTRONAUT_SPEED,distance/dt);movement={vx:dx/distance*speed,vz:dz/distance*speed};}
+      }
+      const { vx, vz } = isInputPaused ? { vx: 0, vz: 0 } : movement;
       const curLinvel = body.linvel();
-      body.setLinvel({ x: vx, y: curLinvel.y, z: vz }, true);
+      let vy = curLinvel.y;
+      const onGround = body.translation().y <= GROUND_Y + 0.03 && Math.abs(curLinvel.y) < 0.1;
+      if (jumpRequested && onGround && !isInputPaused && !walkingPath.length && GRAVITY_BY_BODY[gravityBody] > 0) vy = JUMP_SPEED;
+      jumpRequested = false;
+      body.setLinvel({ x: vx, y: vy, z: vz }, true);
 
       world.timestep = dt;
       world.step();
@@ -170,6 +235,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       return { x: pose.x, y: pose.y, z: pose.z };
     },
     reset(pose?: Vec3) {
+      walkingPath=[];
       outsidePose = undefined;
       if (isDisposed) return;
       clearKeys();
@@ -179,6 +245,8 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     },
     pauseInput() {
+      walkingPath=[];
+      jumpRequested = false;
       if (isDisposed) return;
       isInputPaused = true;
       clearKeys();
@@ -205,6 +273,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       clearKeys();
     },
     dispose() {
+      walkingPath=[];
       if (isDisposed) return;
       isDisposed = true;
       clearKeys();
