@@ -6,7 +6,7 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 
 | Branch | Reported tip | Scope | State |
 | --- | --- | --- | --- |
-| `feat/himamshu-world` | `278c91e` | `src/features/world/**`, `src/App.vue`, `src/contracts/index.ts`, `docs/CONTRACTS.md`, `src/features/physics/**` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors `8764bfa`; NASA assets, detailed interiors, and playable Earth/orbit preflight `c644a59`; procedural suit rig `2a4f7f7`; Mixamo locomotion clips `0fae932`; openable doors & free building exploration `79ad90d`; third-person exploration & outdoor Earth campus merged by `e82fa10`; station minigames and task cues merged by `e05925c`; checks passed |
+| `feat/himamshu-world` | `4463852` | `src/features/world/**`, `src/App.vue`, `src/contracts/index.ts`, `docs/CONTRACTS.md`, `src/features/physics/**` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors `8764bfa`; NASA assets, detailed interiors, and playable Earth/orbit preflight `c644a59`; procedural suit rig `2a4f7f7`; Mixamo locomotion clips `0fae932`; openable doors & free building exploration `79ad90d`; third-person exploration & outdoor Earth campus merged by `e82fa10`; station minigames and task cues merged by `e05925c`; walk-through interiors & optimized environment models merged by `dded677`; checks passed |
 | `feat/rohit-game` | `4d02fd0` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory `72f8f65`; audio synthesis, star badges, keyboard navigation `b7c9c33`; contextual station procedures `44a7120`; full-reserve sound, in-viewport deck overlay, and roguelike choice cards merged by `828493c`; checks passed |
 | `feat/saurav-hud` | `603b5df` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations `4d07adf`; in-game status polish `86c1beb`; science & shelter readout softening `44ff31e`; expandable science and shelter buttons `f994aa7`; stat icon spin and numerator progress roll `667ae75`; gentle cursor parallax and motion polish `afff7e4`; viewport event toast details `94ce20e`; playful reserve meter visuals `d77cb4c`; Earth & orbit stage HUD displays merged by `17f518b`; checks passed |
 | `feat/anshu-physics` | `4108654` | `src/features/physics/**` | Grounded astronaut controller, reset and pause merged by `dfe1d24`; checks passed |
@@ -274,6 +274,14 @@ Himamshu issued a standing mandate authorizing the merge coordinator to automati
    - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
    - Changes: Integrated Earth launch checklist readout and orbital flight trajectory indicators into in-viewport HUD during preflight/preparation phases, matching the aesthetic of the active Mars mission overlay.
    - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (16 test files, 95 tests passed); `npm run build` passed cleanly in 1.12s.
+
+### 14 Nov 2026 — Himamshu (world) walk-through interiors and optimized environment models integration
+
+1. **`feat/himamshu-world` (tip `4463852`)**:
+   - Merged as `dded677`, preserving Himamshu's commits `f8e44cb` and `4463852`.
+   - Scope: `docs/CONTRACTS.md`, `src/App.vue`, `src/contracts/index.ts`, `src/features/physics/AGENTS.md`, `src/features/physics/NOTES.md`, `src/features/physics/building-movement.test.ts`, `src/features/physics/index.ts`, `src/features/world/**`. All paths within Himamshu's assigned feature, coordinated gameplay/door scope, and shared building collision contracts.
+   - Changes: Replaced interior room portal transitions with continuous hollow, walk-through 6.4m outpost buildings in the outdoor scene (Habitat, Solar Station, Greenhouse) with Rapier solid walls, doorways, and interior furniture colliders; door readiness gating and doorway clearance checks; perspective follow camera shortening against interior walls/ceilings; optimized environment 3D assets (NASA/JPL-Caltech Earth and Mars globes, RenderX Moon, Curiosity rover, SebastianSosnowski Olympus Mons terrain, Nicholas-3D warehouse); CC BY 4.0 provenance documentation and asset hashes in `CREDITS.md`; additive physics contract `setDoorOpen` and unit tests in `building-movement.test.ts`.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (17 test files, 101 tests passed); `npm run build` passed cleanly in 1.54s.
 
 ### Updated open requests
 
