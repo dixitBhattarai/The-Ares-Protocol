@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { FlightStage, StationId, Vec3 } from '../../contracts';
+import type { FlightStage, LandingFlightSnapshot, StationId, Vec3 } from '../../contracts';
 import { createAstronaut, applyAstronautGait, updateAstronautAnimation } from './astronaut';
 import type { ModelKit, WorldResources } from './resources';
 import { dressRoom, furnishRoom } from './interiors';
@@ -96,15 +96,28 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
   kit.cylinder(landingBeacon, kit.materials.ivory, [.18, 5, .18], [0, 2.5, 0]);
   const beaconMaterial = resources.material(new THREE.MeshStandardMaterial({ color: '#ffe189', emissive: '#ed9a42', emissiveIntensity: 1.2 }));
   kit.sphere(landingBeacon, beaconMaterial, [.72, .72, .72], [0, 5.2, 0]);
+  landingBeacon.position.x=6;
+  const padMaterial=resources.material(new THREE.MeshStandardMaterial({color:'#26434b',roughness:.85}));
+  kit.cylinder(marsLandingView,padMaterial,[4.2,.18,4.2],[0,-7.36,-38]);
+  const padLight=resources.material(new THREE.MeshBasicMaterial({color:'#b7f4cf'}));
+  const padRing=new THREE.Mesh(resources.geometry(new THREE.TorusGeometry(4,.12,6,48)),padLight);padRing.rotation.x=Math.PI/2;padRing.position.set(0,-7.23,-38);marsLandingView.add(padRing);
+  kit.flatBox(marsLandingView,padLight,[.18,.03,5],[0,-7.21,-38]);kit.flatBox(marsLandingView,padLight,[5,.03,.18],[0,-7.21,-38]);
+  const dustCanvas=document.createElement('canvas');dustCanvas.width=64;dustCanvas.height=64;
+  const dc=dustCanvas.getContext('2d');if(dc){const g=dc.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(220,155,105,.5)');g.addColorStop(1,'rgba(220,155,105,0)');dc.fillStyle=g;dc.fillRect(0,0,64,64);}
+  const landingDustMaterial=resources.material(new THREE.SpriteMaterial({map:resources.texture(new THREE.CanvasTexture(dustCanvas)),transparent:true,depthWrite:false,opacity:0}));
+  const landingDust=Array.from({length:16},()=>{const sprite=new THREE.Sprite(landingDustMaterial);marsLandingView.add(sprite);return sprite;});
+  const landingFog=new THREE.Fog('#bd765e',150,650);
   let cockpitTime = 0;
-  function updateCockpitView(stage: FlightStage, progress: number, seconds: number, active: boolean, reduced: boolean): void {
+  function updateCockpitView(stage: FlightStage, progress: number, seconds: number, active: boolean, reduced: boolean, landing?:Readonly<LandingFlightSnapshot>|null): void {
     const p = reduced
       ? stage === 'launch' || stage === 'orbit-autopilot' ? 0 : stage === 'touchdown' ? 1 : .5
       : THREE.MathUtils.clamp(progress, 0, 1);
     if (active && !reduced) cockpitTime += Math.min(.1, Math.max(0, seconds));
     cockpitCamera.position.set(0, cockpitHomeY, 10);
     cockpitCamera.lookAt(0, -1.5, -100);
-    cockpitStarMaterial.opacity = reduced ? .68 : .78;
+    cockpitFlight.fog=landing?landingFog:null;
+    landingDustMaterial.opacity=0;
+    cockpitStarMaterial.opacity = landing ? 0 : reduced ? .68 : .78;
     cockpitStars.rotation.z = active && !reduced ? cockpitTime * .004 : 0;
     launchHorizon.visible = stage === 'launch';
     earthWindowPlanet.visible = stage === 'orbit-autopilot' || (stage === 'launch' && p > .55);
@@ -131,7 +144,15 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
       marsWindowPlanet.scale.setScalar(20 * (.2 + p * .8));
     } else {
       cockpitBackground.copy(marsSky).lerp(spaceSky, stage === 'touchdown' ? 0 : p * .08);
-      if (stage === 'landing') {
+      if(landing){
+        // Same forward approach camera: terrain translates continuously with altitude/offset.
+        marsLandingView.position.set(-landing.offset*.35,7-landing.altitude*.15,18-landing.altitude*.85);
+        marsLandingView.scale.setScalar(1);landingBeacon.scale.setScalar(.7);
+        if(!reduced)cockpitCamera.rotateZ(-landing.pitch*Math.PI/180*.35);
+        padLight.color.set(landing.status==='retry'?'#ffb28e':Math.abs(landing.offset)<=12?'#b7f4cf':'#ffda93');
+        landingDustMaterial.opacity=landing.status==='flying'?Math.max(0,1-landing.altitude/45)*landing.throttle*.6:0;
+        landingDust.forEach((sprite,i)=>{const age=(cockpitTime*.65+i/16)%1;sprite.position.set(landing.offset*.35+Math.sin(i*2.4)*(2+age*11),-6+age*2,-34+Math.cos(i*2.4)*(2+age*11));sprite.scale.setScalar(2+age*9);});
+      } else if (stage === 'landing') {
         marsLandingView.position.set(0, -p * 7, p * 48);
         marsLandingView.scale.setScalar(.78 + p * .5);
         landingBeacon.scale.setScalar(.65 + p * 2.2);
@@ -187,8 +208,8 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
       return hit?.object.userData.controlIndex as number | undefined;
     },
     resize(value: number) { aspect = value; },
-    cockpit(stage: FlightStage, progress: number, seconds: number, active: boolean, reduced: boolean) {
-      updateCockpitView(stage, progress, seconds, active, reduced);
+    cockpit(stage: FlightStage, progress: number, seconds: number, active: boolean, reduced: boolean, landing?:Readonly<LandingFlightSnapshot>|null) {
+      updateCockpitView(stage, progress, seconds, active, reduced,landing);
       cockpitCamera.aspect = Math.max(.1, aspect);
       cockpitCamera.updateProjectionMatrix();
     },

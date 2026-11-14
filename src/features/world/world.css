@@ -107,3 +107,5 @@
   .ares-world__cockpit-instrument { font-size:7px; }
 }
 @media(prefers-reduced-motion:reduce) { .ares-world__cockpit-frame * { animation:none !important; transition:none !important; } }
+.ares-world__cockpit-instrument:nth-child(1) i::after{transform:rotate(var(--lander-pitch,28deg))}
+.ares-world__cockpit-instrument:nth-child(2) i::after{transform:rotate(var(--lander-thrust,28deg))}

@@ -95,3 +95,6 @@ Validation: keyboard/button browser flow through Earth/orbit, idle hazard, all s
 
 ### Live rocket controls — 14 November
 User-authorized launch UI: compact LaunchControls overlay leaves the rocket visible; live altitude/climb/fuel, throttle slider, tilt gauge, ignition and held/tap control buttons. Keyboard controls still work with a button focused; range slider uses normal keyboard range behavior. Pointer cancel/lost capture/unmount release holds. Pause/reset remain reachable at 360x800. Landing/transfer panel is unchanged. Focused flight validation and authored-model limits in physics/world notes.
+
+### Live landing controls — 14 November
+Added compact LandingControls telemetry, pad alignment/tilt, thrust slider, held/tap W/S/A/D controls, Space legs, optional assist, pause and retry. Existing forward cockpit stays visible; no modal checklist or text wall during descent. Uses shell-supplied guidance, no sibling physics import or simulation writes. Controller releases held buttons on pointer cancel/lost capture/unmount. Successful contact transitions to Mars; rough contact provides a clear retry. Desktop/mobile visual/control checks passed; final scene polish noted by world.

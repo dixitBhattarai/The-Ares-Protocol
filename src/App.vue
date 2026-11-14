@@ -2,7 +2,7 @@
 // Integration shell: Rohit owns this file. Himamshu's layout handoff is recorded in world/NOTES.md.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
 import { STATIONS } from './contracts';
-import type { LaunchFlightSnapshot, FlightStage, GravityBody, GameAction, PhysicsAdapter, Vec3, WorldAdapter, StationId, MissionData } from './contracts';
+import type { LandingFlightSnapshot, LaunchFlightSnapshot, FlightStage, GravityBody, GameAction, PhysicsAdapter, Vec3, WorldAdapter, StationId, MissionData } from './contracts';
 import { createInitialState, getCurrentEvent, reduceGame, STATION_TASKS, taskCompletionId } from './features/game';
 import { soundFX } from './features/game/audio';
 import { loadMission } from './features/missions';
@@ -11,6 +11,8 @@ import MissionPanels from './features/ui/MissionPanels.vue';
 import { usableMachines, WORK_MACHINES, type WorkWorldAdapter } from './features/world/interactables';
 import SpaceflightPanel from './features/ui/SpaceflightPanel.vue';
 import LaunchControls from './features/ui/LaunchControls.vue';
+import LandingControls from './features/ui/LandingControls.vue';
+import {createLandingFlight,stepLandingFlight,landingGuidance,LANDING_ALTITUDE} from './features/physics/landing-flight';
 import {createLaunchFlight,stepLaunchFlight,SPACE_ALTITUDE} from './features/physics/launch-flight';
 import SplashScreen from './features/ui/SplashScreen.vue';
 import LoginScreen from './features/ui/LoginScreen.vue';
@@ -60,6 +62,17 @@ function nudgeLaunch(key:FlightControlKey){
 }
 function releaseLaunchKey(event:KeyboardEvent){launchHeld.delete(event.code as FlightControlKey);}
 function clearLaunchFlight(){clearLaunchInput();launchFlight.value=null;world?.setLaunchFlight?.(null);}
+const landingFlight=shallowRef<LandingFlightSnapshot|null>(null);
+function clearLandingFlight(){clearLaunchInput();landingFlight.value=null;world?.setLandingFlight?.(null);}
+function holdLanding(key:FlightControlKey,down:boolean){if(down&&flightStage.value==='landing'&&landingFlight.value?.status==='flying'&&!preparationPaused.value)launchHeld.add(key);else launchHeld.delete(key);}
+function setLandingThrottle(value:number){const s=landingFlight.value;if(s&&s.status==='flying'&&!preparationPaused.value)landingFlight.value={...s,throttle:Math.max(0,Math.min(1,value)),assist:false};}
+function nudgeLanding(key:FlightControlKey){
+ const s=landingFlight.value;if(!s||s.status!=='flying'||preparationPaused.value)return;
+ if(key==='KeyW'||key==='KeyS')setLandingThrottle(s.throttle+(key==='KeyW'?.05:-.05));
+ else if(key==='KeyA'||key==='KeyD')landingFlight.value={...s,pitch:Math.max(-25,Math.min(25,s.pitch+(key==='KeyA'?-3:3))),assist:false};
+}
+function deployLandingLegs(){if(landingFlight.value?.status==='flying'&&!preparationPaused.value)landingFlight.value={...landingFlight.value,legs:true};}
+function toggleLandingAssist(){if(landingFlight.value?.status==='flying'&&!preparationPaused.value){clearLaunchInput();landingFlight.value={...landingFlight.value,assist:!landingFlight.value.assist};}}
 let flightStageElapsed = 0;
 // The bundled flight sim supplies telemetry and responds to simple throttle/attitude commands; stage timing remains authored for a short, child-friendly mission.
 let flightSim: SpacecraftSim | undefined;
@@ -122,7 +135,7 @@ function updateFlightStage(stage: FlightStage | null, progress = 0) {
 }
 
 function beginPreparation(level: PreparationLevel) {
-  clearLaunchFlight();
+  clearLandingFlight();clearLaunchFlight();
   deckVisible.value=true;
   updateFlightStage(null);
   world?.setJourney?.(null);
@@ -170,13 +183,15 @@ function beginMarsLanding() {
   preparationPaused.value = false;
   flightControlProgress.value = 0;
   flightFeedback.value = 'Mars approach confirmed. Use small steering and thrust corrections.';
-  startFlightSim('MARS_POWERED_DESCENT', 3, true);
+  stopFlightSim();clearLaunchInput();landingFlight.value=createLandingFlight();
+  world?.setLandingFlight?.(landingFlight.value);
   updateFlightStage('landing', 0);
   physics?.pauseInput?.();
   world?.setLevel?.(null);
 }
 
 function operateFlightControl(key: FlightControlKey) {
+  if(flightStage.value==='landing'&&landingFlight.value){if(key==='Space')deployLandingLegs();else nudgeLanding(key);return;}
   if(flightStage.value==='launch'&&launchFlight.value){if(key==='Space')igniteLaunch();else nudgeLaunch(key);return;}
   const stage = flightStage.value;
   if ((stage !== 'launch' && stage !== 'landing') || preparationPaused.value) return;
@@ -259,7 +274,7 @@ function finishArrival() {
   }
   if (flightStage.value === 'transfer') { beginMarsLanding(); return; }
   if (flightStage.value === 'touchdown') {
-    stopFlightSim();
+    clearLandingFlight();stopFlightSim();
     updateFlightStage(null);
     arrivalComplete = true;deckVisible.value=false;physics?.reset?.({x:0,y:.8,z:6});setGravity('mars');music?.select('mars'); stationMessage.value = 'Touchdown complete. Mars gravity is 3.72 m/s², about 38% of Earth gravity. Walk inside a station and use a glowing machine to work.'; dispatch({ type: 'START' });
   }
@@ -385,7 +400,7 @@ function dispatch(action: GameAction) {
     activityProgress.value=0;activityFeedback.value='Finish the station minigame to earn this reward.';
     world?.setObjective?.(task.station);physics?.pauseInput?.();deckVisible.value=false;return;
   }
-  if (action.type === 'RESTART') { missionTimerActive.value=false;arrivalGuide.value=false;clearLaunchFlight();missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
+  if (action.type === 'RESTART') { missionTimerActive.value=false;arrivalGuide.value=false;clearLandingFlight();clearLaunchFlight();missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
   if (action.type === 'PAUSE' && state.value.phase === 'running') music?.setPaused(true);
   if (action.type === 'RESUME' && state.value.phase === 'paused') music?.setPaused(false);
   const previousState = state.value;
@@ -468,6 +483,11 @@ function checkStationProximity(pose: Vec3) {
 }
 
 function handleGlobalKeydown(event: KeyboardEvent) {
+  if(landingFlight.value&&flightStage.value==='landing'&&!(event.target as HTMLElement|null)?.closest('input,textarea,select,[contenteditable]')){
+    if(event.code==='KeyP'){event.preventDefault();if(!event.repeat)togglePreparationPause();return;}
+    if(['KeyW','KeyS','KeyA','KeyD'].includes(event.code)){event.preventDefault();holdLanding(event.code as FlightControlKey,true);return;}
+    if(event.code==='Space'&&!(event.target as HTMLElement|null)?.closest('button')){event.preventDefault();if(!event.repeat)deployLandingLegs();return;}
+  }
   if(state.value.phase==='running'&&!activeActivity.value&&['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.code)&&!(event.target as HTMLElement|null)?.closest('input,textarea,select,[contenteditable]'))startMissionAfterGuide();
   if(launchFlight.value&&flightStage.value==='launch'&&!(event.target as HTMLElement|null)?.closest('input,textarea,select,[contenteditable]')){
     if(event.code==='KeyP'){event.preventDefault();if(!event.repeat)togglePreparationPause();return;}
@@ -585,6 +605,12 @@ onMounted(async () => {
           flightProgress.value=Math.min(1,launchFlight.value.altitude/SPACE_ALTITUDE);
           world!.setLaunchFlight?.(launchFlight.value);
           if(stage==='launch'&&launchFlight.value.spaceReached){clearLaunchInput();updateFlightStage('orbit-autopilot',0);}
+        }else if(landingFlight.value&&(stage==='landing'||stage==='touchdown')){
+          landingFlight.value=stepLandingFlight(landingFlight.value,elapsed,{throttle:Number(launchHeld.has('KeyW'))-Number(launchHeld.has('KeyS')),steer:Number(launchHeld.has('KeyD'))-Number(launchHeld.has('KeyA'))});
+          flightProgress.value=Math.max(0,Math.min(1,1-landingFlight.value.altitude/LANDING_ALTITUDE));
+          world!.setLandingFlight?.(landingFlight.value);
+          if(stage==='landing'&&landingFlight.value.status==='landed'){clearLaunchInput();updateFlightStage('touchdown',1);}
+          else if(landingFlight.value.status==='retry')clearLaunchInput();
         }else stepFlightSim(elapsed);
         if (stage === 'orbit-autopilot' || stage === 'transfer' || stage === 'touchdown') {
           const duration = stage === 'orbit-autopilot' ? 4 : stage === 'transfer' ? 8 : 3;
@@ -684,7 +710,7 @@ onBeforeUnmount(() => {
         <span class="prototype-label">Junior explorer program</span>
         <button
           type="button"
-          v-if="!launchFlight" class="mode-btn"
+          v-if="!launchFlight && !landingFlight" class="mode-btn"
           @click="directDecisionMode = !directDecisionMode"
           :title="directDecisionMode ? 'Use walking and station computers' : 'Use accessible station consoles'"
           :aria-label="directDecisionMode ? 'Accessible consoles active. Switch to walking.' : 'Walking mode active. Enable accessible consoles.'"
@@ -704,14 +730,14 @@ onBeforeUnmount(() => {
       </div>
     </header>
       <div class="hud-container">
-        <HudOverlay v-if="!launchFlight" :key="state.taskRun?.session ?? 0" :state="state" :mission="mission" />
+        <HudOverlay v-if="!launchFlight && !landingFlight" :key="state.taskRun?.session ?? 0" :state="state" :mission="mission" />
       </div>
         <div class="surface-header">
           <span><span class="live-dot" aria-hidden="true" /> {{ preparation === 'earth' ? 'EARTH / PREPARATION LAB' : preparation === 'space' ? 'ORBIT / COMMUNICATIONS CABIN' : flightStage === 'launch' || flightStage === 'orbit-autopilot' ? 'EARTH / LAUNCH VEHICLE' : flightStage === 'transfer' ? 'EXPEDITION / AUTOPILOT TRANSFER' : flightStage === 'landing' || flightStage === 'touchdown' ? 'MARS / LANDING APPROACH' : 'OUTPOST ARES / SURFACE VIEW' }}</span>
           <div class="surface-actions">
             <button
               type="button"
-              v-if="!launchFlight && (preparation || flightStage || state.phase !== 'running' || directDecisionMode || graphicsError)" class="deck-toggle-btn info-btn"
+              v-if="!launchFlight && !landingFlight && (preparation || flightStage || state.phase !== 'running' || directDecisionMode || graphicsError)" class="deck-toggle-btn info-btn"
               :aria-label="deckVisible ? 'Hide Mission Deck' : 'Show Mission Deck / Info'"
               :title="deckVisible ? 'Hide Mission Deck (Press C)' : 'Show Mission Deck (Press C)'"
               @click="deckVisible = !deckVisible"
@@ -740,7 +766,8 @@ onBeforeUnmount(() => {
           :station="interior ?? nearby" :inside="!!interior" :open="!!doorsOpen[interior ?? nearby ?? 'habitat']"
           :ready="doorReady" :paused="false" @toggle="toggleDoor" @enter="enterModule()" @exit="leaveModule" @travel="travelToDoor" />
         <LaunchControls v-if="launchFlight" :flight="launchFlight" :paused="preparationPaused" @ignite="igniteLaunch" @hold="holdLaunch" @nudge="nudgeLaunch" @throttle="setLaunchThrottle" @pause="togglePreparationPause" @reset="beginLaunchSequence" />
-        <div v-if="flightStage && !launchFlight" class="arrival-overlay" role="status">
+        <LandingControls v-if="landingFlight" :flight="landingFlight" :guidance="landingGuidance(landingFlight)" :paused="preparationPaused" @hold="holdLanding" @nudge="nudgeLanding" @throttle="setLandingThrottle" @legs="deployLandingLegs" @assist="toggleLandingAssist" @pause="togglePreparationPause" @retry="beginMarsLanding" @continue="finishArrival" />
+        <div v-if="flightStage && !launchFlight && !landingFlight" class="arrival-overlay" role="status">
           <h2>{{ flightStage === 'launch' ? 'Launch control' : flightStage === 'orbit-autopilot' ? 'Autopilot to orbit' : flightStage === 'transfer' ? 'Earth → Mars' : flightStage === 'landing' ? 'Mars descent' : 'Touchdown' }}</h2>
           <p>{{ flightFeedback }}</p>
           <p v-if="flightStage === 'transfer'">A compressed autopilot journey · not real travel time or scale</p>
@@ -768,7 +795,7 @@ onBeforeUnmount(() => {
 
         <!-- Coherent In-Viewport Overlay Host for Shell UI Panels -->
         <section
-          v-show="deckVisible && !activeActivity && !launchFlight && (!!preparation || !!flightStage || state.phase !== 'running' || directDecisionMode || !!graphicsError)"
+          v-show="deckVisible && !activeActivity && !launchFlight && !landingFlight && (!!preparation || !!flightStage || state.phase !== 'running' || directDecisionMode || !!graphicsError)"
           ref="commandPanel"
           class="command-panel in-viewport-deck"
           role="dialog" aria-label="Mission controls"
