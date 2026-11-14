@@ -713,7 +713,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         }
         if(ids.length && offerId!==taskOfferId) {
           taskToastText.textContent='Find a glowing machine. Press E to work.';
-          taskNoticeRemaining=0;
+          taskNoticeRemaining=5;
         }
         taskOfferId = offerId;
         if (!ids.length) { taskNoticeRemaining = 0; taskToast.hidden = true; }
@@ -871,6 +871,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         if (level === 'earth') {
           if (astronaut.group.parent !== earth.scene) earth.scene.add(astronaut.group);
           earth.labDoor.update(active ? delta : 0, reduceMotion);
+          earth.update(active ? delta : 0, reduceMotion);
           updateAstronautAnimation(astronaut, delta, active, reduceMotion);
           if (cameraDirty) updateCamera();
           renderer!.render(earth.scene, cameraMode === 'follow' ? follow.camera : camera); return;

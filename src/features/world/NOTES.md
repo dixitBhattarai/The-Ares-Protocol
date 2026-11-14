@@ -250,3 +250,18 @@ Replaced the launch slideshow with an additive telemetry-driven exterior view: d
 User explicitly requested a controllable launch; coordinated App/contracts/physics/UI slice passes LaunchFlightSnapshot via optional setLaunchFlight. App owns time and stage progression; continuous W/S throttle, A/D steering, ignition, hold/tap/slider controls replace the launch checklist. Detailed limits and checks in physics/UI notes. Root Earth atmosphere imagery was already bundled/credited; no new external assets. Final Earth texture/exhaust fade polish follows the initial browser pass.
 
 Final polish: reused the existing higher-resolution Earth atmosphere map, faded exhaust shaders, removed the walking-mode toggle during launch, and used a continuous logarithmic near-ground height mapping so the pad/tower visibly fall away early. Final texture/exhaust render checked in-browser without errors. Physical telemetry is unchanged; the scene is deliberately compressed in scale.
+
+### Realistic Earth Environment & Adventure Wilderness — 14 November 2026
+
+- User requested: "Make the Earth environment in our existing game extremely realistic and immersive. Add detailed natural trees, dense forests, green grass, flowers, bushes, mountains, rivers, lakes, rocks, realistic terrain, blue skies, moving clouds, sunlight, and natural shadows. Make the world visually rich, beautiful, and professionally designed like a high-quality 3D adventure game. Ensure proper collisions, smooth exploration, and compatibility with existing gameplay, physics, HUD, and controls. Optimize performance for ordinary laptops. Work directly on the existing project, preserve teammates' contributions, and implement everything without asking for permission."
+- Built an expansive, beautifully stylized 250m × 250m sculpted Earth landscape with:
+  - Rolling hills and distant alpine mountain ridges with realistic vertex-colored elevation transitions (lush meadow grass `#4c802b`, rocky granite cliffs `#646e75`, and alpine snow caps `#eef4f8`).
+  - Shimmering river and mountain lake system with deep teal-cyan water (`#1b6e85`), transparency, depth, sandy gravel shorelines, and a rustic wooden footbridge with railings and scenic lakeside bench.
+  - Multi-species dense forest: over 200 trees including noble conical evergreen pines with layered drooping needle tiers, broadleaf summer oaks with volumetric canopies, and slender silver birches.
+  - Wildflower meadows (golden buttercups, lavender, poppies, mountain daisies), lush green bushes/shrubs along pathway edges, and natural mossy granite field boulders.
+  - Atmospheric azure gradient skydome (`#155d99` to `#d8eef8`) generated via zero-dependency DataTexture (100% Vitest/Node SSR compatible).
+  - Volumetric 3D drifting cumulus clouds with animated gentle wind wrapping.
+  - Golden directional sunlight (`#fff6de`) casting high-res soft PCF shadows with sky/meadow bounce hemisphere lighting.
+  - Kept all documented station footprints (`habitat`, `solar`, `greenhouse`) and launch pad at exact coordinates with a perfectly level central campus basin ($y = 0$) ensuring smooth player movement and zero collision clipping.
+- Preserved 100% backward compatibility with `installLaunchVehicleModel`, `setLaunchProgress`, `resetLaunch`, `labDoor`, and existing interaction handlers.
+- Validation: `npm run typecheck`, 151 passed tests across all 25 test files in Vitest (including expanded `earth.test.ts`), and clean production build in 1.26s.
