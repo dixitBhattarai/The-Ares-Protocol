@@ -6,7 +6,7 @@ import { createGroundShadow, createStation, createTerrain, STATION_NAMES } from 
 import { applyAstronautGait, createAstronaut } from './astronaut';
 import { createModelKit, WorldResources } from './resources';
 import { pickStationAt } from './picking';
-import { applyStationStatus, getStationStatus } from './status';
+import { applyStationStatus, getStationStatus, getWorldEventNotice } from './status';
 import './world.css';
 
 export function createWorld(host: HTMLElement, onInteract: (station: StationId) => void): WorldAdapter {
@@ -79,7 +79,23 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     const phaseBadge = document.createElement('span');
     phaseBadge.className = 'ares-world__phase';
     phaseBadge.textContent = 'BRIEFING';
-    container.appendChild(phaseBadge);
+    const sceneStatus = document.createElement('div');
+    sceneStatus.className = 'ares-world__status';
+    sceneStatus.appendChild(phaseBadge);
+    container.appendChild(sceneStatus);
+    const eventReport = document.createElement('details');
+    eventReport.className = 'ares-world__event';
+    eventReport.hidden = true;
+    const eventSummary = document.createElement('summary');
+    eventSummary.textContent = 'EVENT';
+    eventSummary.setAttribute('aria-label', 'Read this shift’s event report');
+    const eventText = document.createElement('p');
+    eventReport.append(eventSummary, eventText);
+    sceneStatus.appendChild(eventReport);
+    // Let the native summary operate without sending game/movement shortcuts.
+    const reportKey = (event: KeyboardEvent) => event.stopPropagation();
+    eventReport.addEventListener('keydown', reportKey);
+    cleanups.push(() => eventReport.removeEventListener('keydown', reportKey));
     const playerMarker = document.createElement('span');
     playerMarker.className = 'ares-world__you';
     playerMarker.textContent = 'YOU';
@@ -89,6 +105,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     let selected: StationId | undefined;
     let hovered: StationId | undefined;
     let lastState: Readonly<GameState> | undefined;
+    let eventNotice = '';
     const stations = STATIONS.map(station => {
       const visual = createStation(station.id, kit, resources);
       visual.group.position.copy(station.position);
@@ -133,8 +150,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     }
     function updateHighlights(): void {
       stations.forEach(station => {
-        station.visual.selection.visible = station.id === selected || station.id === hovered;
-        station.visual.selection.material.color.set(station.id === selected ? '#ffe0a2' : '#e5f6ff');
+        station.visual.selection.visible = station.id === selected || station.id === hovered || Boolean(eventNotice);
+        station.visual.selection.material.color.set(station.id === selected ? '#ffe0a2' : station.id === hovered ? '#e5f6ff' : '#efbd7d');
         station.label.setAttribute('aria-pressed', String(station.id === selected));
       });
     }
@@ -238,7 +255,14 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       },
       setState(state) {
         if (disposed || state === lastState) return;
+        const notice = getWorldEventNotice(state);
+        if (notice !== eventNotice || state.turn !== lastState?.turn) eventReport.open = false;
+        eventNotice = notice;
         lastState = state;
+        eventReport.hidden = !eventNotice;
+        eventText.textContent = eventNotice;
+        eventSummary.title = eventNotice;
+        container.dataset.event = eventNotice ? 'active' : 'none';
         if (state.phase !== 'running') applyAstronautGait(astronaut, 0, false);
         if (state.phase === 'ready') walkCycle = 0;
         stations.forEach(station => {
@@ -246,12 +270,13 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
           station.readout.textContent = status.readout;
           station.label.dataset.level = status.level;
           station.label.setAttribute('aria-label', `Select ${STATION_NAMES[station.id]}. ${status.description}`);
-          applyStationStatus(station.visual, status, state.resources.power, state.shielding);
+          applyStationStatus(station.visual, status, state.resources.power, state.shielding, Boolean(eventNotice));
         });
         const phaseNames = { ready: 'BRIEFING', running: 'MISSION ACTIVE', paused: 'PAUSED', won: 'MISSION COMPLETE', lost: 'TRY ANOTHER PLAN' };
         phaseBadge.textContent = phaseNames[state.phase];
         phaseBadge.dataset.phase = state.phase;
-        if (state.phase === 'ready') { selected = undefined; hovered = undefined; updateHighlights(); }
+        if (state.phase === 'ready') { selected = undefined; hovered = undefined; }
+        updateHighlights();
         updateHint();
         cameraDirty = true;
       },

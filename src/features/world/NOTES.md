@@ -44,3 +44,13 @@ Original baseline: `710e015`. Continuation baseline: checked main `097f63f`, bro
 - Rohit: App's viewport currently has `role="img"`, which hides descendant station buttons from the accessibility tree. Change that host role to `region` or `group` while retaining its label so the world's native buttons are exposed to screen readers. World does not edit shell-owned semantics.
 - Layout/collider contracts remain unchanged; no request to Anshu.
 - Camera is automatic and fixed-angle; no orbit/zoom controls. This keeps controls simple for children. NASA evidence and gameplay consequences remain with their owners.
+
+## Milestone 4 — supplied event feedback
+
+- Module beacons and equipment outlines now respond to the supplied `lastHazardNotice`. A native expandable event report shows that exact outcome as text. No event is inferred from shift number, shielding or NASA data, and world does not calculate damage.
+- The report closes when the event/shift changes and clears on restart; its keyboard events stay out of game/controller shortcuts. New listeners use the existing disposal path. Beacon geometry stays within the documented station boxes.
+- Reserve labels now match the HUD's display bands: watch at 45 or below, low at 20 or below, empty at zero. These are presentation bands, not changed simulation rules.
+- Validation: typecheck, all 24 tests and production build passed. New tests cover supplied-event-only behavior, beacon restoration, bounded light output and snapshot immutability.
+- Live browser checks passed the actual shelter/hazard sequence, three amber beacons, report text, keyboard isolation, next-shift clearing and replay clearing. Inspected 1280px and 360px captures; the expanded report stayed within the scene. All three canvas raycasts, Enter/Space/Escape, narrow map-edge resize, three remounts, repeated disposal and injected observer-initialization failure passed without page exceptions.
+- Changed files for this milestone: `index.ts`, `models.ts`, `status.ts`, `world.css`, `world.test.ts`, and this note, all inside the world folder. No new package or public adapter changes.
+- Rohit/Genius: the current supplied report describes "heavy radiation" and protection as a certainty. World displays it verbatim; game/content owners should make the authored educational simplification explicit when revising mission copy.

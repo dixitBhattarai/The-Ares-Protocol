@@ -6,6 +6,7 @@ export interface StationVisual {
   group: THREE.Group;
   windows: THREE.MeshStandardMaterial;
   indicator: THREE.MeshStandardMaterial;
+  beacon: THREE.MeshStandardMaterial;
   shelterPanels: THREE.Mesh[];
   selection: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>;
 }
@@ -24,6 +25,9 @@ export function createStation(id: StationId, kit: ModelKit, resources: WorldReso
   }));
   const indicator = resources.material(new THREE.MeshStandardMaterial({
     color: '#bce9b3', emissive: '#8ab982', emissiveIntensity: .3,
+  }));
+  const beacon = resources.material(new THREE.MeshStandardMaterial({
+    color: '#91d0a3', emissive: '#91d0a3', emissiveIntensity: .2,
   }));
   const shelterPanels: THREE.Mesh[] = [];
   // All solid geometry remains within local X/Z +/-1.5, Y +/-1.
@@ -80,12 +84,15 @@ export function createStation(id: StationId, kit: ModelKit, resources: WorldReso
     kit.box(group, windows, [2.4, .045, .07], [0, .79, .8]);
     kit.box(group, indicator, [.45, .09, .04], [0, -.5, 1.46]);
   }
+  kit.cylinder(group, trim, [.035, .12, .035], [1.4, .86, 1.4]);
+  const lamp = kit.cylinder(group, beacon, [.07, .08, .07], [1.4, .94, 1.4]);
+  lamp.name = `${id}-beacon`;
   const envelope = resources.geometry(new THREE.BoxGeometry(3.15, 2.1, 3.15));
   const outline = resources.geometry(new THREE.EdgesGeometry(envelope));
   const selection = new THREE.LineSegments(outline, resources.material(new THREE.LineBasicMaterial({ color: '#ffe0a2' })));
   selection.visible = false;
   // Selection is a non-solid annotation, not part of the collision/pick group.
-  return { group, windows, indicator, shelterPanels, selection };
+  return { group, windows, indicator, beacon, shelterPanels, selection };
 }
 
 export function createGroundShadow(resources: WorldResources, width: number, depth: number): THREE.Mesh {
