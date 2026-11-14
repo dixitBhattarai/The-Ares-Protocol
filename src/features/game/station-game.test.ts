@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { scheduledHazard, taskHazardNotice } from './station-game';
 import type { GameState, MissionData } from '../../contracts';
 import { createInitialState, reduceGame, STATION_TASKS, taskCompletionId } from './index';
 
@@ -42,27 +43,33 @@ describe('station work instead of decision cards',()=>{
     state=reduceGame(state,{type:'PAUSE'},mission);state=reduceGame(state,{type:'CANCEL_TASK'},mission);
     state=reduceGame(state,{type:'RESUME'},mission);state=reduceGame(state,{type:'START_TASK',taskId:'power'},mission);expect(state.taskRun?.activeTaskId).toBe('power');
   });
-  it('drains reserves automatically and applies a hazard while no job is selected',()=>{
-    const state=tick(start(),30);expect(state.turn).toBe(0);
-    expect(state.resources).toEqual({power:66,oxygen:52,supplies:67});expect(state.lastHazardNotice).toContain('Air leak hit');
+  it('leaves quiet periods and varies hazard type/timing by seed and replay',()=>{
+    const events=Array.from({length:40},(_,slot)=>scheduledHazard(slot));
+    expect(events.some(event=>!event)).toBe(true);
+    expect(new Set(events.filter(Boolean).map(event=>event!.index)).size).toBe(4);
+    expect(scheduledHazard(1,1,0)).toEqual(scheduledHazard(1,1,0));
+    expect(Array.from({length:8},(_,i)=>scheduledHazard(i,1,0))).not.toEqual(Array.from({length:8},(_,i)=>scheduledHazard(i,2,1)));
+    expect(start().upcomingHazardNotice).toBeUndefined();
+    const event=events.find(Boolean)!;
+    expect(taskHazardNotice(event.at-9)).toBeUndefined();
+    expect(taskHazardNotice(event.at-8)).toContain('8s');
+    expect(taskHazardNotice(event.at)).toBeUndefined();
   });
-  it('air work prevents the matching damage but routine consumption continues',()=>{
-    const state=tick(work(start(),'air'),30);expect(state.resources.oxygen).toBe(86);expect(state.lastHazardNotice).toContain('Air leak prevented');
+  it.each([['air',0],['power',1],['shelter',2],['plants',3]] as const)('%s prevents its random hazard while routine consumption continues',(id,index)=>{
+    const event=Array.from({length:100},(_,slot)=>scheduledHazard(slot)).find(event=>event?.index===index)!;
+    const before={...start(),taskRun:{...start().taskRun!,elapsed:event.at-9}};
+    const protectedState=tick(work(before,id),10),unprotected=tick(before,10);
+    expect(protectedState.lastHazardNotice).toContain('prevented');
+    expect(unprotected.lastHazardNotice).toContain('hit');
+    expect(protectedState.turn).toBe(1);expect(unprotected.turn).toBe(0);
+    expect(Object.values(protectedState.resources).some((value,i)=>value>Object.values(unprotected.resources)[i])).toBe(true);
+    expect(protectedState.taskRun!.elapsed).toBe(event.at+1);
   });
-  it('panel work prevents dust damage while unrelated hazards still strike',()=>{
-    const state=tick(work(start(),'power'),60);expect(state.lastHazardNotice).toContain('Dust fault prevented');expect(state.resources.power).toBe(80);expect(state.resources.oxygen).toBe(44);
-  });
-  it('shelter prevents storm losses and unprepared shelter receives them',()=>{
-    const protectedState=tick(work(start(),'shelter'),90),unprotected=tick(start(),90);
-    expect(protectedState.lastHazardNotice).toContain('Solar storm prevented');expect(unprotected.lastHazardNotice).toContain('Solar storm hit');
-    expect(protectedState.resources.power-unprotected.resources.power).toBe(20);expect(protectedState.resources.oxygen-unprotected.resources.oxygen).toBe(12);
-  });
-  it('plant care blocks crop stress when protection is still active',()=>{
-    let state=tick(start(),70);state=work(state,'plants');state=tick(state,50);
-    expect(state.lastHazardNotice).toContain('Crop stress prevented');
-  });
-  it('maintenance protection expires rather than lasting forever',()=>{
-    const state=tick(work(start(),'air'),150);expect(state.lastHazardNotice).toContain('Air leak hit');
+  it('expires maintenance protection before a later random hazard',()=>{
+    const event=Array.from({length:100},(_,slot)=>scheduledHazard(slot)).find(event=>event?.index===0&&event.at>65)!;
+    const completed=work(start(),'air');
+    const before={...completed,taskRun:{...completed.taskRun!,elapsed:event.at-1}};
+    expect(tick(before,1).lastHazardNotice).toContain('Air leak hit');
   });
   it('pause ignores time/work and restart clears time, protection, progress and outcomes',()=>{
     let state=tick(work(start(),'air'),10);state=reduceGame(state,{type:'PAUSE'},mission);

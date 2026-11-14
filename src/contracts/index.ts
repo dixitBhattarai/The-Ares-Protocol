@@ -67,6 +67,8 @@ export interface SourceRecord {
   mapping: string;
 }
 export interface MissionData {
+  /** Session seed for authored, random hazard timing. Not a NASA forecast. */
+  hazardSeed?: number;
   gameplayMode?: 'station-tasks';
   id: string;
   title: string;

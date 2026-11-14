@@ -30,3 +30,13 @@
  .world-panel>:deep(.door-panel){right:10px;bottom:246px;width:174px;font-size:10px;padding:8px;gap:3px}.world-panel>:deep(.door-panel strong){font-size:11px}.world-panel>:deep(.door-panel p){font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.world-panel>:deep(.door-panel button){min-height:40px;font-size:10px;padding:6px}.world-panel>:deep(.door-panel details){width:100%}
  .in-viewport-deck{inset:auto 8px 8px;top:25%;width:auto;max-width:none;max-height:none}.arrival-overlay{left:8px;right:8px;top:28%;padding:14px}
 }
+/* Quiet exploration; work opens at the center of the game. */
+.in-viewport-deck{inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(520px,calc(100% - 24px));max-width:none;max-height:calc(100dvh - 48px);bottom:auto;overflow:auto}
+.work-modal{position:absolute;inset:0;z-index:25;display:grid;place-items:center;box-sizing:border-box;padding:16px;background:#06152088;backdrop-filter:blur(4px);overflow:auto}
+.work-modal>:deep(.activity){width:min(460px,100%);max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain}
+.task-warning{width:auto;bottom:18px;right:16px;padding:0;border:0;background:transparent;box-shadow:none;backdrop-filter:none}
+.task-warning button{font-size:11px;min-height:40px;padding:8px 12px;background:#18353cdd;color:#ddf9ec;border:1px solid #799e9e;border-radius:10px}
+.world-panel>:deep(.door-panel){bottom:82px;width:auto;max-width:260px;padding:8px 10px}
+.world-panel>:deep(.door-panel p),.world-panel>:deep(.door-panel .tip){display:none}
+.world-panel>:deep(.ares-world__hint),.world-panel>:deep(.ares-world__look-hint),.world-panel>:deep(.ares-world__task-toast){display:none}
+@media(max-width:600px){.work-modal{padding:10px}.work-modal>:deep(.activity){max-height:calc(100dvh - 20px)}.in-viewport-deck{inset:50% auto auto 50%;width:calc(100% - 20px);max-height:calc(100dvh - 24px)}.task-warning{bottom:14px;right:10px}.world-panel>:deep(.door-panel){bottom:70px;right:10px;max-width:220px;width:auto}}
