@@ -6,12 +6,12 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 
 | Branch | Reported tip | Scope | State |
 | --- | --- | --- | --- |
-| `feat/himamshu-world` | `9df93f0` | `src/features/world/**`, `src/App.vue`, `src/contracts/index.ts`, `docs/CONTRACTS.md`, `src/features/physics/**` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors `8764bfa`; NASA assets, detailed interiors, and playable Earth/orbit preflight `c644a59`; procedural suit rig `2a4f7f7`; Mixamo locomotion clips `0fae932`; openable doors & free building exploration `79ad90d`; third-person exploration & outdoor Earth campus merged by `e82fa10`; checks passed |
+| `feat/himamshu-world` | `278c91e` | `src/features/world/**`, `src/App.vue`, `src/contracts/index.ts`, `docs/CONTRACTS.md`, `src/features/physics/**` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors `8764bfa`; NASA assets, detailed interiors, and playable Earth/orbit preflight `c644a59`; procedural suit rig `2a4f7f7`; Mixamo locomotion clips `0fae932`; openable doors & free building exploration `79ad90d`; third-person exploration & outdoor Earth campus merged by `e82fa10`; station minigames and task cues merged by `e05925c`; checks passed |
 | `feat/rohit-game` | `4d02fd0` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory `72f8f65`; audio synthesis, star badges, keyboard navigation `b7c9c33`; contextual station procedures `44a7120`; full-reserve sound, in-viewport deck overlay, and roguelike choice cards merged by `828493c`; checks passed |
 | `feat/saurav-hud` | `c5973b1` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations `4d07adf`; in-game status polish `86c1beb`; science & shelter readout softening `44ff31e`; expandable science and shelter buttons `f994aa7`; stat icon spin and numerator progress roll `667ae75`; gentle cursor parallax and motion polish `afff7e4`; viewport event toast details merged by `94ce20e`; checks passed |
 | `feat/anshu-physics` | `4108654` | `src/features/physics/**` | Grounded astronaut controller, reset and pause merged by `dfe1d24`; checks passed |
 | `feat/dixit-ui` | `0637603` | `src/features/ui/**` | Onboarding, decisions, pause, debrief replay & sources merged by `55799b3`; checks passed |
-| `feat/genius-missions` | `66a5322` | `src/features/missions/**` | Six teaching decisions & NASA CME evidence merged by `a8d9a39`; alert wording reconciled by `500c830`; checks passed |
+| `feat/genius-missions` | `2ecab55` | `src/features/missions/**` | Six teaching decisions & NASA CME evidence merged by `a8d9a39`; alert wording reconciled by `500c830`; refreshable DONKI snapshot and raw NASA datasets merged by `e4abf24`; checks passed |
 
 Verify refs, scope and checks before a merge; this table is not authorization to merge. Anshu and Dixit have no published branch recorded at this review.
 
@@ -229,6 +229,23 @@ Himamshu issued a standing mandate authorizing the merge coordinator to automati
    - Scope: `docs/CONTRACTS.md`, `src/App.vue`, `src/contracts/index.ts`, `src/features/physics/camera-movement.test.ts`, `src/features/physics/index.ts`, `src/features/physics/NOTES.md`, `src/features/world/PreparationPanel.vue`, `src/features/world/earth.ts`, `src/features/world/expedition.ts`, `src/features/world/follow-camera.ts`, `src/features/world/index.ts`, `src/features/world/world.css`, `src/features/world/NOTES.md`.
    - Changes: Perspective third-person follow camera with drag/touch rotation, wheel/pinch zoom, and accessible rotate/zoom/reset controls using installed Three.js OrbitControls addon (suppressing accidental clicks during drags); outdoor Earth training campus with grass, walking paths, training buildings, distant launch vehicle, and openable training lab door; camera-heading relative movement mapping via additive `WorldAdapter.setEarthOutside/getCameraYaw` and `PhysicsAdapter.setCameraYaw` with unit tests in `camera-movement.test.ts`.
    - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (14 test files, 87 tests passed); `npm run build` passed cleanly in 1.18s.
+
+### 14 Nov 2026 — Himamshu (world) station minigames and task availability cues integration
+
+1. **`feat/himamshu-world` (tip `278c91e`)**:
+   - Merged as `e05925c`, preserving Himamshu's commit `278c91e`.
+   - Scope: `docs/CONTRACTS.md`, `src/App.vue`, `src/contracts/index.ts`, `src/features/world/ActivityPanel.vue`, `src/features/world/NOTES.md`, `src/features/world/StationMinigame.vue`, `src/features/world/index.ts`, `src/features/world/minigame.test.ts`, `src/features/world/minigame.ts`, `src/features/world/world.css`. All paths within Himamshu's assigned feature and coordinated gameplay/door integration scope.
+   - Changes: Accessible station-computer minigames for all three modules (Habitat air leak patch panel, Solar power-cell circuit alignment, Greenhouse hydroponic leaf inspection and root watering) with keyboard/touch alternative buttons; floating 3D station status labels with gentle bob and hover lift; task availability cues ('!' exclamation badges on stations offering tasks, and a 5s dismissible banner notification with synthesized audio chime); additive contract `setAvailableTasks` on `WorldAdapter`; unit tests in `minigame.test.ts`.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (15 test files, 91 tests passed); `npm run build` passed cleanly in 943ms.
+
+### 14 Nov 2026 — Genius (missions) refreshable DONKI snapshot and raw NASA datasets integration
+
+1. **`feat/genius-missions` (tip `2ecab55`)**:
+   - Merged as `e4abf24`, preserving Genius's commits `4a9315f`, `45a8eab`, `8d59925`, `d45957a`, `ebe9358`, and `2ecab55`.
+   - Scope: `src/features/missions/**` (`NOTES.md`, `data/PROVENANCE.md`, `data/donki-cme-snapshot.json`, `data/donki-flr-sep-may2024-raw.json`, `data/insight-mars-weather-raw.json`, `data/nasa-apis-extra-raw.json`, `index.ts`, `missions.test.ts`, `scripts/refresh-donki-snapshot.mjs`, `scripts/refresh-donki-snapshot.test.mjs`). All paths owned by Genius.
+   - Changes: Maintainer script `scripts/refresh-donki-snapshot.mjs` for date-bounded NASA DONKI CME queries; local bundled snapshot for 2026-11-07 through 2026-11-14 with selected observation `2026-11-13T21:24:00-CME-001` (analysis speed 474 km/s); provenance documentation in `data/PROVENANCE.md`; raw NASA API dataset fixtures; updated source descriptions distinguishing authored shelter drill / reserve loss from measured Mars crew dose; unit tests in `scripts/refresh-donki-snapshot.test.mjs` and `missions.test.ts`.
+   - Cross-feature request recorded: Genius requests Rohit (game) consider a 1% once-per-expedition pre-flight launch safety abort with Dixit (UI) presenting the non-graphic stop and retry action.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (16 test files, 95 tests passed); `npm run build` passed cleanly in 818ms.
 
 ### Updated open requests
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Integration shell: Rohit owns this file. Himamshu's layout handoff is recorded in world/NOTES.md.
-import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
 import { STATIONS } from './contracts';
 import type { GameAction, PhysicsAdapter, Vec3, WorldAdapter, StationId } from './contracts';
 import { createInitialState, getCurrentEvent, reduceGame } from './features/game';
@@ -121,7 +121,7 @@ function enterModule(id: StationId | null = nearby.value) {
   if (state.value.phase !== 'running' || interior.value) return;
   if (!id || nearby.value !== id) { activityFeedback.value = 'Walk closer to the door first, or use accessible travel.'; return; }
   if (!doorsOpen.value[id] || !(world?.isDoorOpen?.(id) ?? true)) { stationMessage.value = 'Open the door and let it finish sliding first.'; return; }
-  interior.value = id; physics?.enterInterior?.(); world?.setInterior?.(id); activityFeedback.value = 'Read the procedure, then use the console controls in order.';
+  interior.value = id; physics?.enterInterior?.(); world?.setInterior?.(id); activityFeedback.value = 'Use the station computer to play the three minigame checks.';
   if (!activeActivity.value) deckVisible.value = false;
   stationMessage.value = `Inside the ${id}. Explore freely; open the front door and walk out, or use Exit room.`;
 }
@@ -165,6 +165,12 @@ let disposed = false;
 let accumulator = 0;
 let lastNearStation: string | null = null;
 let currentSelectedStation: string | null = null;
+let lastTaskNotice = '';
+const availableTaskStations = computed<StationId[]>(() => {
+  if (activeActivity.value) return [activeActivity.value.station];
+  const event=getCurrentEvent(mission,state.value);
+  return event ? [...new Set(event.choices.map(choice=>getActivity(event,choice).station))] : [];
+});
 
 function toggleSound() {
   soundEnabled.value = !soundEnabled.value;
@@ -365,7 +371,8 @@ onMounted(async () => {
     physics = await createPhysics();
     world.setConsoleHandler?.(index => {
       if (preparation.value) operatePreparation(PREPARATION[preparation.value].steps[index]);
-      else if (activeActivity.value) operateControl(activeActivity.value.steps[index]);
+      else if (activeActivity.value && interior.value === activeActivity.value.station) { deckVisible.value = true; activityFeedback.value = 'Station computer ready. Finish the minigame checks in the command deck.'; }
+      else if (interior.value) { deckVisible.value = true; stationMessage.value = 'Station computer linked. Choose a job in the command deck to begin.'; }
     });
     if (disposed) {
       physics.dispose();
@@ -400,6 +407,11 @@ onMounted(async () => {
       pose = physics!.getPlayerPose(); // A doorway transition may have changed the physics-owned pose.
       world!.setPlayerPose(pose);
       world!.setState(state.value);
+      if (state.value.phase === 'running') {
+        const offerId=`${mission.id}:${state.value.turn}`;
+        world!.setAvailableTasks?.(availableTaskStations.value,offerId);
+        if (lastTaskNotice!==offerId && availableTaskStations.value.length) {lastTaskNotice=offerId;soundFX.playDecision();}
+      } else if (state.value.phase !== 'paused') {world!.setAvailableTasks?.([], '');lastTaskNotice='';}
       world!.setMotionPaused?.(preparationPaused.value || state.value.phase === 'paused');
       world!.render();
       const doorId = interior.value ?? nearby.value;

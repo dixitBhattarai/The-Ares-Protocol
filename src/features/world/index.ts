@@ -141,6 +141,13 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     let hovered: StationId | undefined;
     let lastState: Readonly<GameState> | undefined;
     let eventNotice = '';
+    let taskOfferId = '', taskStationsKey = '', taskNoticeRemaining = 0;
+    const taskToast = document.createElement('div'); taskToast.className = 'ares-world__task-toast'; taskToast.hidden = true; taskToast.setAttribute('role','status'); taskToast.setAttribute('aria-live','polite');
+    const taskToastText = document.createElement('span');
+    const dismissTaskToast = document.createElement('button'); dismissTaskToast.type='button'; dismissTaskToast.textContent='×'; dismissTaskToast.setAttribute('aria-label','Dismiss task notice');
+    const dismissTask = () => { taskNoticeRemaining=0;taskToast.hidden=true; };
+    dismissTaskToast.addEventListener('click',dismissTask); cleanups.push(()=>dismissTaskToast.removeEventListener('click',dismissTask));
+    taskToast.append(taskToastText,dismissTaskToast);container.appendChild(taskToast);
     const stations = STATIONS.map(station => {
       const visual = createStation(station.id, kit, resources);
       visual.group.position.copy(station.position);
@@ -165,7 +172,9 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       name.textContent = STATION_NAMES[station.id];
       const readout = document.createElement('span');
       readout.className = 'ares-world__readout';
-      label.append(name, readout);
+      const taskBadge=document.createElement('span');taskBadge.className='ares-world__task-badge';taskBadge.textContent='!';taskBadge.hidden=true;taskBadge.setAttribute('aria-label','Task available');
+      label.style.animationDelay=`${STATIONS.indexOf(station)*-.8}s`;
+      label.append(name, readout, taskBadge);
       const select = () => selectStation(station.id);
       const enter = () => { hovered = station.id; updateHighlights(); };
       const leave = () => { hovered = undefined; updateHighlights(); };
@@ -182,7 +191,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         label.removeEventListener('blur', leave);
       });
       container.appendChild(label);
-      return { ...station, visual, label, readout };
+      return { ...station, visual, label, readout, taskBadge };
     });
     function updateHint(): void {
       hint.textContent = selected
@@ -310,7 +319,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         station.label.style.left = `${compact ? (index + .5) * width / 3 : x}px`;
         station.label.style.top = `${compact ? 96 : y}px`;
       });
-      playerMarker.hidden = Math.hypot(playerPose.x, playerPose.z) < 12;
+      playerMarker.hidden = cameraMode === 'follow' || Math.hypot(playerPose.x, playerPose.z) < 12;
       if (!playerMarker.hidden) {
         projected.set(playerPose.x, playerPose.y + 1, playerPose.z).project(camera);
         playerMarker.style.left = `${(projected.x + 1) * width / 2}px`;
@@ -321,6 +330,25 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     updateCamera();
     let previousAnimationTime = performance.now();
     return {
+      setAvailableTasks(ids, offerId) {
+        if (disposed) return;
+        const key=ids.join(',');
+        if (key!==taskStationsKey) {
+          taskStationsKey=key;
+          stations.forEach(station=>{
+            const available=ids.includes(station.id);
+            station.taskBadge.hidden=!available;station.label.dataset.task=String(available);
+            const label=(station.label.getAttribute('aria-label') ?? STATION_NAMES[station.id]).replace(/\. Task available$/,'');
+            station.label.setAttribute('aria-label',label+(available?'. Task available':''));
+          });
+        }
+        if(ids.length && offerId!==taskOfferId) {
+          taskToastText.textContent=`New station jobs: ${ids.map(id=>STATION_NAMES[id]).join(', ')}. Look for ! markers.`;
+          taskNoticeRemaining=5;
+        }
+        taskOfferId=offerId;
+        if(!ids.length) {taskNoticeRemaining=0;taskToast.hidden=true;}
+      },
       getCameraYaw() { return cameraMode === 'follow' ? follow.yaw() : 0; },
       setEarthOutside(outside) { earthOutside = outside; if (!outside) expedition.setDoor(doorStates.habitat,true); follow.reset(); },
       setMotionPaused(paused) { motionPaused = paused; },
@@ -399,7 +427,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
           const status = getStationStatus(station.id, state);
           station.readout.textContent = status.readout;
           station.label.dataset.level = status.level;
-          station.label.setAttribute('aria-label', `Select ${STATION_NAMES[station.id]}. ${status.description}`);
+          station.label.setAttribute('aria-label', `Select ${STATION_NAMES[station.id]}. ${status.description}${station.taskBadge.hidden?'':'. Task available'}`);
           applyStationStatus(station.visual, status, state.resources.power, state.shielding, Boolean(eventNotice));
         });
         const phaseNames = { ready: 'BRIEFING', running: 'MISSION ACTIVE', paused: 'PAUSED', won: 'MISSION COMPLETE', lost: 'TRY ANOTHER PLAN' };
@@ -417,6 +445,9 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         const delta = (now - previousAnimationTime) / 1000;
         previousAnimationTime = now;
         const active = !motionPaused && !document.hidden && lastState?.phase !== 'paused' && lastState?.phase !== 'won' && lastState?.phase !== 'lost';
+        container.classList.toggle('ares-world--paused',!active);
+        if(active)taskNoticeRemaining=Math.max(0,taskNoticeRemaining-Math.min(.1,delta));
+        taskToast.hidden=taskNoticeRemaining<=0 || Boolean(level || interior) || journey!==null;
         follow.update(playerPose, width / height, earthOutside ? 'earth' : interior || level ? 'room' : 'mars', cameraMode === 'follow' && journey === null);
         follow.controls.enabled = active && cameraMode === 'follow' && journey === null;
         cameraBar.hidden = journey !== null;

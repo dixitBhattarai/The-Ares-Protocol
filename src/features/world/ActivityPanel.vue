@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { StationId } from '../../contracts';
+import StationMinigame from './StationMinigame.vue';
 defineProps<{ station: StationId; title: string; steps: readonly string[]; impact: string; progress: number; inside: boolean; feedback: string; paused: boolean }>();
 defineEmits<{ control: [value: string]; travel: []; enter: []; exit: []; cancel: []; pause: [] }>();
 </script>
@@ -14,9 +15,9 @@ defineEmits<{ control: [value: string]; travel: []; enter: []; exit: []; cancel:
       <button @click="$emit('travel')">Accessible travel to task door</button>
     </template>
     <template v-else>
-      <p>Move with WASD / arrows. Click the numbered 3D console screens or use these controls in order:</p>
-      <ol><li v-for="(step, i) in steps" :key="step" :class="{ done: i < progress }">{{ i < progress ? '✓ ' : '' }}{{ step }}</li></ol>
-      <div class="controls"><button v-for="step in [...steps].reverse()" :key="step" :disabled="paused || progress >= steps.length" @click="$emit('control', step)">{{ step }}</button></div>
+      <p>Use the station computer to finish three short checks. Every control works with keyboard or touch.</p>
+      <StationMinigame :station="station" :progress="progress" :paused="paused" @complete="stage => stage === progress && $emit('control', steps[stage])" />
+      <details><summary>Procedure notes</summary><ol><li v-for="(step, i) in steps" :key="step" :class="{ done: i < progress }">{{ i < progress ? '✓ ' : '' }}{{ step }}</li></ol></details>
       <button @click="$emit('exit')">Exit module</button>
     </template>
     <p role="status">{{ feedback }}</p>

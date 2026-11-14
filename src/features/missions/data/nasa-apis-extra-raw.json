@@ -1,0 +1,20 @@
+{
+  "apod": {
+    "date": "2024-05-11",
+    "title": "Solar Active Region 13664 Eruption",
+    "explanation": "Active Region 13664 produced intense X-class flares and coronal mass ejections directed across the inner solar system."
+  },
+  "eonet": {
+    "id": "EONET_SPACE_WEATHER_2024",
+    "title": "Global Geomagnetic & Solar Particle Storm Event",
+    "description": "Multi-spacecraft tracked solar energetic particle event impacting planetary magnetospheres and upper atmospheres."
+  },
+  "neows": {
+    "element_count": 3,
+    "near_earth_objects": {
+      "2024-05-11": [
+        { "name": "(2024 JZ)", "estimated_diameter_min_meters": 45, "is_potentially_hazardous_asteroid": false }
+      ]
+    }
+  }
+}

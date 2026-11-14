@@ -1,6 +1,46 @@
 # Missions Handoff — Genius (NASA Data & Mission Architect)
 
-## Status: COMPLETE
+## Current Status — 14 Nov 2026
+
+### Already integrated
+
+- The original six-shift mission and May 2024 DONKI evidence were merged to `main` as `a8d9a39` (with the game alert wording reconciliation in `500c830`). The merge log records passing typecheck, tests and build.
+- Integrated mission content includes oxygen vs science, shelter vs exploration, a solar-weather hazard with a shielding threshold, greenhouse trade-offs, delayed Earth communications, and a final science vs reserves decision.
+- Rohit's game reducer supports the authored shelter hazard and delayed effects; Saurav's HUD surfaces hazard/delayed feedback; Dixit's UI includes decisions, debrief and a source-attribution drawer. These existing surfaces should consume the current mission fields without a new UI/API change for the bundled CME source.
+
+### Current feature-branch update
+
+- Merged the inspected `origin/main` tip into `feat/genius-missions` as `8d59925`. The incoming commits did not modify missions files; merge conflicts: none.
+- Feature commits on this branch: `4a9315f` (refreshable DONKI snapshot) and `45a8eab` (handoff status).
+- Added `scripts/refresh-donki-snapshot.mjs`: maintainer-run refresh of a date-bounded NASA DONKI CME query; validates the response, preserves raw records and selected observation, and replaces the snapshot only after success. It reads `NASA_API_KEY` or uses `DEMO_KEY`, and does not persist the key.
+- Fetched a local snapshot for 2026-11-07 through 2026-11-14. It selects `2026-11-13T21:24:00-CME-001` (reported analysis speed 474 km/s). The snapshot is bundled for offline gameplay; runtime `loadMission()` remains synchronous and makes no requests.
+- Updated mission sources and Shift 2/3 descriptions to use this observation as context and clarify that the shelter drill and reserve losses are authored, not measured Mars damage or crew dose.
+- Removed the unverified APOD/EONET/NeoWS record from active mission sources. `nasa-apis-extra-raw.json` and `donki-flr-sep-may2024-raw.json` remain unused/unverified. The InSight Sol 675 fixture remains static and is not refreshed by the DONKI script.
+- Added refresh and mission assertions, plus refresh instructions in `data/PROVENANCE.md`.
+- Validation after syncing `origin/main`: all 82 tests passed, typecheck passed, production build passed, and all mission JSON fixtures parsed. Build still reports large-chunk advisories for existing world/physics assets.
+- The source and decision UI already render `MissionData.sources`, each source's mapping/provenance, and the active event description generically. No UI change is needed for this bundled CME snapshot. Verify the resulting source card in the integrated browser flow.
+- The update is not yet merged into `main`; hand it to Himamshu for the normal serial feature-merge queue. Push of `feat/genius-missions` was attempted after fetch and fast-forward verification, but failed because Git could not obtain a password (`fatal: unable to get password from user`). No remote update was made; the commits remain local. The unverified `nasa-apis-extra-raw.json` and `donki-flr-sep-may2024-raw.json` remain untracked and intentionally excluded.
+
+### Cross-feature request — not implemented
+
+- Request Rohit (game/contracts): add a once-per-expedition, 1% launch safety abort before the mission begins. Keep it non-graphic, end the expedition immediately, and ensure the chance is not rerolled by rendering. Decide whether retry starts a new expedition and rerolls. Suggested child-friendly message: “Launch safety check failed. The expedition was stopped before landing.”
+- After the game outcome/state is agreed, ask Dixit (UI) to present the abort and retry action accessibly. This is not expressible using the current mission events and should not be added as a random mission choice.
+
+### Copy-ready team messages
+
+**To Himamshu (merge coordinator):**
+
+> Missions handoff: `feat/genius-missions`, commits `4a9315f` and `45a8eab`, plus merge of current `origin/main` as `8d59925`. Scope is `src/features/missions/**`. DONKI refresh script and bundled snapshot are tested; the observation is used as context for the authored Shift 2/3 shelter drill, with the Mars-dose distinction stated. After syncing main, all 82 tests, typecheck and production build passed. No missions path conflicts. Please queue this branch for the normal serial merge. Two unverified raw fixtures remain untracked and are not part of the handoff.
+
+**To Rohit (game/contracts):**
+
+> Request for a separately coordinated feature: could we add a 1% once-per-expedition launch safety abort before Shift 1? It should be a non-graphic immediate stop, not a random mission choice, and must not reroll on Vue renders. Please define state/contract behavior and whether Retry counts as a new expedition and rerolls. Suggested copy: “Launch safety check failed. The expedition was stopped before landing.” I have not changed game code or contracts.
+
+**To Dixit (UI):**
+
+> The refreshed DONKI mission source needs no UI code change: `SourceCredits` already renders source title/link/date/units/mapping and `DecisionPanel` renders the event description. Please verify the new CME source card and authored-drill wording during integration. If Rohit implements the launch safety abort, please coordinate its accessible stop/retry presentation with him; no UI change is requested before that behavior is defined.
+
+## Original Mission Milestone: Integrated
 
 Branch: `feat/genius-missions`  
 Owned Paths: `src/features/missions/**` only.
@@ -22,7 +62,7 @@ Authored six distinct, deterministic shifts matching `docs/HACKATHON_PLAN.md` wi
 
 ### B. Verified NASA Archived Observation & Sources
 - **Archived Data Mode**: `dataMode: 'archived'`.
-- **Primary NASA Source (`nasa-donki-cme-2024`)**:
+- **Historical NASA Source (`nasa-donki-cme-2024`)**:
   - Raw JSON fixture: `src/features/missions/data/donki-cme-may2024-raw.json`.
   - Event: Coronal Mass Ejection `2024-05-11T01:36:00-CME-001` associated with X5.8 flare from NOAA Active Region 13664.
   - Observing instruments: SOHO LASCO C2/C3, STEREO A SECCHI/COR2, SDO AIA 193.
