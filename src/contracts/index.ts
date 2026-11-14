@@ -111,12 +111,18 @@ export type GameAction =
   | { type: 'RESTART' }
   | { type: 'CHOOSE'; choiceId: string };
 export interface WorldAdapter {
+  setInterior?(station: StationId | null): void;
+  setJourney?(progress: number | null): void;
+  setObjective?(station: StationId | null): void;
+  setActivityProgress?(progress: number): void;
   setPlayerPose(pose: Vec3): void;
   setState(state: Readonly<GameState>): void;
   render(): void;
   dispose(): void;
 }
 export interface PhysicsAdapter {
+  enterInterior?(): void;
+  exitInterior?(): void;
   step(seconds: number): void;
   getPlayerPose(): Vec3;
   dispose(): void;

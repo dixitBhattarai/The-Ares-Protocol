@@ -2,12 +2,14 @@
 // Integration shell: Rohit owns this file. Himamshu's layout handoff is recorded in world/NOTES.md.
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
 import { STATIONS } from './contracts';
-import type { GameAction, PhysicsAdapter, Vec3, WorldAdapter } from './contracts';
+import type { GameAction, PhysicsAdapter, Vec3, WorldAdapter, StationId } from './contracts';
 import { createInitialState, getCurrentEvent, reduceGame } from './features/game';
 import { soundFX } from './features/game/audio';
 import { loadMission } from './features/missions';
 import HudOverlay from './features/hud/HudOverlay.vue';
 import MissionPanels from './features/ui/MissionPanels.vue';
+import ActivityPanel from './features/world/ActivityPanel.vue';
+import { getActivity, advanceActivity, type Activity } from './features/game/activities';
 
 const mission = loadMission();
 const state = shallowRef(createInitialState(mission));
@@ -16,6 +18,46 @@ const commandPanel = ref<HTMLElement>();
 const graphicsError = ref('');
 const stationMessage = ref('Click a base module to inspect systems, or use WASD / Arrow keys to walk.');
 const soundEnabled = ref(true);
+const activeActivity = shallowRef<(Activity & { choiceId: string; impact: string }) | null>(null);
+const activityProgress = ref(0);
+const activityFeedback = ref('');
+const interior = ref<StationId | null>(null);
+const nearby = ref<StationId | null>(null);
+const flightProgress = ref<number | null>(null);
+let arrivalComplete = false;
+
+function finishArrival() { flightProgress.value = null; arrivalComplete = true; world?.setJourney?.(null); dispatch({ type: 'START' }); }
+function leaveModule() { physics?.exitInterior?.(); world?.setInterior?.(null); interior.value = null; physics?.resumeInput?.(); }
+function cancelActivity() { leaveModule(); activeActivity.value = null; activityProgress.value = 0; world?.setActivityProgress?.(0); world?.setObjective?.(null); }
+function enterModule(id: StationId | null = nearby.value) {
+  if (state.value.phase !== 'running' || interior.value) return;
+  if (!id || nearby.value !== id) { activityFeedback.value = 'Walk closer to the door first, or use accessible travel.'; return; }
+  if (activeActivity.value && activeActivity.value.station !== id) { activityFeedback.value = `Your task is at the ${activeActivity.value.station}.`; return; }
+  if (!activeActivity.value) { stationMessage.value = 'Choose a shift task first, then enter its module.'; return; }
+  interior.value = id; physics?.enterInterior?.(); world?.setInterior?.(id); activityFeedback.value = 'Read the procedure, then use the console controls in order.';
+}
+function travelToTask() {
+  if (!activeActivity.value || state.value.phase !== 'running') return;
+  leaveModule();
+  const station = STATIONS.find(s => s.id === activeActivity.value!.station)!;
+  physics?.reset?.({ x: station.position.x, y: .8, z: station.position.z + 2.6 });
+  nearby.value = station.id;
+  activityFeedback.value = 'At the task door. Enter the module to work.';
+}
+function operateControl(control: string) {
+  const task = activeActivity.value;
+  if (!task || interior.value !== task.station || state.value.phase !== 'running') return;
+  const next = advanceActivity(task, activityProgress.value, control);
+  if (next === activityProgress.value) { activityFeedback.value = 'That control comes later. Follow the numbered procedure.'; return; }
+  activityProgress.value = next;
+  world?.setActivityProgress?.(next);
+  activityFeedback.value = `Step ${next} complete.`;
+  if (next === task.steps.length) {
+    cancelActivity();
+    dispatch({ type: 'CHOOSE', choiceId: task.choiceId }, true);
+    stationMessage.value = `Completed ${task.title}. ${state.value.lastHazardNotice ?? 'Reserves and mission history now show the result.'}`;
+  }
+}
 
 const stationDescriptions: Record<string, string> = {
   habitat: 'Habitat Module: Life support, crew quarters, and radiation storm shelter. Reinforcing shielding protects vital systems.',
@@ -36,7 +78,23 @@ function toggleSound() {
   soundFX.enabled = soundEnabled.value;
 }
 
-function dispatch(action: GameAction) {
+function dispatch(action: GameAction, procedureComplete = false) {
+  if (action.type === 'START' && !arrivalComplete && world && !graphicsError.value) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) arrivalComplete = true;
+    else { if (flightProgress.value === null) flightProgress.value = 0; return; }
+  }
+  if (action.type === 'CHOOSE' && !procedureComplete && state.value.phase === 'running' && physics && !graphicsError.value) {
+    if (activeActivity.value) return;
+    const event = getCurrentEvent(mission, state.value);
+    const choice = event?.choices.find(c => c.id === action.choiceId);
+    if (!event || !choice) return;
+    const impact = [...Object.entries(choice.effect.resources ?? {}).map(([name, value]) => `${name} ${value! > 0 ? '+' : ''}${value}`), ...(choice.effect.shielding ? [`shelter +${choice.effect.shielding}`] : []), ...(choice.effect.science ? [`science +${choice.effect.science}`] : []), ...(choice.delayedEffect ? [`Delayed: ${choice.delayedEffect.description}`] : [])].join(' · ');
+    activeActivity.value = { ...getActivity(event, choice), choiceId: choice.id, impact };
+    activityProgress.value = 0; activityFeedback.value = `Go to the ${activeActivity.value.station} to carry out your plan.`;
+    world?.setObjective?.(activeActivity.value.station);
+    return;
+  }
+  if (action.type === 'RESTART') { cancelActivity(); arrivalComplete = false; flightProgress.value = null; world?.setJourney?.(null); }
   const previousState = state.value;
   state.value = reduceGame(state.value, action, mission);
   if (state.value !== previousState) {
@@ -89,6 +147,8 @@ function pauseWhenHidden() {
 
 let lastCheckedPose = { x: 999, y: 999, z: 999 };
 function checkStationProximity(pose: Vec3) {
+  if (interior.value) { nearby.value = null; return; }
+  nearby.value = STATIONS.find(s => Math.hypot(pose.x - s.position.x, pose.z - s.position.z) < 3.8)?.id ?? null;
   if (currentSelectedStation) return;
   const dx = pose.x - lastCheckedPose.x;
   const dz = pose.z - lastCheckedPose.z;
@@ -113,6 +173,7 @@ function checkStationProximity(pose: Vec3) {
 
 function handleGlobalKeydown(event: KeyboardEvent) {
   if ((event.target as HTMLElement | null)?.closest('button, input, textarea, select, [contenteditable]')) return;
+  if (event.code === 'KeyE') { if (interior.value) leaveModule(); else enterModule(); return; }
   if (event.code === 'KeyM') {
     toggleSound();
     return;
@@ -162,6 +223,7 @@ onMounted(async () => {
     ]);
     if (disposed) return;
     world = createWorld(host.value!, station => {
+      if (activeActivity.value && nearby.value === station) { enterModule(station); return; }
       currentSelectedStation = station;
       stationMessage.value = stationDescriptions[station] || `Selected: ${station}. Use decision cards below to manage operations.`;
     });
@@ -174,6 +236,11 @@ onMounted(async () => {
     const tick = (now: number) => {
       const elapsed = Math.min((now - previous) / 1000, 0.1);
       previous = now;
+      if (flightProgress.value !== null && !document.hidden) {
+        flightProgress.value = Math.min(1, flightProgress.value + elapsed / 8);
+        world!.setJourney?.(flightProgress.value);
+        if (flightProgress.value >= 1) finishArrival();
+      }
       if (state.value.phase === 'running') {
         accumulator = Math.min(accumulator + elapsed, 0.1);
         while (accumulator >= 1 / 60) {
@@ -249,6 +316,11 @@ onBeforeUnmount(() => {
           role="region"
           aria-label="Interactive 3D Mars Outpost Viewport"
         />
+        <div v-if="flightProgress !== null" class="arrival-overlay" role="status">
+          <h2>Earth → Mars</h2><p>{{ flightProgress < .3 ? 'Leaving home' : flightProgress < .85 ? 'Cruising to the Red Planet' : 'Approaching Ares Outpost' }}</p>
+          <progress :value="flightProgress" max="1" aria-label="Journey to Mars" />
+          <p>Condensed journey · not real travel time or scale</p><button @click="finishArrival">Skip flight / land on Mars</button>
+        </div>
         <p class="scene-status" role="status">
           <span v-if="currentSelectedStation" class="selected-badge">
             MODULE: {{ currentSelectedStation.toUpperCase() }}
@@ -269,7 +341,8 @@ onBeforeUnmount(() => {
         <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
           {{ state.upcomingHazardNotice }}
         </p>
-        <MissionPanels
+        <ActivityPanel v-if="activeActivity" :station="activeActivity.station" :title="activeActivity.title" :steps="activeActivity.steps" :impact="activeActivity.impact" :progress="activityProgress" :inside="interior === activeActivity.station" :feedback="activityFeedback" :paused="state.phase === 'paused'" @control="operateControl" @travel="travelToTask" @enter="enterModule()" @exit="leaveModule" @cancel="cancelActivity" @pause="dispatch({ type: state.phase === 'paused' ? 'RESUME' : 'PAUSE' })" />
+        <MissionPanels v-else
           :state="state"
           :mission="mission"
           :event="getCurrentEvent(mission, state)"
@@ -281,6 +354,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.world-panel { position: relative; }
+.arrival-overlay { position: absolute; inset: 50px 0 auto; padding: 20px; text-align: center; color: #e9e8d6; pointer-events: none; text-shadow: 0 2px 6px #000; }
+.arrival-overlay button { pointer-events: auto; }
 .ares-app { max-width: 1800px; margin: auto; padding: 0 22px 20px; }
 .app-header { height: 88px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .brand { display: flex; align-items: center; gap: 13px; }
