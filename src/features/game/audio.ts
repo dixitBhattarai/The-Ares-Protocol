@@ -58,6 +58,30 @@ export class SoundFX {
     }
   }
 
+  playFullReserve() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+    try {
+      // Sparkling ascending chime when a resource fills to 100% (D5 -> A5 -> D6)
+      const notes = [587.33, 880, 1174.66];
+      notes.forEach((freq, i) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, this.ctx!.currentTime + i * 0.08);
+        gain.gain.setValueAtTime(0.12, this.ctx!.currentTime + i * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx!.currentTime + i * 0.08 + 0.22);
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(this.ctx!.currentTime + i * 0.08);
+        osc.stop(this.ctx!.currentTime + i * 0.08 + 0.22);
+      });
+    } catch {
+      // Audio autoplay policy fallback
+    }
+  }
+
   playDecision() {
     if (!this.enabled) return;
     this.init();
