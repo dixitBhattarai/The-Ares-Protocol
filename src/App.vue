@@ -50,6 +50,65 @@ const preparationPaused = ref(false);
 const nearConsole = ref(false);
 let remoteConsole = false;
 
+type GuideStep = 'none' | 'open_info' | 'close_info' | 'go_habitat' | 'ready';
+const guideStep = ref<GuideStep>('none');
+const missionTimerActive = ref(false);
+
+function openMissionInfoGuide() {
+  deckVisible.value = true;
+  guideStep.value = 'close_info';
+  void nextTick(() => {
+    commandPanel.value?.focus();
+  });
+}
+
+function closeMissionInfoGuide() {
+  deckVisible.value = false;
+  guideStep.value = 'go_habitat';
+  world?.setObjective?.('habitat');
+  physics?.resumeInput?.();
+  if (typeof window !== 'undefined') {
+    window.focus();
+    (document.activeElement as HTMLElement)?.blur?.();
+  }
+  stationMessage.value = '⚠️ A sandstorm is coming! Go to the Habitat and complete the task.';
+}
+
+function startMissionAfterGuide() {
+  if (guideStep.value === 'ready') return;
+  guideStep.value = 'ready';
+  missionTimerActive.value = true;
+  physics?.resumeInput?.();
+  if (typeof window !== 'undefined') {
+    window.focus();
+    (document.activeElement as HTMLElement)?.blur?.();
+  }
+  stationMessage.value = 'Sandstorm approaching! Head to the Habitat module and reinforce the shelter.';
+}
+
+function guideAutoWalkToHabitat() {
+  travelToDoor('habitat');
+  startMissionAfterGuide();
+}
+
+function closeMissionDeck() {
+  deckVisible.value = false;
+  if (guideStep.value === 'close_info') {
+    closeMissionInfoGuide();
+  }
+}
+
+function toggleMissionDeck() {
+  if (deckVisible.value) {
+    closeMissionDeck();
+  } else {
+    deckVisible.value = true;
+    if (guideStep.value === 'open_info') {
+      guideStep.value = 'close_info';
+    }
+  }
+}
+
 function beginPreparation(level: PreparationLevel) {
   flightProgress.value = null; world?.setJourney?.(null);
   preparation.value = level; preparationProgress.value = 0; preparationFeedback.value = ''; preparationPaused.value = false; nearConsole.value = false; remoteConsole = false;
@@ -91,7 +150,15 @@ function operatePreparation(control: string) {
 function finishArrival() {
   flightProgress.value = null; world?.setJourney?.(null);
   if (!orbitComplete) { beginPreparation('space'); return; }
-  arrivalComplete = true;deckVisible.value=false;physics?.reset?.({x:0,y:.8,z:6});music?.select('mars'); stationMessage.value = 'Landed on Mars. Walk inside a station and use a glowing machine to work.'; dispatch({ type: 'START' });
+  arrivalComplete = true;
+  deckVisible.value = false;
+  physics?.reset?.({x:0,y:.8,z:6});
+  music?.select('mars');
+  dispatch({ type: 'START' });
+  guideStep.value = 'open_info';
+  missionTimerActive.value = false;
+  physics?.pauseInput?.();
+  stationMessage.value = 'Touchdown on Mars! Click Mission Info to review directives.';
 }
 function setDoor(id: StationId, open: boolean) { doorsOpen.value = { ...doorsOpen.value, [id]: open }; doorReady.value = false; world?.setDoorState?.(id, open); }
 function toggleDoor() {
@@ -201,7 +268,14 @@ function dispatch(action: GameAction) {
     if (!preparation.value && flightProgress.value === null) beginPreparation('earth');
     return;
   }
-  if(action.type==='START'&&state.value.phase==='ready'&&(directDecisionMode.value||graphicsError.value)){arrivalComplete=true;world?.setLevel?.(null);world?.setJourney?.(null);music?.select('mars');}
+  if(action.type==='START'&&state.value.phase==='ready'&&(directDecisionMode.value||graphicsError.value)){
+    arrivalComplete=true;
+    world?.setLevel?.(null);
+    world?.setJourney?.(null);
+    music?.select('mars');
+    guideStep.value = 'open_info';
+    missionTimerActive.value = false;
+  }
   if(action.type==='CHOOSE')return;
   if(action.type==='START_TASK') {
     const previous=state.value;state.value=reduceGame(state.value,action,mission);
@@ -211,7 +285,25 @@ function dispatch(action: GameAction) {
     activityProgress.value=0;activityFeedback.value='Finish the station minigame to earn this reward.';
     world?.setObjective?.(task.station);deckVisible.value=true;return;
   }
-  if (action.type === 'RESTART') { missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; orbitComplete = false; arrivalComplete = false; flightProgress.value = null; world?.setJourney?.(null); world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
+  if (action.type === 'RESTART') {
+    missionSeconds=0;
+    missionTimerActive.value = false;
+    guideStep.value = 'none';
+    cancelActivity();
+    interior.value=null;
+    world?.setInterior?.(null);
+    for (const station of STATIONS) setDoor(station.id, false);
+    nearby.value = null;
+    deckVisible.value = true;
+    preparation.value = null;
+    orbitComplete = false;
+    arrivalComplete = false;
+    flightProgress.value = null;
+    world?.setJourney?.(null);
+    world?.setLevel?.(null);
+    music?.select('earth');
+    music?.setPaused(false);
+  }
   if (action.type === 'PAUSE' && state.value.phase === 'running') music?.setPaused(true);
   if (action.type === 'RESUME' && state.value.phase === 'paused') music?.setPaused(false);
   const previousState = state.value;
@@ -246,7 +338,7 @@ function dispatch(action: GameAction) {
 }
 
 function advanceMissionTime(elapsed:number) {
-  if(state.value.phase==='running'&&!document.hidden&&!preparation.value&&flightProgress.value===null){
+  if(state.value.phase==='running'&&missionTimerActive.value&&!document.hidden&&!preparation.value&&flightProgress.value===null){
     missionSeconds+=elapsed;
     if(missionSeconds>=1){missionSeconds-=1;dispatch({type:'TICK',seconds:1});}
   }else missionSeconds=0;
@@ -264,6 +356,10 @@ function checkStationProximity(pose: Vec3) {
   if(inside!==interior.value) {
     interior.value=inside;world?.setInterior?.(inside);
     if(inside && !activeActivity.value)deckVisible.value=false;
+    if(inside === 'habitat' && (guideStep.value === 'go_habitat' || guideStep.value === 'ready')) {
+      missionTimerActive.value = true;
+      guideStep.value = 'ready';
+    }
     stationMessage.value=inside?`Inside the ${inside}. Walk back through the same door to leave.`:'Outside on Mars. Your position stays in the same world.';
   }
   if(inside){nearby.value=null;return;}
@@ -292,6 +388,21 @@ function checkStationProximity(pose: Vec3) {
 
 function handleGlobalKeydown(event: KeyboardEvent) {
   if ((event.target as HTMLElement | null)?.closest('button, input, textarea, select, [contenteditable]')) return;
+  if (guideStep.value === 'go_habitat') {
+    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) {
+      startMissionAfterGuide();
+    }
+  }
+  if (guideStep.value === 'open_info' && (event.code === 'KeyC' || event.code === 'Enter' || event.code === 'Space')) {
+    event.preventDefault();
+    openMissionInfoGuide();
+    return;
+  }
+  if (guideStep.value === 'close_info' && (event.code === 'KeyC' || event.code === 'Escape')) {
+    event.preventDefault();
+    closeMissionInfoGuide();
+    return;
+  }
   if (preparation.value && event.code === 'KeyP') { togglePreparationPause(); return; }
   if (preparation.value === 'earth' && event.code === 'KeyE') {
     event.preventDefault();
@@ -308,7 +419,12 @@ function handleGlobalKeydown(event: KeyboardEvent) {
     return;
   }
   if (event.code === 'KeyC') {
-    deckVisible.value = !deckVisible.value;
+    toggleMissionDeck();
+    return;
+  }
+  if (event.code === 'Escape' && deckVisible.value) {
+    event.preventDefault();
+    closeMissionDeck();
     return;
   }
   if (activeActivity.value) {
@@ -499,22 +615,97 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="deck-toggle-btn info-btn"
+              :class="{ 'guide-target-pulse': guideStep === 'open_info' }"
               :aria-label="deckVisible ? 'Hide Mission Deck' : 'Show Mission Deck / Info'"
               :title="deckVisible ? 'Hide Mission Deck (Press C)' : 'Show Mission Deck (Press C)'"
-              @click="deckVisible = !deckVisible"
+              @click="toggleMissionDeck"
             >
               {{ deckVisible ? '✕ Close Deck' : 'ℹ Mission Info' }}
             </button>
             <span>SECTOR 01</span>
           </div>
         </div>
+
+        <!-- Guide Step 1: Pointer pointing to Mission Info button -->
+        <div v-if="guideStep === 'open_info'" class="guide-button-pointer" role="tooltip">
+          <span class="pointer-arrow">▲</span>
+          <span class="pointer-bubble">Click Mission Info to check out what you have to do!</span>
+        </div>
+
         <div
           ref="host"
           class="viewport"
           role="region"
           aria-label="Interactive 3D Mars Outpost Viewport"
         />
-        <div v-if="state.taskRun && (state.phase==='running'||state.phase==='paused')" class="task-warning">
+
+        <!-- Guide Modal 1: Welcome & Prompt to click Mission Info -->
+        <div v-if="guideStep === 'open_info'" class="guide-overlay-backdrop">
+          <div class="guide-dialog-card arrival-card">
+            <div class="guide-badge-row">
+              <span class="guide-pill-badge">🚀 EXPEDITION DIRECTIVE</span>
+            </div>
+            <h2 class="guide-title">TOUCHDOWN ON MARS</h2>
+            <p class="guide-desc">
+              Welcome to the Ares Outpost! Before beginning surface operations, click <strong>Mission Info</strong> at the top right to check out your assigned tasks and outpost telemetry.
+            </p>
+            <div class="guide-dialog-actions">
+              <button class="guide-btn-primary" @click="openMissionInfoGuide">
+                Open Mission Info <span aria-hidden="true">➔</span>
+              </button>
+            </div>
+            <p class="guide-shortcut-hint">
+              Shortcut: Click the glowing <strong>ℹ Mission Info</strong> button or press <kbd>C</kbd>
+            </p>
+          </div>
+        </div>
+
+        <!-- Guide Modal 2: Sandstorm warning & Go to Habitat -->
+        <div v-if="guideStep === 'go_habitat'" class="guide-overlay-backdrop sandstorm-backdrop">
+          <div class="guide-dialog-card sandstorm-card">
+            <div class="sandstorm-ring"></div>
+            <div class="guide-badge-row">
+              <span class="guide-pill-badge hazard-badge">⚠️ CRITICAL WEATHER ALERT</span>
+            </div>
+            <h2 class="guide-title hazard-title">A Sandstorm is Coming!</h2>
+            <p class="guide-desc">
+              Sensors detect an incoming high-energy Martian sandstorm! <strong>Go to the Habitat and complete the task</strong> to reinforce your storm shelter before the storm strikes.
+            </p>
+
+            <div class="habitat-waypoint-box">
+              <div class="waypoint-radar-icon">
+                <span class="radar-pulse"></span>
+                <span class="radar-arrow">◀</span>
+              </div>
+              <div class="waypoint-info-text">
+                <strong>HABITAT MODULE (Sector 01-H)</strong>
+                <span>Located on your forward-left · Look for the glowing gold objective marker</span>
+              </div>
+              <button class="waypoint-autopath-btn" @click="guideAutoWalkToHabitat">
+                Auto-Walk ➔
+              </button>
+            </div>
+
+            <div class="guide-controls-pill">
+              🎮 <strong>Controls Unlocked:</strong> Use <strong>W, A, S, D</strong> or <strong>Arrow keys</strong> to walk
+            </div>
+
+            <div class="guide-dialog-actions">
+              <button class="guide-btn-primary storm-btn" @click="startMissionAfterGuide">
+                Start Mission & Countdown <span aria-hidden="true">➔</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Persistent Waypoint HUD Banner -->
+        <div v-if="guideStep === 'ready' && !interior && !activeActivity" class="floating-habitat-banner">
+          <span class="banner-pulse"></span>
+          <span class="banner-text">◀ <strong>OBJECTIVE:</strong> Head inside the Habitat module to reinforce storm shelter</span>
+          <button class="banner-autopath-btn" @click="travelToDoor('habitat')">Guide Walk</button>
+        </div>
+
+        <div v-if="state.taskRun && (state.phase==='running'||state.phase==='paused') && missionTimerActive" class="task-warning">
           <p>{{ state.upcomingHazardNotice?.split(' Game forecast')[0] }}</p><p v-if="state.lastHazardNotice">{{ state.lastHazardNotice }}</p>
           <button @click="dispatch({type:state.phase==='paused'?'RESUME':'PAUSE'})">{{ state.phase==='paused'?'Resume mission':'Pause mission' }}</button>
         </div>
@@ -561,12 +752,28 @@ onBeforeUnmount(() => {
                 class="deck-close-corner-btn"
                 title="Hide window (Press C or click to close)"
                 aria-label="Close window"
-                @click="deckVisible = false"
+                @click="closeMissionDeck"
               >✕</button>
             </div>
           </div>
-          <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
+          <!-- Guide Step 2 Callout: Review tasks and close deck -->
+          <div v-if="guideStep === 'close_info'" class="guide-deck-callout">
+            <div class="guide-deck-callout-content">
+              <span class="guide-deck-icon">📋</span>
+              <div>
+                <strong>TASK BRIEFING & DIRECTIVES</strong>
+                <p>Review your work orders, reserves, and mission telemetry below. When you're ready, close Mission Info to step onto the surface!</p>
+              </div>
+            </div>
+            <button class="guide-deck-close-btn" @click="closeMissionInfoGuide">
+              ✕ Close Mission Info & Proceed ➔
+            </button>
+          </div>
+          <p v-if="state.upcomingHazardNotice && state.phase === 'running' && missionTimerActive" class="hazard-advisory" role="alert">
             {{ state.upcomingHazardNotice }}
+          </p>
+          <p v-else-if="state.phase === 'running' && !missionTimerActive" class="hazard-advisory" role="alert">
+            ⚠️ Sandstorm advisory: Reinforce the Habitat storm shelter upon exiting Mission Info.
           </p>
           <PreparationPanel v-if="preparation" :level="preparation" :outdoors="earthOutside" :progress="preparationProgress" :feedback="preparationFeedback" :near-console="nearConsole" :paused="preparationPaused" @enter-lab="enterEarthLab()" @outside="leaveEarthLab" @control="operatePreparation" @remote="remoteConsole = true; preparationFeedback = 'Remote console enabled.'" @pause="togglePreparationPause" />
           <ActivityPanel v-else-if="activeActivity" :station="activeActivity.station" :title="activeActivity.title" :steps="activeActivity.steps" :impact="activeActivity.impact" :progress="activityProgress" :inside="directDecisionMode || !!graphicsError || interior === activeActivity.station" :feedback="activityFeedback" :paused="state.phase === 'paused'" @control="operateControl" @travel="travelToTask" @enter="enterModule()" @exit="leaveModule" @cancel="cancelActivity" @pause="dispatch({ type: state.phase === 'paused' ? 'RESUME' : 'PAUSE' })" />
@@ -709,6 +916,391 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
   .header-controls { width: 100%; justify-content: space-between; }
   .surface-header, .surface-footer { font-size: 7px; padding: 12px; }
   .surface-footer span:last-child { max-width: 130px; text-align: right; }
+}
+
+/* Guide System Overlays */
+.guide-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 12, 18, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+  animation: guideFadeIn 0.3s ease-out;
+}
+.guide-overlay-backdrop.sandstorm-backdrop {
+  background: radial-gradient(circle at center, rgba(35, 14, 5, 0.85) 0%, rgba(10, 4, 2, 0.92) 100%);
+}
+@keyframes guideFadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.guide-dialog-card {
+  position: relative;
+  width: min(540px, 94vw);
+  background: linear-gradient(135deg, rgba(16, 38, 50, 0.96), rgba(10, 24, 34, 0.98));
+  border: 1px solid rgba(77, 208, 225, 0.45);
+  border-radius: 18px;
+  padding: 28px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75), 0 0 35px rgba(77, 208, 225, 0.2);
+  color: #e2f1f8;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-sizing: border-box;
+}
+.guide-dialog-card.sandstorm-card {
+  border-color: rgba(255, 152, 0, 0.6);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 45px rgba(255, 100, 0, 0.35);
+  background: linear-gradient(135deg, rgba(32, 20, 15, 0.96), rgba(18, 10, 8, 0.98));
+}
+
+.guide-badge-row {
+  margin-bottom: 12px;
+}
+.guide-pill-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(77, 208, 225, 0.15);
+  border: 1px solid #4dd0e1;
+  border-radius: 20px;
+  color: #4dd0e1;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.guide-pill-badge.hazard-badge {
+  background: rgba(255, 87, 34, 0.2);
+  border-color: #ff5722;
+  color: #ff9800;
+  animation: hazardPulse 1.4s infinite ease-in-out;
+}
+@keyframes hazardPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.03); }
+}
+
+.guide-title {
+  margin: 0 0 12px 0;
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(20px, 4vw, 26px);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+  text-shadow: 0 0 16px rgba(77, 208, 225, 0.5);
+}
+.guide-title.hazard-title {
+  color: #ffcc80;
+  text-shadow: 0 0 20px rgba(255, 110, 0, 0.7);
+}
+
+.guide-desc {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #c7dde8;
+  margin: 0 0 20px 0;
+}
+.guide-desc strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.guide-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+}
+.guide-btn-primary {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #00acc1, #00838f);
+  border: 1px solid #4dd0e1;
+  border-radius: 8px;
+  color: #ffffff;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(0, 172, 193, 0.4);
+}
+.guide-btn-primary:hover {
+  background: linear-gradient(135deg, #26c6da, #0097a7);
+  box-shadow: 0 6px 20px rgba(0, 172, 193, 0.6);
+  transform: translateY(-1px);
+}
+.guide-btn-primary.storm-btn {
+  background: linear-gradient(135deg, #f57c00, #d84315);
+  border-color: #ff9800;
+  box-shadow: 0 4px 18px rgba(255, 110, 0, 0.5);
+}
+.guide-btn-primary.storm-btn:hover {
+  background: linear-gradient(135deg, #ff9800, #e64a19);
+  box-shadow: 0 6px 24px rgba(255, 110, 0, 0.75);
+}
+
+.guide-shortcut-hint {
+  margin: 12px 0 0 0;
+  font-size: 11px;
+  color: #78909c;
+  text-align: center;
+}
+.guide-shortcut-hint kbd {
+  background: #1c303c;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #455a64;
+  color: #eceff1;
+  font-family: monospace;
+}
+
+/* Pointer to Mission Info Button */
+.guide-button-pointer {
+  position: absolute;
+  right: 16px;
+  top: 122px;
+  z-index: 10003;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: none;
+  animation: pointerBounce 1.5s infinite ease-in-out;
+}
+@keyframes pointerBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.pointer-arrow {
+  color: #ff9800;
+  font-size: 16px;
+  margin-right: 35px;
+  text-shadow: 0 0 10px rgba(255, 152, 0, 0.8);
+}
+.pointer-bubble {
+  background: #ff9800;
+  color: #0d161d;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(255, 152, 0, 0.5);
+  white-space: nowrap;
+}
+.guide-target-pulse {
+  background: #ff9800 !important;
+  color: #000000 !important;
+  border-color: #ffe082 !important;
+  animation: targetPulse 1.2s infinite ease-in-out !important;
+  z-index: 10002 !important;
+  position: relative;
+}
+@keyframes targetPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.85); transform: scale(1); }
+  50% { box-shadow: 0 0 0 10px rgba(255, 152, 0, 0); transform: scale(1.08); }
+}
+
+/* Callout inside Command Deck */
+.guide-deck-callout {
+  margin: 12px 14px 16px;
+  padding: 14px 16px;
+  background: rgba(77, 208, 225, 0.12);
+  border: 1px solid #4dd0e1;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.guide-deck-callout-content {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.guide-deck-icon {
+  font-size: 24px;
+}
+.guide-deck-callout strong {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: #4dd0e1;
+  display: block;
+  margin-bottom: 4px;
+}
+.guide-deck-callout p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #e0f2f1;
+}
+.guide-deck-close-btn {
+  align-self: flex-end;
+  padding: 8px 16px;
+  background: #4dd0e1;
+  color: #00363a;
+  border: none;
+  border-radius: 6px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.guide-deck-close-btn:hover {
+  background: #80deea;
+  transform: translateY(-1px);
+}
+
+/* Habitat Direction Box inside Sandstorm Modal */
+.habitat-waypoint-box {
+  background: rgba(255, 152, 0, 0.12);
+  border: 1px solid rgba(255, 152, 0, 0.45);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.waypoint-radar-icon {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 152, 0, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.radar-pulse {
+  position: absolute;
+  inset: -4px;
+  border: 2px solid rgba(255, 152, 0, 0.6);
+  border-radius: 50%;
+  animation: radarPing 1.6s infinite ease-out;
+}
+@keyframes radarPing {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.radar-arrow {
+  color: #ff9800;
+  font-size: 18px;
+  font-weight: 900;
+}
+.waypoint-info-text {
+  flex: 1;
+}
+.waypoint-info-text strong {
+  display: block;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px;
+  color: #ffe082;
+  margin-bottom: 2px;
+}
+.waypoint-info-text span {
+  font-size: 12px;
+  color: #ffccbc;
+}
+.waypoint-autopath-btn {
+  padding: 8px 14px;
+  background: rgba(255, 152, 0, 0.25);
+  border: 1px solid #ff9800;
+  border-radius: 6px;
+  color: #ffe082;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.waypoint-autopath-btn:hover {
+  background: #ff9800;
+  color: #1a0a00;
+}
+
+.guide-controls-pill {
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #b0bec5;
+  text-align: center;
+}
+.guide-controls-pill strong {
+  color: #4dd0e1;
+}
+
+/* Floating Habitat HUD Banner */
+.floating-habitat-banner {
+  position: absolute;
+  left: 16px;
+  top: 70px;
+  z-index: 12;
+  background: rgba(16, 32, 42, 0.88);
+  border: 1px solid rgba(255, 152, 0, 0.6);
+  border-radius: 10px;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffe082;
+  font-size: 12px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+  animation: guideFadeIn 0.3s ease-out;
+}
+.banner-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff9800;
+  box-shadow: 0 0 10px #ff9800;
+  animation: beaconBlink 1s infinite alternate;
+}
+@keyframes beaconBlink {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+.banner-text strong {
+  color: #ffffff;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+}
+.banner-autopath-btn {
+  padding: 4px 10px;
+  background: rgba(255, 152, 0, 0.25);
+  border: 1px solid #ff9800;
+  border-radius: 5px;
+  color: #ffe082;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.banner-autopath-btn:hover {
+  background: #ff9800;
+  color: #1a0a00;
+}
+
+@media (max-width: 600px) {
+  .guide-button-pointer {
+    top: 160px;
+    right: 10px;
+  }
+  .floating-habitat-banner {
+    top: 160px;
+    left: 10px;
+    right: 10px;
+    font-size: 10px;
+  }
 }
 </style>
 
