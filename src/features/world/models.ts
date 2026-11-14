@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { STATIONS, type StationId } from '../../contracts';
 import { WorldResources, type ModelKit } from './resources';
-import { createDustTexture, createSurfaceDetails, createAbandonedEquipment, createAlienRockFormations, createColonyInfrastructure } from './landscape';
+import { createDustTexture, createSurfaceDetails, createAbandonedEquipment, createAlienRockFormations } from './landscape';
 import { createSlidingDoor } from './doors';
 
 export interface StationVisual {
@@ -271,10 +271,9 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
   }
 
   // =========================================================================
-  // 3. SURFACE DETAILS, COLONY INFRASTRUCTURE & ALIEN FORMATIONS
+  // 3. SURFACE DETAILS, ABANDONED EQUIPMENT & ALIEN ROCK FORMATIONS
   // =========================================================================
   terrain.add(createSurfaceDetails(resources));
-  terrain.add(createColonyInfrastructure(kit, resources));
   terrain.add(createAbandonedEquipment(kit, resources));
   terrain.add(createAlienRockFormations(kit, resources));
 

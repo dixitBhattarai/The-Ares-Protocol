@@ -15,9 +15,8 @@ import { createFollowCamera } from './follow-camera';
 import { createEarthCampus } from './earth';
 import { createMarsAtmosphere } from './atmosphere';
 import { createWorkInteraction, createWorkPrompt, WORK_MACHINES, type WorkWorldAdapter, type MachineId } from './interactables';
-import { createEvaTether, type EvaStatus } from './tether';
 
-export function createWorld(host: HTMLElement, onInteract: (station: StationId) => void): WorldAdapter & WorkWorldAdapter & { getEvaStatus?(): EvaStatus } {
+export function createWorld(host: HTMLElement, onInteract: (station: StationId) => void): WorldAdapter & WorkWorldAdapter {
   const resources = new WorldResources();
   const container = document.createElement('div');
   container.className = 'ares-world';
@@ -97,8 +96,6 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     const terrain = createTerrain(kit, resources);
     terrain.traverse(object => { if (object instanceof THREE.Mesh) object.receiveShadow = true; });
     scene.add(terrain);
-    const tether = createEvaTether(scene, resources);
-    cleanups.push(() => tether.dispose());
     const astronaut = createAstronaut(kit);
     const suit = new THREE.Group(); suit.position.y = -.8; astronaut.group.add(suit);
     void nasa.attach(suit, 'astronaut', 1.55, astronaut.fallback);
@@ -157,13 +154,6 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     playerMarker.setAttribute('aria-hidden', 'true');
     playerMarker.hidden = true;
     container.appendChild(playerMarker);
-
-    const evaHud = document.createElement('div');
-    evaHud.className = 'ares-world__eva-hud';
-    evaHud.setAttribute('role', 'status');
-    evaHud.setAttribute('aria-live', 'polite');
-    evaHud.hidden = true;
-    container.appendChild(evaHud);
     let selected: StationId | undefined;
     let hovered: StationId | undefined;
     let lastState: Readonly<GameState> | undefined;
@@ -807,12 +797,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         applyAstronautGait(astronaut, walkCycle, moving);
         expedition.pose(pose, moving);
         if (playerPose.x !== pose.x || playerPose.y !== pose.y || playerPose.z !== pose.z) cameraDirty = true;
-        const isOutside = (level !== 'earth' && level !== 'space' && flightStage === null && interior === null);
-        const floatOffset = (isOutside && !reduceMotion)
-          ? (moving ? Math.sin(walkCycle * 2) * 0.025 : Math.sin(performance.now() * 0.002) * 0.012)
-          : 0;
         playerPose.copy(pose);
-        astronaut.group.position.set(pose.x, pose.y + floatOffset, pose.z);
+        astronaut.group.position.copy(pose);
         playerShadow.position.set(pose.x, .014, pose.z);
         if (redrawShadow) renderer!.shadowMap.needsUpdate = true;
       },
@@ -898,40 +884,9 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         }
         if (level === 'space') { expedition.animate(delta, active, reduceMotion); expedition.roomCamera(); expedition.cutaway(cameraMode === 'follow' ? follow.camera : expedition.camera); renderer!.render(expedition.room, cameraMode === 'follow' ? follow.camera : expedition.camera); return; }
         if (astronaut.group.parent !== scene) scene.add(astronaut.group);
-        const isOutside = (level !== 'earth' && level !== 'space' && flightStage === null && interior === null);
-        const hasHazard = Boolean(lastState?.upcomingHazardNotice || lastState?.lastHazardNotice);
-        const evaStatus = tether.update(active ? delta : 0, playerPose, isOutside, reduceMotion, hasHazard);
-
-        if (level === 'earth' || level === 'space' || flightStage !== null || lastState?.phase !== 'running') {
-          evaHud.hidden = true;
-        } else {
-          evaHud.hidden = false;
-          if (isOutside) {
-            if (evaStatus.isOverLimit) {
-              evaHud.className = 'ares-world__eva-hud ares-world__eva-hud--alert';
-              evaHud.textContent = `⚠️ TETHER LIMIT REACHED (${evaStatus.maxLength}m) · RETURN TO AIRLOCK`;
-            } else if (evaStatus.isNearLimit) {
-              evaHud.className = 'ares-world__eva-hud ares-world__eva-hud--caution';
-              evaHud.textContent = `⚡ TETHER CAUTION: ${evaStatus.length}m / ${evaStatus.maxLength}m · SUIT: ${evaStatus.suitSafety}%`;
-            } else if (evaStatus.suitSafety < 35) {
-              evaHud.className = 'ares-world__eva-hud ares-world__eva-hud--alert';
-              evaHud.textContent = `🚨 SUIT INTEGRITY CRITICAL (${evaStatus.suitSafety}%) · ENTER AIRLOCK`;
-            } else {
-              evaHud.className = 'ares-world__eva-hud';
-              evaHud.textContent = `EVA ACTIVE · TETHER: ${evaStatus.length}m / ${evaStatus.maxLength}m · SUIT: ${evaStatus.suitSafety}% · O₂: ${evaStatus.oxygenLevel}%`;
-            }
-          } else {
-            evaHud.className = 'ares-world__eva-hud ares-world__eva-hud--pressurized';
-            evaHud.textContent = `PRESSURIZED ENVIRONMENT · AIRLOCK SECURED · SUIT RESTORED (${evaStatus.suitSafety}%)`;
-          }
-        }
-
         updateAstronautAnimation(astronaut, delta, active, reduceMotion);
         if (cameraDirty) updateCamera();
         renderer!.render(scene, cameraMode === 'follow' ? follow.camera : camera);
-      },
-      getEvaStatus() {
-        return tether.getStatus();
       },
       dispose,
     };
