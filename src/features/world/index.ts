@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { STATIONS } from '../../contracts';
-import type { FlightStage, LaunchFlightSnapshot, GameState, StationId, Vec3, WorldAdapter } from '../../contracts';
+import type { FlightStage, LaunchFlightSnapshot, LandingFlightSnapshot, GameState, StationId, Vec3, WorldAdapter } from '../../contracts';
 import { createLaunchView } from './launch-view';
 import { frameOutpost } from './camera';
 import { createGroundShadow, createStation, createTerrain, STATION_NAMES } from './models';
@@ -84,6 +84,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     cleanups.push(() => expedition.dispose());
     const launchView=createLaunchView(kit,resources,nasa);cleanups.push(()=>launchView.dispose());
     let launchSnapshot:Readonly<LaunchFlightSnapshot>|null=null;
+    let landingSnapshot:Readonly<LandingFlightSnapshot>|null=null;
     let interior: StationId | null = null;
     let journey: number | null = null;
     let flightStage: FlightStage | null = null;
@@ -773,6 +774,11 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         launchSnapshot=snapshot;
         cockpitFrame.hidden=flightStage===null || (!!snapshot && (flightStage==='launch'||flightStage==='orbit-autopilot'));
       },
+      setLandingFlight(snapshot){
+        if(disposed)return;landingSnapshot=snapshot;
+        if(snapshot){container.style.setProperty('--lander-pitch',`${snapshot.pitch}deg`);container.style.setProperty('--lander-thrust',`${snapshot.throttle*230-115}deg`);}
+        else{container.style.removeProperty('--lander-pitch');container.style.removeProperty('--lander-thrust');}
+      },
       setObjective(id) {
         if (disposed || selected === (id ?? undefined)) return;
         selected = id ?? undefined; updateHighlights(); updateHint();
@@ -853,7 +859,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
             launchView.update(launchSnapshot,width/height,delta,active,reduceMotion);
             renderer!.render(launchView.scene,launchView.camera);return;
           }
-          expedition.cockpit(flightStage, flightProgress, delta, active, reduceMotion);
+          expedition.cockpit(flightStage, flightProgress, delta, active, reduceMotion,landingSnapshot);
           renderer!.render(expedition.cockpitFlight, expedition.cockpitCamera);
           return;
         }
