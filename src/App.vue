@@ -49,8 +49,12 @@ function dispatch(action: GameAction) {
       soundFX.playDecision();
     }
   } else if (action.type === 'RESTART') {
-    physics?.reset?.();
-    stationMessage.value = 'Outpost and astronaut reset. Plan your shifts carefully.';
+    if (physics?.reset) {
+      physics.reset();
+      stationMessage.value = 'Outpost and astronaut reset to spawn. Plan your shifts carefully.';
+    } else {
+      stationMessage.value = 'New resource plan. Astronaut position stays where you left it until full physics reset is integrated.';
+    }
     currentSelectedStation = null;
     lastNearStation = null;
   } else if (action.type === 'PAUSE') {
@@ -191,14 +195,19 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </header>
-    <HudOverlay :state="state" :mission="mission" />
+    <div class="hud-container">
+      <HudOverlay :state="state" :mission="mission" />
+    </div>
     <div
       ref="host"
       class="viewport"
-      role="img"
-      aria-label="Interactive 3D Mars outpost showing habitat, solar array, hydroponic greenhouse, and explorer astronaut"
+      role="region"
+      aria-label="Interactive 3D Mars Outpost Viewport"
     />
     <p class="scene-status" role="status">{{ graphicsError || stationMessage }}</p>
+    <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
+      {{ state.upcomingHazardNotice }}
+    </p>
     <MissionPanels
       :state="state"
       :mission="mission"
@@ -212,8 +221,10 @@ onBeforeUnmount(() => {
 .app-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem 0.5rem; flex-wrap: wrap; gap: 0.5rem; }
 h1 { margin: 0; font-size: 1.8rem; letter-spacing: -0.02em; }
 .app-header p { margin: 0.25rem 0 0; color: #a3b8cc; font-size: 0.95rem; }
+.hud-container { display: flex; justify-content: center; padding: 0 1rem; }
 .sound-btn { padding: 0.4rem 0.8rem; font-size: 0.85rem; border-radius: 6px; background: #1c2b3c; border: 1px solid #4a627d; }
 .sound-btn:hover { background: #2b3e54; }
 .viewport { height: min(42vh, 440px); min-height: 220px; overflow: hidden; background: #160f16; }
 .scene-status { margin: 0.5rem 1.25rem; font-size: 0.88rem; color: #cad4df; line-height: 1.4; }
+.hazard-advisory { margin: 0.5rem 1.25rem; padding: 0.6rem 0.85rem; border-radius: 8px; background: #3b2219; border-left: 4px solid #f68e56; color: #fed7aa; font-size: 0.88rem; font-weight: 500; }
 </style>
