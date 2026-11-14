@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { PreparationLevel } from '../world/preflight';
 import { PREPARATION } from '../world/preflight';
 import { soundFX } from './audio';
@@ -16,27 +16,54 @@ const emit = defineEmits<{
   skip: [];
 }>();
 
-// ==========================================
-// 1. EARTH MINIGAME STATE
-// ==========================================
-// Stage 0: Suit O2 Pressure Pump (Mash plunger to pump needle into green safe zone >= 80%)
-const earthPressure = ref(20);
-const pumpDown = ref(false);
+const totalSteps = computed(() => PREPARATION[props.level].steps.length);
 
-function pumpO2() {
+// ==========================================
+// 1. EARTH MINIGAME STATE (4 Visual Stages)
+// ==========================================
+// Stage 0: Fuel & Oxidizer Fill (Tap levers to fill Fuel and Oxidizer to 100%)
+const fuelLevel = ref(30);
+const oxidizerLevel = ref(30);
+
+function fillFuel() {
+  if (props.progress !== 0 || props.paused) return;
+  soundFX.playDecision();
+  fuelLevel.value = Math.min(100, fuelLevel.value + 35);
+  checkFuelingComplete();
+}
+
+function fillOxidizer() {
   if (props.progress !== 0 || props.paused) return;
   soundFX.playOxygen();
-  pumpDown.value = true;
-  setTimeout(() => (pumpDown.value = false), 140);
-  earthPressure.value = Math.min(100, earthPressure.value + 20);
+  oxidizerLevel.value = Math.min(100, oxidizerLevel.value + 35);
+  checkFuelingComplete();
+}
 
-  if (earthPressure.value >= 80) {
-    soundFX.playDecision();
+function checkFuelingComplete() {
+  if (fuelLevel.value >= 100 && oxidizerLevel.value >= 100) {
+    soundFX.playFullReserve();
     emit('control', PREPARATION.earth.steps[0]);
   }
 }
 
-// Stage 1: Cargo Bay Loading (Click items to snap into glowing rocket slots)
+// Stage 1: Suit & Cabin O2 Pressure Pump (Mash plunger into green safe zone >= 80%)
+const earthPressure = ref(20);
+const pumpDown = ref(false);
+
+function pumpO2() {
+  if (props.progress !== 1 || props.paused) return;
+  soundFX.playOxygen();
+  pumpDown.value = true;
+  setTimeout(() => (pumpDown.value = false), 140);
+  earthPressure.value = Math.min(100, earthPressure.value + 25);
+
+  if (earthPressure.value >= 80) {
+    soundFX.playFullReserve();
+    emit('control', PREPARATION.earth.steps[1]);
+  }
+}
+
+// Stage 2: Cargo Bay Loading (Click items to snap into glowing rocket slots)
 const loadedCells = ref({
   battery: false,
   food: false,
@@ -44,35 +71,35 @@ const loadedCells = ref({
 });
 
 function loadCargoItem(item: 'battery' | 'food' | 'tools') {
-  if (props.progress !== 1 || props.paused || loadedCells.value[item]) return;
+  if (props.progress !== 2 || props.paused || loadedCells.value[item]) return;
   soundFX.playShield();
   loadedCells.value[item] = true;
 
   if (loadedCells.value.battery && loadedCells.value.food && loadedCells.value.tools) {
     soundFX.playFullReserve();
-    emit('control', PREPARATION.earth.steps[1]);
+    emit('control', PREPARATION.earth.steps[2]);
   }
 }
 
-// Stage 2: Rocket Launch Ignition (Flip safety cover, then press BIG RED button)
+// Stage 3: Rocket Launch Ignition (Flip safety cover, then press BIG RED button)
 const launchCoverOpen = ref(false);
 const launching = ref(false);
 
 function flipCover() {
-  if (props.progress !== 2 || props.paused) return;
+  if (props.progress !== 3 || props.paused) return;
   soundFX.playDecision();
   launchCoverOpen.value = !launchCoverOpen.value;
 }
 
 function launchRocket() {
-  if (props.progress !== 2 || props.paused || !launchCoverOpen.value || launching.value) return;
+  if (props.progress !== 3 || props.paused || !launchCoverOpen.value || launching.value) return;
   launching.value = true;
   soundFX.playVictory();
-  emit('control', PREPARATION.earth.steps[2]);
+  emit('control', PREPARATION.earth.steps[3]);
 }
 
 // ==========================================
-// 2. ORBIT / SPACE STATION MINIGAME STATE
+// 2. ORBIT / SPACE MINIGAME STATE (3 Stages)
 // ==========================================
 // Stage 0: Radar Dish Alignment (Aim dish at Earth, lock angle at 90°)
 const dishAngle = ref(30);
@@ -132,6 +159,8 @@ function transmitFlightPlan() {
 watch(
   () => props.level,
   () => {
+    fuelLevel.value = 30;
+    oxidizerLevel.value = 30;
     earthPressure.value = 20;
     loadedCells.value = { battery: false, food: false, tools: false };
     launchCoverOpen.value = false;
@@ -157,7 +186,7 @@ watch(
       </div>
       <div class="stage-stepper" aria-label="Minigame stages">
         <div
-          v-for="i in 3"
+          v-for="i in totalSteps"
           :key="i"
           class="step-bubble"
           :class="{
@@ -177,9 +206,63 @@ watch(
     <!-- ==================================================== -->
     <div v-if="level === 'earth'" class="minigame-arena">
       <!-- -------------------------------------------------- -->
-      <!-- STAGE 0: O2 SUIT PRESSURE PUMP                     -->
+      <!-- STAGE 0: FUEL & OXIDIZER PUMPS                     -->
       <!-- -------------------------------------------------- -->
-      <div v-if="progress === 0" class="stage-card pump-stage">
+      <div v-if="progress === 0" class="stage-card fueling-stage">
+        <div class="tanks-rack">
+          <!-- Fuel Tank (Orange) -->
+          <div class="tank-column" @click="fillFuel">
+            <div class="tank-glass">
+              <div
+                class="tank-liquid fuel-liquid"
+                :style="{ height: `${fuelLevel}%` }"
+              />
+              <span class="tank-pct">{{ fuelLevel }}%</span>
+            </div>
+            <button
+              type="button"
+              class="tank-pump-btn fuel-btn"
+              :disabled="paused || fuelLevel >= 100"
+              aria-label="Pump Rocket Fuel"
+              @click="fillFuel"
+            >
+              <span class="pump-btn-icon">🔥</span>
+              <span>{{ fuelLevel >= 100 ? '✓ FULL' : 'FUEL' }}</span>
+            </button>
+          </div>
+
+          <!-- Rocket Silhouette Separator -->
+          <div class="fueling-rocket-icon" aria-hidden="true">
+            🚀
+          </div>
+
+          <!-- Oxidizer Tank (Cyan) -->
+          <div class="tank-column" @click="fillOxidizer">
+            <div class="tank-glass">
+              <div
+                class="tank-liquid ox-liquid"
+                :style="{ height: `${oxidizerLevel}%` }"
+              />
+              <span class="tank-pct">{{ oxidizerLevel }}%</span>
+            </div>
+            <button
+              type="button"
+              class="tank-pump-btn ox-btn"
+              :disabled="paused || oxidizerLevel >= 100"
+              aria-label="Pump Liquid Oxidizer"
+              @click="fillOxidizer"
+            >
+              <span class="pump-btn-icon">❄️</span>
+              <span>{{ oxidizerLevel >= 100 ? '✓ FULL' : 'OXYGEN' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- -------------------------------------------------- -->
+      <!-- STAGE 1: O2 SUIT PRESSURE PUMP                     -->
+      <!-- -------------------------------------------------- -->
+      <div v-else-if="progress === 1" class="stage-card pump-stage">
         <!-- Visual Gauge with Astronaut Visor -->
         <div class="gauge-display" @click="pumpO2">
           <div class="visor-container" :class="{ sealed: earthPressure >= 80 }">
@@ -245,9 +328,9 @@ watch(
       </div>
 
       <!-- -------------------------------------------------- -->
-      <!-- STAGE 1: CARGO LOADING DOCK                        -->
+      <!-- STAGE 2: CARGO LOADING DOCK                        -->
       <!-- -------------------------------------------------- -->
-      <div v-else-if="progress === 1" class="stage-card cargo-stage">
+      <div v-else-if="progress === 2" class="stage-card cargo-stage">
         <!-- Rocket Cargo Hold Sockets (Top) -->
         <div class="cargo-hold" aria-label="Rocket Cargo Bay">
           <!-- Battery Socket -->
@@ -325,9 +408,9 @@ watch(
       </div>
 
       <!-- -------------------------------------------------- -->
-      <!-- STAGE 2: ROCKET LAUNCH IGNITION                    -->
+      <!-- STAGE 3: ROCKET LAUNCH IGNITION                    -->
       <!-- -------------------------------------------------- -->
-      <div v-else-if="progress === 2" class="stage-card launch-stage">
+      <div v-else-if="progress === 3" class="stage-card launch-stage">
         <!-- Visual Rocket on Gantry -->
         <div class="launch-pad-view">
           <div class="gantry-left">🗼</div>
@@ -370,7 +453,7 @@ watch(
     </div>
 
     <!-- ==================================================== -->
-    <!-- ORBIT / SPACE STATION MINIGAME                       -->
+    <!-- ORBIT / SPACE MINIGAME                               -->
     <!-- ==================================================== -->
     <div v-else class="minigame-arena">
       <!-- -------------------------------------------------- -->
@@ -689,7 +772,87 @@ watch(
 /* ==================================================== */
 /* EARTH MINIGAME STYLES                                */
 /* ==================================================== */
-/* Stage 0: Plunger Pump */
+/* Stage 0: Fueling Tanks */
+.tanks-rack {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+}
+.tank-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.tank-glass {
+  position: relative;
+  width: 65px;
+  height: 110px;
+  background: #0c1a24;
+  border: 2px solid #2d485a;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.6);
+}
+.tank-liquid {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  transition: height 0.25s ease;
+}
+.fuel-liquid {
+  background: linear-gradient(180deg, #f97316, #ea580c);
+  box-shadow: 0 0 14px rgba(249, 115, 22, 0.5);
+}
+.ox-liquid {
+  background: linear-gradient(180deg, #38bdf8, #0284c7);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.5);
+}
+.tank-pct {
+  position: relative;
+  font-size: 13px;
+  font-weight: 850;
+  color: #ffffff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  z-index: 2;
+}
+.tank-pump-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid #4a6679;
+  background: #183345;
+  color: #f1f5f9;
+  transition: transform 0.1s ease, filter 0.1s ease;
+}
+.tank-pump-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.2);
+}
+.fuel-btn {
+  border-color: #f97316;
+}
+.ox-btn {
+  border-color: #38bdf8;
+}
+.fueling-rocket-icon {
+  font-size: 42px;
+  opacity: 0.85;
+}
+
+/* Stage 1: Plunger Pump */
 .gauge-display {
   display: flex;
   align-items: center;
@@ -821,7 +984,7 @@ watch(
   letter-spacing: 0.06em;
 }
 
-/* Stage 1: Cargo Loading */
+/* Stage 2: Cargo Loading */
 .cargo-hold {
   display: flex;
   gap: 14px;
@@ -896,7 +1059,7 @@ watch(
   color: #34d399;
 }
 
-/* Stage 2: Rocket Launch Ignition */
+/* Stage 3: Rocket Launch Ignition */
 .launch-pad-view {
   display: flex;
   align-items: center;

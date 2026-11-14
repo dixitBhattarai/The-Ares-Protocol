@@ -5,7 +5,7 @@ import VisualPreflightMinigame from './VisualPreflightMinigame.vue';
 import { PREPARATION, advancePreparation } from '../world/preflight';
 
 describe('VisualPreflightMinigame Component', () => {
-  it('renders Earth Stage 0 (O2 pressure pump)', async () => {
+  it('renders Earth Stage 0 (Fuel & Oxidizer pumps)', async () => {
     const app = createSSRApp(VisualPreflightMinigame, {
       level: 'earth',
       progress: 0,
@@ -14,17 +14,31 @@ describe('VisualPreflightMinigame Component', () => {
     const html = await renderToString(app);
 
     expect(html).toContain('EARTH LAUNCH PAD');
-    expect(html).toContain('PUMP!');
-    expect(html).toContain('Oxygen pressure');
+    expect(html).toContain('FUEL');
+    expect(html).toContain('OXYGEN');
+    expect(html).toContain('Pump Rocket Fuel');
+    expect(html).toContain('Pump Liquid Oxidizer');
     // Ensure no boring walls of text
     expect(html).not.toContain('WASD / arrows to move');
     expect(html).not.toContain('Move closer to the back-wall console');
   });
 
-  it('renders Earth Stage 1 (Cargo loading)', async () => {
+  it('renders Earth Stage 1 (O2 suit pressure pump)', async () => {
     const app = createSSRApp(VisualPreflightMinigame, {
       level: 'earth',
       progress: 1,
+      paused: false,
+    });
+    const html = await renderToString(app);
+
+    expect(html).toContain('PUMP!');
+    expect(html).toContain('Oxygen pressure');
+  });
+
+  it('renders Earth Stage 2 (Cargo loading)', async () => {
+    const app = createSSRApp(VisualPreflightMinigame, {
+      level: 'earth',
+      progress: 2,
       paused: false,
     });
     const html = await renderToString(app);
@@ -35,10 +49,10 @@ describe('VisualPreflightMinigame Component', () => {
     expect(html).toContain('Load Power Battery');
   });
 
-  it('renders Earth Stage 2 (Ignition with flip safety cover)', async () => {
+  it('renders Earth Stage 3 (Ignition with flip safety cover)', async () => {
     const app = createSSRApp(VisualPreflightMinigame, {
       level: 'earth',
-      progress: 2,
+      progress: 3,
       paused: false,
     });
     const html = await renderToString(app);
@@ -106,7 +120,7 @@ describe('VisualPreflightMinigame Component', () => {
       for (const step of steps) {
         progress = advancePreparation(level, progress, step);
       }
-      expect(progress).toBe(3);
+      expect(progress).toBe(PREPARATION[level].steps.length);
     }
   });
 });
