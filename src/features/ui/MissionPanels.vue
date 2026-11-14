@@ -31,6 +31,7 @@ function onAction(action: GameAction) {
     />
 
     <!-- Running / Decisions Phase -->
+    <p v-else-if="state.phase === 'running' && mission.gameplayMode === 'station-tasks'">Visit a station computer or use the work orders to start a job. Completed work earns the reward; there are no decision cards.</p>
     <DecisionPanel
       v-else-if="state.phase === 'running'"
       :state="state"

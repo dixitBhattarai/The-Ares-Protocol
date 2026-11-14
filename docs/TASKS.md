@@ -1,3 +1,11 @@
+# Latest task-loop direction — 14 November
+
+The latest user instruction supersedes the card-related acceptance below. Implemented handoff: freely choose a station job or use a 3D computer, finish its minigame, receive a positive payout once, keep exploring. No three-card decisions before or after work. Five reusable job types cover air, shelter, power, plants and science. Six completions end the mission. Active-time system consumption and warned hazards happen without completing jobs; service matching systems to prevent hazard damage. Pause/hidden tabs freeze time. Root AGENTS.md and docs/CONTRACTS.md describe the exact optional mode and handoff.
+
+Himamshu: continuous interiors, markers and computer entry. Saurav: supplied reserve/hazard/progress feedback. Dixit: work orders, onboarding, pause and debrief. Anshu: movement/input lifecycle. Genius: NASA context/provenance, without representing authored timers as observations. Rohit: authoritative tasks/rewards/timers and shell integration. Antigravity: serial main integration.
+
+---
+
 # Six owners, six task areas
 
 ## Active update: explore, task, outcome, cards

@@ -9,6 +9,15 @@ export interface Effect {
   shielding?: number;
   science?: number;
 }
+export interface StationTask {
+  id: string;
+  station: StationId;
+  title: string;
+  steps: readonly string[];
+  reward: Effect;
+  benefit: string;
+  prevention: string;
+}
 export interface DelayedEffectDef {
   delayTurns: number;
   description: string;
@@ -58,6 +67,7 @@ export interface SourceRecord {
   mapping: string;
 }
 export interface MissionData {
+  gameplayMode?: 'station-tasks';
   id: string;
   title: string;
   maxTurns: number;
@@ -102,6 +112,13 @@ export interface PendingDelayedEffect {
 }
 
 export interface GameState {
+  taskRun?: {
+    session: number;
+    elapsed: number;
+    completedIds: readonly string[];
+    activeTaskId?: string;
+    protections: Partial<Record<StationId, number>>;
+  };
   phase: Phase;
   turn: number;
   resources: Resources;
@@ -115,6 +132,10 @@ export interface GameState {
   upcomingHazardNotice?: string;
 }
 export type GameAction =
+  | { type: 'START_TASK'; taskId: string }
+  | { type: 'COMPLETE_TASK'; completionId: string }
+  | { type: 'CANCEL_TASK' }
+  | { type: 'TICK'; seconds: number }
   | { type: 'START' }
   | { type: 'PAUSE' }
   | { type: 'RESUME' }
