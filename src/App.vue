@@ -505,13 +505,13 @@ onBeforeUnmount(() => {
           <span><span class="live-dot" aria-hidden="true" /> {{ preparation === 'earth' ? 'EARTH / PREPARATION LAB' : preparation === 'space' ? 'ORBIT / COMMUNICATIONS CABIN' : flightProgress !== null ? 'EXPEDITION / IN TRANSIT' : 'OUTPOST ARES / SURFACE VIEW' }}</span>
           <div class="surface-actions">
             <button
-              v-if="state.phase === 'running'"
               type="button"
-              class="deck-toggle-btn"
-              :aria-label="deckVisible ? 'Hide Command Deck' : 'Show Command Deck'"
+              class="deck-toggle-btn info-btn"
+              :aria-label="deckVisible ? 'Hide Mission Deck' : 'Show Mission Deck / Info'"
+              :title="deckVisible ? 'Hide Mission Deck (Press C)' : 'Show Mission Deck (Press C)'"
               @click="deckVisible = !deckVisible"
             >
-              {{ deckVisible ? '◨ Hide Deck' : '📋 Command Deck' }}
+              {{ deckVisible ? '✕ Close Deck' : 'ℹ Mission Info' }}
             </button>
             <span>SECTOR 01</span>
           </div>
@@ -558,7 +558,16 @@ onBeforeUnmount(() => {
         >
           <div class="command-heading">
             <span>YOUR NEXT MOVE</span>
-            <span>{{ state.phase === 'ready' ? 'BRIEFING' : state.phase === 'running' ? 'DECISION DESK' : 'MISSION DESK' }}</span>
+            <div class="heading-controls">
+              <span>{{ state.phase === 'ready' ? 'BRIEFING' : state.phase === 'running' ? 'DECISION DESK' : 'MISSION DESK' }}</span>
+              <button
+                type="button"
+                class="deck-close-corner-btn"
+                title="Hide window (Press C or click to close)"
+                aria-label="Close window"
+                @click="deckVisible = false"
+              >✕</button>
+            </div>
           </div>
           <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
             {{ state.upcomingHazardNotice }}
@@ -602,8 +611,12 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
 .surface-header, .surface-footer, .command-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; color: #a6bbc2; font-size: 9px; font-weight: 650; letter-spacing: .1em; }
 .surface-header { border-bottom: 1px solid #34434a; color: #e2e6d9; z-index: 4; }
 .surface-actions { display: flex; align-items: center; gap: 8px; }
-.deck-toggle-btn { font-size: 10px; font-weight: 700; padding: 4px 10px; background: #1c303c; border: 1px solid #4a6677; border-radius: 6px; color: #d0e4ee; cursor: pointer; }
-.deck-toggle-btn:hover { background: #284455; color: #ffffff; }
+.deck-toggle-btn { font-size: 10px; font-weight: 700; padding: 4px 10px; background: #1c303c; border: 1px solid #4a6677; border-radius: 6px; color: #d0e4ee; cursor: pointer; transition: all 0.2s ease; }
+.deck-toggle-btn:hover { background: #284455; color: #ffffff; border-color: #61b3dc; }
+.deck-toggle-btn.info-btn { display: inline-flex; align-items: center; gap: 4px; }
+.heading-controls { display: flex; align-items: center; gap: 8px; }
+.deck-close-corner-btn { background: none; border: none; color: #8fa6b2; font-size: 13px; font-weight: bold; cursor: pointer; padding: 2px 6px; border-radius: 4px; line-height: 1; }
+.deck-close-corner-btn:hover { color: #ffffff; background: rgba(255, 255, 255, 0.12); }
 .surface-footer { border-top: 1px solid #34434a; font-size: 8px; z-index: 4; }
 .live-dot { display: inline-block; width: 5px; height: 5px; margin-right: 7px; border-radius: 50%; background: #9ac5b5; box-shadow: 0 0 0 3px #9ac5b514; }
 .viewport { position: relative; flex: 1; min-height: 380px; overflow: hidden; background: #765040; }
