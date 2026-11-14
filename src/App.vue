@@ -48,6 +48,7 @@ const activityProgress = ref(0);
 const activityFeedback = ref('');
 const habitatAccess=ref(freshHabitatAccess());
 const nearSuitRack=ref(false);
+const nearMachine=ref(false);
 const airlockOccupied=ref(false);
 const airlockNotice=ref('');
 function equipSuit(){if(state.value.phase!=='running'||activeActivity.value)return;habitatAccess.value=changeSuit(habitatAccess.value,physics?.getPlayerPose()??{x:1.5,y:.8,z:9});}
@@ -736,6 +737,7 @@ onMounted(async () => {
       checkStationProximity(pose);
       pose = physics!.getPlayerPose();
       const usable=state.value.phase==='running'&&!activeActivity.value&&!preparation.value&&flightProgress.value===null?usableMachines(pose,interior.value):[];
+      nearMachine.value=usable.length>0;
       world!.setInteractables?.(usable);world!.setPrompt?.(usable[0]?'E · '+usable[0].label:'');
       world!.setPlayerPose(pose);
       world!.setState(state.value);
@@ -859,7 +861,7 @@ onBeforeUnmount(() => {
           <button @click="startMissionAfterGuide">Explore</button>
           <details><summary aria-label="Show movement help">?</summary><p>WASD · move<br>Drag · look<br>E · use<br>P · pause</p></details>
         </div>
-        <DoorPanel v-if="!activeActivity && !nearSuitRack && !airlockOccupied && arrivalComplete && state.phase === 'running' && !preparation && flightProgress === null"
+        <DoorPanel v-if="!activeActivity && !nearMachine && !nearSuitRack && !airlockOccupied && arrivalComplete && state.phase === 'running' && !preparation && flightProgress === null"
           :station="interior ?? nearby" :inside="!!interior" :open="!!doorsOpen[interior ?? nearby ?? 'habitat']"
           :ready="doorReady" :paused="false" @toggle="toggleDoor" @enter="enterModule()" @exit="leaveModule" @travel="travelToDoor" />
         <section v-if="arrivalComplete && state.phase==='running' && !activeActivity && (nearSuitRack || airlockOccupied)" class="airlock-panel" aria-label="Habitat airlock">

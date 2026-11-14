@@ -681,7 +681,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         return {
           station,
           x: Math.max(67, Math.min(width - 67, (projected.x + 1) * width / 2)),
-          y: Math.max(96, Math.min(height - 58, (1 - projected.y) * height / 2)),
+          y: Math.max(112, Math.min(height - 170, (1 - projected.y) * height / 2)),
         };
       });
       // At map edges a wider camera can cluster labels. Use a readable legend row.
@@ -690,7 +690,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       if (compact && cameraMode === 'overview') frameOutpost(camera, width / height, playerPose, { top: 106 / height, bottom: 48 / height });
       labels.forEach(({ station, x, y }, index) => {
         station.label.style.left = `${compact ? (index + .5) * width / 3 : x}px`;
-        station.label.style.top = `${compact ? 96 : y}px`;
+        station.label.style.top = `${compact ? 112 : y}px`;
       });
       playerMarker.hidden = cameraMode === 'follow' || Math.hypot(playerPose.x, playerPose.z) < 12;
       if (!playerMarker.hidden) {

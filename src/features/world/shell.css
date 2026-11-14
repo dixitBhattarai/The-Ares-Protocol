@@ -49,3 +49,5 @@ button:focus-visible,summary:focus-visible{outline:3px solid #ffe0a0;outline-off
 @media(max-height:480px){.in-viewport-deck{max-height:calc(100dvh - 28px);top:50%}.world-panel :deep(.ares-world__camera-controls),.world-panel :deep(.door-panel),.airlock-panel,.arrival-guide{bottom:92px}.airlock-panel{padding:6px}.airlock-panel p{font-size:11px;margin:4px 0}.environment-label{top:18px}}
 .console-open .world-panel :deep(canvas){pointer-events:none}
 .world-panel :deep(.further-science){font-size:12px;line-height:1.6}.world-panel :deep(.further-science a){color:#9bded2}
+/* Context prompts have priority over map labels and door shortcuts. */
+.world-panel :deep(.viewport:has(.job-feedback,.hazard-strip) .ares-world__label){visibility:hidden}
