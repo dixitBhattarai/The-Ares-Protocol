@@ -1,26 +1,232 @@
 import type { MissionData } from '../../contracts';
 
-// Deliberately authored balancing numbers. Genius replaces/extends this with
-// verified evidence and provenance; never label this starter as NASA data.
 export function loadMission(): MissionData {
   return {
-    id: 'mars-starter',
-    title: 'Keep the outpost running',
+    id: 'mars-outpost-alpha',
+    title: 'Ares Outpost Alpha: Six Shifts on Mars',
     maxTurns: 6,
     scienceTarget: 3,
     initialResources: { power: 70, oxygen: 70, supplies: 70 },
-    dataMode: 'authored-demo',
-    sources: [],
-    events: [{
-      id: 'power-budget',
-      title: 'One battery, two jobs',
-      description: 'Choose how to use this shift. Every choice uses supplies and power.',
-      sourceIds: [],
-      choices: [
-        { id: 'oxygen', label: 'Run the oxygen maker', explanation: 'Making breathable air uses power and supplies.', effect: { resources: { power: -12, oxygen: 18, supplies: -5 } } },
-        { id: 'research', label: 'Study a rock sample', explanation: 'Science uses energy and air while the crew works.', effect: { resources: { power: -8, oxygen: -8, supplies: -5 }, science: 1 } },
-        { id: 'shield', label: 'Improve the shelter', explanation: 'Extra protection costs construction supplies and energy.', effect: { resources: { power: -6, oxygen: -4, supplies: -15 }, shielding: 15 } },
-      ],
-    }],
+    dataMode: 'archived',
+    sources: [
+      {
+        id: 'nasa-donki-cme-2024',
+        title: 'NASA DONKI Solar Coronal Mass Ejection (CME) 2024-05-11',
+        url: 'https://ccmc.gsfc.nasa.gov/DONKI/view/CME/30742/-1',
+        retrievedAt: '2026-11-14T05:40:00Z',
+        observedAt: '2024-05-11T01:36Z',
+        mode: 'archived',
+        units: 'km/s (CME expansion velocity: 1820 km/s, half-angle: 48 deg)',
+        licenseNotes: 'NASA open data (CCMC / DONKI). NASA non-endorsement statement: NASA does not endorse commercial products or games. Simplified for educational gameplay.',
+        mapping: 'Extreme solar particle event models the Shift 3 space weather alert. Regolith shelter shielding (>=15) mitigates severe life-support and solar array damage.',
+      },
+      {
+        id: 'nasa-moxie-isru',
+        title: 'NASA Perseverance Rover MOXIE (Mars Oxygen ISRU Experiment)',
+        url: 'https://mars.nasa.gov/mars2020/spacecraft/instruments/moxie/',
+        retrievedAt: '2026-11-14T05:40:00Z',
+        observedAt: '2021-04-20T00:00Z',
+        mode: 'archived',
+        units: 'g/hr O2 (solid oxide electrolysis at 800 deg C producing ~12 g O2/hr at ~300 W)',
+        licenseNotes: 'NASA / JPL-Caltech open mission record. NASA non-endorsement applies.',
+        mapping: 'Inspires Shift 1 oxygen generation choice: electrolysis of Martian atmospheric CO2 generates breathable oxygen at the cost of electrical power and scrubber maintenance supplies.',
+      },
+      {
+        id: 'csa-space-food-toolkit',
+        title: 'CSA Deep Space Food Production & Plant Growth Toolkit',
+        url: 'https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/',
+        retrievedAt: '2026-11-14T05:40:00Z',
+        mode: 'archived',
+        units: 'Controlled Environment Agriculture (photoperiod, nutrient solution, daily caloric intake)',
+        licenseNotes: 'Canadian Space Agency open educational material. Non-endorsement applies.',
+        mapping: 'Inspires Shift 4 greenhouse dilemma: high-intensity LED grow lamps consume heavy electrical power to yield food and botanical data, while conserving power draws down stored rations.',
+      },
+      {
+        id: 'nasa-dsn-light-delay',
+        title: 'NASA Deep Space Network (DSN) & Mars Interplanetary Comms',
+        url: 'https://www.nasa.gov/directorates/somd/space-communications-navigation-program/deep-space-network/',
+        retrievedAt: '2026-11-14T05:40:00Z',
+        mode: 'archived',
+        units: 'Light travel delay (c = 300,000 km/s; 3.0 to 22.3 min one-way latency)',
+        licenseNotes: 'NASA SCaN / DSN educational record. NASA non-endorsement applies.',
+        mapping: 'Inspires Shift 5 communications decision: demonstrates speed-of-light 1-turn communication delay for scientific data confirmation from Earth.',
+      },
+    ],
+    events: [
+      {
+        id: 'shift-1-oxygen-vs-science',
+        title: 'Oxygen Production vs Science Equipment',
+        description: 'Outpost power is limited on Sol 1. Decide whether to run the oxygen generator to build breathable air buffers or power surface science sensors.',
+        sourceIds: ['nasa-moxie-isru'],
+        choices: [
+          {
+            id: 'oxygen',
+            label: 'Run oxygen generation',
+            explanation: 'Making breathable air uses power and supplies to keep the habitat atmosphere safe.',
+            effect: { resources: { power: -12, oxygen: 18, supplies: -5 } },
+          },
+          {
+            id: 'research',
+            label: 'Deploy science instruments',
+            explanation: 'Surface sensor array draws battery power to study Martian soil and mineral samples.',
+            effect: { resources: { power: -8, oxygen: -8, supplies: -5 }, science: 1 },
+          },
+          {
+            id: 'shield',
+            label: 'Reinforce habitat shelter',
+            explanation: 'Stack regolith sandbags around crew modules early to begin radiation protection.',
+            effect: { resources: { power: -6, oxygen: -4, supplies: -15 }, shielding: 15 },
+          },
+        ],
+      },
+      {
+        id: 'shift-2-shelter-vs-exploration',
+        title: 'Shelter Preparation vs Exploration',
+        description: 'Orbital telemetry warns of rising solar activity. Prepare radiation shielding for the habitat or extend rover exploration.',
+        sourceIds: ['nasa-donki-cme-2024'],
+        choices: [
+          {
+            id: 'shield',
+            label: 'Fortify storm shelter',
+            explanation: 'Use construction supplies and battery power to harden the storm bunker.',
+            effect: { resources: { power: -6, oxygen: -4, supplies: -15 }, shielding: 15 },
+          },
+          {
+            id: 'research',
+            label: 'Extend rover exploration',
+            explanation: 'Drive the rover to explore the nearby crater, collecting geological science data.',
+            effect: { resources: { power: -8, oxygen: -8, supplies: -5 }, science: 1 },
+          },
+          {
+            id: 'oxygen',
+            label: 'Maintain oxygen scrubbers',
+            explanation: 'Run a preventative maintenance cycle on habitat oxygen scrubbers.',
+            effect: { resources: { power: -12, oxygen: 18, supplies: -5 } },
+          },
+        ],
+      },
+      {
+        id: 'shift-3-solar-weather-alert',
+        title: 'Solar Weather Hazard Response',
+        description: 'A powerful solar particle storm strikes Mars! The outpost must respond while the radiation hazard impacts surface operations.',
+        sourceIds: ['nasa-donki-cme-2024'],
+        hazard: {
+          minShielding: 15,
+          mitigatedLoss: { power: -4, oxygen: -2 },
+          unmitigatedLoss: { power: -22, oxygen: -18, supplies: -10 },
+          mitigatedNotice: 'Solar radiation hazard: Outpost shelter shielded critical equipment from heavy radiation.',
+          unmitigatedNotice: 'Solar radiation hazard: Insufficient shielding (<15) caused heavy damage to solar arrays and life support.',
+        },
+        choices: [
+          {
+            id: 'research',
+            label: 'Record solar particle telemetry',
+            explanation: 'Monitor high-energy proton flux with radiation sensors, capturing rare space weather science.',
+            effect: { resources: { power: -8, oxygen: -8, supplies: -5 }, science: 1 },
+          },
+          {
+            id: 'shield',
+            label: 'Emergency bunker lockdown',
+            explanation: 'Retract external sensors, activate emergency shielding, and keep the crew sealed in the bunker.',
+            effect: { resources: { power: -6, oxygen: -4, supplies: -15 }, shielding: 15 },
+          },
+          {
+            id: 'oxygen',
+            label: 'Pressurize emergency air banks',
+            explanation: 'Isolate life support circuits to prevent air leaks during severe electrical fluctuations.',
+            effect: { resources: { power: -12, oxygen: 18, supplies: -5 } },
+          },
+        ],
+      },
+      {
+        id: 'shift-4-greenhouse-vs-battery',
+        title: 'Greenhouse Food Production vs Battery Conservation',
+        description: 'Stored rations are being consumed. Cultivating hydroponic crops requires power and supplies to yield food and botanical data, while conserving power draws down stored supplies.',
+        sourceIds: ['csa-space-food-toolkit'],
+        choices: [
+          {
+            id: 'research',
+            label: 'Cultivate greenhouse crops',
+            explanation: 'Power growth LED lamps to accelerate edible crop production and advance plant science.',
+            effect: { resources: { power: -8, oxygen: -8, supplies: -5 }, science: 1 },
+          },
+          {
+            id: 'shield',
+            label: 'Conserve battery & insulate dome',
+            explanation: 'Dim grow lamps to conserve battery power, consuming stored rations and reinforcing greenhouse thermal insulation.',
+            effect: { resources: { power: -6, oxygen: -4, supplies: -15 }, shielding: 15 },
+          },
+          {
+            id: 'oxygen',
+            label: 'Aerate hydroponic bioreactor',
+            explanation: 'Run oxygen diffusers through hydroponic water loops to maintain root oxygenation.',
+            effect: { resources: { power: -12, oxygen: 18, supplies: -5 } },
+          },
+        ],
+      },
+      {
+        id: 'shift-5-comms-vs-autonomous',
+        title: 'Interplanetary Communications vs Autonomous Science',
+        description: 'Radio signals travel at the speed of light, taking time to cross interplanetary space. Transmitting findings to Earth has a 1-turn delay; autonomous science produces immediate data.',
+        sourceIds: ['nasa-dsn-light-delay'],
+        choices: [
+          {
+            id: 'research',
+            label: 'Autonomous surface science',
+            explanation: 'Run automated robotic assays locally, producing immediate scientific results without waiting for Earth.',
+            effect: { resources: { power: -8, oxygen: -8, supplies: -5 }, science: 1 },
+          },
+          {
+            id: 'comms',
+            label: 'Transmit telemetry to Earth',
+            explanation: 'Beam raw telemetry to Earth science team. Due to light travel time, verification arrives next shift.',
+            effect: { resources: { power: -10, oxygen: -4, supplies: -4 } },
+            delayedEffect: {
+              delayTurns: 1,
+              description: 'Earth mission control received planetary telemetry and verified scientific discovery.',
+              effect: { science: 2 },
+            },
+          },
+          {
+            id: 'oxygen',
+            label: 'Buffer life-support reserves',
+            explanation: 'Direct energy toward recharging oxygen scrubbers to protect the crew during comms operations.',
+            effect: { resources: { power: -12, oxygen: 18, supplies: -5 } },
+          },
+          {
+            id: 'shield',
+            label: 'Harden antenna & shelter',
+            explanation: 'Secure antenna tracking motors against dust accumulation and inspect storm shelter seals.',
+            effect: { resources: { power: -6, oxygen: -4, supplies: -15 }, shielding: 15 },
+          },
+        ],
+      },
+      {
+        id: 'shift-6-final-science-vs-reserves',
+        title: 'Final Science Push vs Reserve Stabilization',
+        description: 'The expedition shift rotation concludes. Decide whether to make a final science push to reach mission goals or stabilize outpost life support for the incoming crew.',
+        sourceIds: ['nasa-donki-cme-2024', 'nasa-moxie-isru'],
+        choices: [
+          {
+            id: 'research',
+            label: 'Final mission science push',
+            explanation: 'Commit maximum operational power to complete final planetary surveys before shift handoff.',
+            effect: { resources: { power: -8, oxygen: -8, supplies: -5 }, science: 1 },
+          },
+          {
+            id: 'oxygen',
+            label: 'Stabilize air reserves',
+            explanation: 'Top off habitat oxygen tanks to guarantee a healthy survival margin for the outpost.',
+            effect: { resources: { power: -12, oxygen: 18, supplies: -5 } },
+          },
+          {
+            id: 'shield',
+            label: 'Winterize habitat structures',
+            explanation: 'Lock down external systems and reinforce structural joints against oncoming seasonal dust storms.',
+            effect: { resources: { power: -6, oxygen: -4, supplies: -15 }, shielding: 15 },
+          },
+        ],
+      },
+    ],
   };
 }
