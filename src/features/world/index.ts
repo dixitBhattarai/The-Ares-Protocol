@@ -710,7 +710,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         }
         if(ids.length && offerId!==taskOfferId) {
           taskToastText.textContent='Find a glowing machine. Press E to work.';
-          taskNoticeRemaining=5;
+          taskNoticeRemaining=0;
         }
         taskOfferId = offerId;
         if (!ids.length) { taskNoticeRemaining = 0; taskToast.hidden = true; }

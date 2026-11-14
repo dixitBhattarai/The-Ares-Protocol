@@ -80,7 +80,7 @@ export function createInitialState(mission: MissionData): GameState {
     log: [],
     history: [],
     pendingDelayedEffects: [],
-    upcomingHazardNotice: mission.gameplayMode === 'station-tasks' ? taskHazardNotice(0) : getUpcomingHazardNotice(mission, 0),
+    upcomingHazardNotice: mission.gameplayMode === 'station-tasks' ? taskHazardNotice(0,mission.hazardSeed) : getUpcomingHazardNotice(mission, 0),
   };
 }
 

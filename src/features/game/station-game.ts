@@ -17,9 +17,18 @@ const HAZARDS: readonly {title:string;station?:StationId;loss:Partial<Resources>
   {title:'Crop stress',station:'greenhouse',loss:{supplies:-14},advice:'Care for the greenhouse'},
 ];
 
-export function taskHazardNotice(elapsed:number):string {
-  const index=Math.floor(elapsed/30),hazard=HAZARDS[index%HAZARDS.length];
-  return `${hazard.title} in ${Math.max(1,Math.ceil((index+1)*30-elapsed))}s. ${hazard.advice} to prevent damage. Game forecast, not live space weather.`;
+/** Independent seeded draws: quiet windows are intentional; no mandatory event cycle. */
+export function scheduledHazard(slot:number,seed=1,session=0):{at:number;index:number}|undefined {
+  let value=(seed ^ Math.imul(slot+1,0x9e3779b9) ^ Math.imul(session+1,0x85ebca6b))>>>0;
+  const draw=()=>{value=(Math.imul(value,1664525)+1013904223)>>>0;return value/4294967296;};
+  if(draw()<.45)return undefined;
+  return {at:slot*45+18+Math.floor(draw()*27),index:Math.floor(draw()*HAZARDS.length)};
+}
+export function taskHazardNotice(elapsed:number,seed=1,session=0):string|undefined {
+  const event=scheduledHazard(Math.floor(elapsed/45),seed,session);
+  if(!event||event.at<=elapsed||event.at-elapsed>8)return undefined;
+  const hazard=HAZARDS[event.index];
+  return `${hazard.title} · ${Math.ceil(event.at-elapsed)}s · ${hazard.advice}`;
 }
 
 export function taskCompletionId(state:Readonly<GameState>,taskId:string):string {
@@ -85,12 +94,13 @@ export function reduceStationGame(state:Readonly<GameState>,action:GameAction,mi
     resources=apply(resources,{power:-4,oxygen:-4,supplies:-3});
     notes.push('Outpost systems used 4 power, 4 air and 3 supplies during the last 20 active seconds.');
   }
-  if(Math.floor(elapsed/30)>Math.floor(run.elapsed/30)){
-    const hazard=HAZARDS[(Math.floor(elapsed/30)-1)%HAZARDS.length];
+  const event=scheduledHazard(Math.floor(elapsed/45),mission.hazardSeed??1,run.session);
+  if(event && run.elapsed<event.at && elapsed>=event.at){
+    const hazard=HAZARDS[event.index];
     const protectedNow=hazard.station?(run.protections[hazard.station]??-1)>=elapsed:state.shielding>=15;
     if(!protectedNow)resources=apply(resources,hazard.loss);
-    notice=protectedNow?`${hazard.title} prevented by your maintenance. No hazard damage.`:`${hazard.title} hit: ${Object.entries(hazard.loss).map(([key,value])=>`${key} ${value}`).join(', ')}. ${hazard.advice} before the next warning ends.`;
+    notice=protectedNow?`${hazard.title} prevented · maintenance protected you.`:`${hazard.title} hit · ${Object.entries(hazard.loss).map(([key,value])=>`${key} ${value}`).join(' · ')}`;
     notes.push(notice);
   }
-  return finish({...state,resources,taskRun:{...run,elapsed},lastHazardNotice:notice,upcomingHazardNotice:taskHazardNotice(elapsed),log:[...state.log,...notes]},mission);
+  return finish({...state,resources,taskRun:{...run,elapsed},lastHazardNotice:notice,upcomingHazardNotice:taskHazardNotice(elapsed,mission.hazardSeed??1,run.session),log:[...state.log,...notes]},mission);
 }

@@ -23,7 +23,7 @@ import { createMusic } from './features/world/music';
 import { createSpacecraftSim, type SpacecraftSim } from './features/physics/spacecraft';
 import { advanceFlightControls, flightCommandForControl, FLIGHT_CONTROL_STEPS, type FlightControlKey } from './features/game/spaceflight';
 
-const mission:MissionData = {...loadMission(),gameplayMode:'station-tasks'};
+const mission:MissionData = {...loadMission(),gameplayMode:'station-tasks',hazardSeed:crypto.getRandomValues(new Uint32Array(1))[0]};
 const state = shallowRef(createInitialState(mission));
 const host = ref<HTMLElement>();
 const commandPanel = ref<HTMLElement>();
@@ -249,6 +249,7 @@ function cancelActivity(cancelSimulation=true) {
   if(cancelSimulation)state.value=reduceGame(state.value,{type:'CANCEL_TASK'},mission);
   if(cancelSimulation)soundFX.playRestart();
   activeActivity.value = null;deckVisible.value=false;
+  if(state.value.phase==='running')physics?.resumeInput?.();
   activityProgress.value = 0;
   world?.setActivityProgress?.(0);
   world?.setObjective?.(null);
@@ -314,7 +315,6 @@ function onLoginStart() {
 
 let lastNearStation: string | null = null;
 let currentSelectedStation: string | null = null;
-let lastTaskNotice = '';
 const availableTaskStations = computed<StationId[]>(() => {
   if (activeActivity.value) return [activeActivity.value.station];
   return [...new Set(STATION_TASKS.map(task=>task.station))];
@@ -339,7 +339,7 @@ function dispatch(action: GameAction) {
     const task=STATION_TASKS.find(task=>task.id===action.taskId)!;
     activeActivity.value={...task,taskId:task.id,completionId:taskCompletionId(state.value,task.id),impact:task.benefit+' · '+task.prevention};
     activityProgress.value=0;activityFeedback.value='Finish the station minigame to earn this reward.';
-    world?.setObjective?.(task.station);deckVisible.value=true;return;
+    world?.setObjective?.(task.station);physics?.pauseInput?.();deckVisible.value=false;return;
   }
   if (action.type === 'RESTART') { missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
   if (action.type === 'PAUSE' && state.value.phase === 'running') music?.setPaused(true);
@@ -372,7 +372,7 @@ function dispatch(action: GameAction) {
   } else if (action.type === 'PAUSE') {
     physics?.pauseInput?.();
   } else if (action.type === 'RESUME') {
-    physics?.resumeInput?.();
+    if(!activeActivity.value)physics?.resumeInput?.();
   }
 }
 
@@ -514,7 +514,7 @@ onMounted(async () => {
     setGravity(preparation.value==='earth'?'earth':preparation.value==='space'?'orbit':'mars');
     world.setConsoleHandler?.(index => {
       if (preparation.value) {const steps=PREPARATION[preparation.value].steps;const progress=preparationProgress.value;operatePreparation(steps[index===progress%3?progress:index]);}
-      else if (activeActivity.value && interior.value === activeActivity.value.station) { deckVisible.value = true; activityFeedback.value = 'Station computer ready. Finish the minigame checks in the command deck.'; }
+
       else if(interior.value) {stationMessage.value='Approach a glowing machine and press E.';}
     });
     if (disposed) {
@@ -563,8 +563,8 @@ onMounted(async () => {
       if (state.value.phase === 'running') {
         const offerId=`${mission.id}:station-work`;
         world!.setAvailableTasks?.(availableTaskStations.value,offerId);
-        if (lastTaskNotice!==offerId && availableTaskStations.value.length) {lastTaskNotice=offerId;soundFX.playDecision();}
-      } else if (state.value.phase !== 'paused') {world!.setAvailableTasks?.([], '');lastTaskNotice='';}
+
+      } else if (state.value.phase !== 'paused') {world!.setAvailableTasks?.([], '');}
       world!.setMotionPaused?.(preparationPaused.value || state.value.phase === 'paused');
       world!.render();
       for(const station of STATIONS)physics!.setDoorOpen?.(station.id,doorsOpen.value[station.id] && (world!.isDoorOpen?.(station.id) ?? true));
@@ -652,7 +652,7 @@ onBeforeUnmount(() => {
           <div class="surface-actions">
             <button
               type="button"
-              class="deck-toggle-btn info-btn"
+              v-if="preparation || flightStage || state.phase !== 'running' || directDecisionMode || graphicsError" class="deck-toggle-btn info-btn"
               :aria-label="deckVisible ? 'Hide Mission Deck' : 'Show Mission Deck / Info'"
               :title="deckVisible ? 'Hide Mission Deck (Press C)' : 'Show Mission Deck (Press C)'"
               @click="deckVisible = !deckVisible"
@@ -669,10 +669,10 @@ onBeforeUnmount(() => {
           :aria-label="flightStage ? 'Rocket ascent, transfer or Mars landing view' : preparation === 'earth' ? 'Interactive Earth launch site' : preparation === 'space' ? 'Orbital cabin view' : 'Interactive 3D Mars Outpost Viewport'"
         />
         <div v-if="state.taskRun && (state.phase==='running'||state.phase==='paused')" class="task-warning">
-          <p>{{ state.upcomingHazardNotice?.split(' Game forecast')[0] }}</p><p v-if="state.lastHazardNotice">{{ state.lastHazardNotice }}</p>
-          <button @click="dispatch({type:state.phase==='paused'?'RESUME':'PAUSE'})">{{ state.phase==='paused'?'Resume mission':'Pause mission' }}</button>
+
+          <button @click="dispatch({type:state.phase==='paused'?'RESUME':'PAUSE'})">{{ state.phase==='paused'?'▶ Resume':'Ⅱ Pause' }}</button>
         </div>
-        <DoorPanel v-if="arrivalComplete && state.phase === 'running' && !preparation && flightProgress === null"
+        <DoorPanel v-if="!activeActivity && arrivalComplete && state.phase === 'running' && !preparation && flightProgress === null"
           :station="interior ?? nearby" :inside="!!interior" :open="!!doorsOpen[interior ?? nearby ?? 'habitat']"
           :ready="doorReady" :paused="false" @toggle="toggleDoor" @enter="enterModule()" @exit="leaveModule" @travel="travelToDoor" />
         <div v-if="flightStage" class="arrival-overlay" role="status">
@@ -697,19 +697,23 @@ onBeforeUnmount(() => {
         <p v-if="gravityLabel && flightProgress === null" class="scene-status" role="status">{{ gravityLabel }}</p>
         <div class="surface-footer"><span>{{ flightStage ? 'COMPRESSED SPACEFLIGHT SEQUENCE' : preparation ? 'EARTH / ORBIT PREPARATION' : 'STYLIZED MARS OUTPOST' }}</span><span>{{ flightStage ? 'W / S THRUST · A / D STEER · SPACE CONFIRM' : 'WASD / ARROWS · SELECT A MODULE' }}</span></div>
 
+        <div v-if="activeActivity" class="work-modal" role="dialog" aria-modal="true" aria-label="Station work" @keydown.esc.stop="cancelActivity()">
+          <ActivityPanel v-if="activeActivity" :station="activeActivity.station" :title="activeActivity.title" :steps="activeActivity.steps" :impact="activeActivity.impact" :progress="activityProgress" :inside="directDecisionMode || !!graphicsError || interior === activeActivity.station" :feedback="activityFeedback" :paused="state.phase === 'paused'" @control="operateControl" @travel="travelToTask" @enter="enterModule()" @exit="leaveModule" @cancel="cancelActivity" @pause="dispatch({ type: state.phase === 'paused' ? 'RESUME' : 'PAUSE' })" />
+        </div>
+
         <!-- Coherent In-Viewport Overlay Host for Shell UI Panels -->
-        <aside
-          v-show="deckVisible"
+        <section
+          v-show="deckVisible && !activeActivity && (!!preparation || !!flightStage || state.phase !== 'running' || directDecisionMode || !!graphicsError)"
           ref="commandPanel"
           class="command-panel in-viewport-deck"
-          aria-label="Mission command panel"
+          role="dialog" aria-label="Mission controls"
           tabindex="0"
           @keydown.stop
           @focusin="physics?.pauseInput?.()"
-          @focusout="(state.phase === 'running' || (preparation && !preparationPaused)) && physics?.resumeInput?.()"
+          @focusout="!activeActivity && (state.phase === 'running' || (preparation && !preparationPaused)) && physics?.resumeInput?.()"
         >
-          <div class="command-heading">
-            <span>YOUR NEXT MOVE</span>
+          <div v-if="!activeActivity" class="command-heading">
+            <span>ARES</span>
             <div class="heading-controls">
               <span>{{ flightStage ? 'FLIGHT DECK' : state.phase === 'ready' ? 'BRIEFING' : state.phase === 'running' ? 'STATION JOBS' : 'MISSION DESK' }}</span>
               <button
@@ -726,7 +730,6 @@ onBeforeUnmount(() => {
           </p>
           <PreparationPanel v-if="preparation" :level="preparation" :outdoors="earthOutside" :progress="preparationProgress" :feedback="preparationFeedback" :near-console="nearConsole" :paused="preparationPaused" @enter-lab="enterEarthLab()" @outside="leaveEarthLab" @control="operatePreparation" @remote="remoteConsole = true; preparationFeedback = 'Remote console enabled.'" @pause="togglePreparationPause" />
           <SpaceflightPanel v-else-if="flightStage" :stage="flightStage" :progress="flightProgress ?? 0" :step="flightControlProgress" :feedback="flightFeedback" :telemetry="flightTelemetry" :paused="preparationPaused" :controls="flightStage === 'landing' ? FLIGHT_CONTROL_STEPS.landing : FLIGHT_CONTROL_STEPS.launch" @control="operateFlightControl" @pause="togglePreparationPause" @continue="finishArrival" />
-          <ActivityPanel v-else-if="activeActivity" :station="activeActivity.station" :title="activeActivity.title" :steps="activeActivity.steps" :impact="activeActivity.impact" :progress="activityProgress" :inside="directDecisionMode || !!graphicsError || interior === activeActivity.station" :feedback="activityFeedback" :paused="state.phase === 'paused'" @control="operateControl" @travel="travelToTask" @enter="enterModule()" @exit="leaveModule" @cancel="cancelActivity" @pause="dispatch({ type: state.phase === 'paused' ? 'RESUME' : 'PAUSE' })" />
           <section v-else-if="state.phase==='running'" class="exploration-info" aria-label="Exploration information">
             <h2>Find a glowing machine</h2><p>Walk inside a station. Press E near a machine or click it to work.</p><p>{{ state.turn }} / {{ mission.maxTurns }} jobs finished. Watch the hazard forecast.</p>
             <div v-if="directDecisionMode || graphicsError" aria-label="Accessible machine focus"><h3>{{ accessibleMachine.label }}</h3><button @click="dispatch({type:'START_TASK',taskId:accessibleMachine.id})">Use focused machine</button><button @click="accessibleMachineIndex++">Focus next machine</button></div>
@@ -738,7 +741,7 @@ onBeforeUnmount(() => {
             @action="dispatch"
           />
           <AssetCredits />
-        </aside>
+        </section>
       </section>
     </div>
   </main>

@@ -7,7 +7,7 @@ const names = { habitat: 'Habitat', solar: 'Solar lab', greenhouse: 'Greenhouse'
 <template>
   <section class="door-panel" aria-label="Building exploration controls">
     <template v-if="station">
-      <strong>{{ names[station] }} · {{ inside ? 'Inside' : 'Entrance' }}</strong>
+      <strong>{{ names[station] }}</strong>
       <p role="status">Door {{ open ? ready ? 'open — walk through!' : 'opening…' : 'closed' }} · E opens / closes</p>
       <div class="actions">
         <button :disabled="paused" @click="$emit('toggle')">{{ open ? 'Close door (E)' : 'Open door (E)' }}</button>
@@ -16,8 +16,8 @@ const names = { habitat: 'Habitat', solar: 'Solar lab', greenhouse: 'Greenhouse'
       </div>
       <p v-if="inside" class="tip">Explore freely. The exit is at the front of the room.</p>
     </template>
-    <template v-else><strong>Explore Ares Outpost</strong><p>Walk to a striped door. No task needed to visit!</p></template>
-    <details v-if="!inside"><summary>Accessible travel to a door</summary><div class="actions"><button v-for="(name, id) in names" :key="id" :disabled="paused" @click="$emit('travel', id)">{{ name }}</button></div></details>
+
+    <details v-if="!inside"><summary>Travel</summary><div class="actions"><button v-for="(name, id) in names" :key="id" :disabled="paused" @click="$emit('travel', id)">{{ name }}</button></div></details>
   </section>
 </template>
 <style scoped>
