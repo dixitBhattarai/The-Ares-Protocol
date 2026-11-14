@@ -7,38 +7,58 @@
 - The original six-shift mission and May 2024 DONKI evidence were merged to `main` as `a8d9a39` (with the game alert wording reconciliation in `500c830`). The merge log records passing typecheck, tests and build.
 - Integrated mission content includes oxygen vs science, shelter vs exploration, a solar-weather hazard with a shielding threshold, greenhouse trade-offs, delayed Earth communications, and a final science vs reserves decision.
 - Rohit's game reducer supports the authored shelter hazard and delayed effects; Saurav's HUD surfaces hazard/delayed feedback; Dixit's UI includes decisions, debrief and a source-attribution drawer. These existing surfaces should consume the current mission fields without a new UI/API change for the bundled CME source.
+- The refreshable DONKI update was merged to `main` in `e4abf24` and recorded in `9386a29`. The feature branch also contains `2907fb1`, which removed the optional launch-failure idea from the notes; no launch-failure mechanic was implemented.
 
-### Current feature-branch update
+### Current snapshot update workflow
 
-- Merged the inspected `origin/main` tip into `feat/genius-missions` as `8d59925`. The incoming commits did not modify missions files; merge conflicts: none.
-- Feature commits on this branch: `4a9315f` (refreshable DONKI snapshot) and `45a8eab` (handoff status).
-- Added `scripts/refresh-donki-snapshot.mjs`: maintainer-run refresh of a date-bounded NASA DONKI CME query; validates the response, preserves raw records and selected observation, and replaces the snapshot only after success. It reads `NASA_API_KEY` or uses `DEMO_KEY`, and does not persist the key.
-- Fetched a local snapshot for 2026-11-07 through 2026-11-14. It selects `2026-11-13T21:24:00-CME-001` (reported analysis speed 474 km/s). The snapshot is bundled for offline gameplay; runtime `loadMission()` remains synchronous and makes no requests.
-- Updated mission sources and Shift 2/3 descriptions to use this observation as context and clarify that the shelter drill and reserve losses are authored, not measured Mars damage or crew dose.
-- Removed the unverified APOD/EONET/NeoWS record from active mission sources. `nasa-apis-extra-raw.json` and `donki-flr-sep-may2024-raw.json` remain unused/unverified. The InSight Sol 675 fixture remains static and is not refreshed by the DONKI script.
-- Added refresh and mission assertions, plus refresh instructions in `data/PROVENANCE.md`.
-- Validation after syncing `origin/main`: all 82 tests passed, typecheck passed, production build passed, and all mission JSON fixtures parsed. Build still reports large-chunk advisories for existing world/physics assets.
-- The source and decision UI already render `MissionData.sources`, each source's mapping/provenance, and the active event description generically. No UI change is needed for this bundled CME snapshot. Verify the resulting source card in the integrated browser flow.
-- The update is not yet merged into `main`; hand it to Himamshu for the normal serial feature-merge queue. Push of `feat/genius-missions` was attempted after fetch and fast-forward verification, but failed because Git could not obtain a password (`fatal: unable to get password from user`). No remote update was made; the commits remain local. The unverified `nasa-apis-extra-raw.json` and `donki-flr-sep-may2024-raw.json` remain untracked and intentionally excluded.
+- The refresh script is [scripts/refresh-donki-snapshot.mjs](./scripts/refresh-donki-snapshot.mjs). It downloads a bounded NASA DONKI CME query, validates it, preserves the raw response and selected observation, and replaces `data/donki-cme-snapshot.json` only after a successful response. It uses `NASA_API_KEY` if set, otherwise `DEMO_KEY`; the key is not stored in the snapshot.
+- To refresh manually, open a terminal at the repository root while online and run:
 
-### Cross-feature request — not implemented
+  ```sh
+  node src/features/missions/scripts/refresh-donki-snapshot.mjs
+  ```
 
-- Request Rohit (game/contracts): add a once-per-expedition, 1% launch safety abort before the mission begins. Keep it non-graphic, end the expedition immediately, and ensure the chance is not rerolled by rendering. Decide whether retry starts a new expedition and rerolls. Suggested child-friendly message: “Launch safety check failed. The expedition was stopped before landing.”
-- After the game outcome/state is agreed, ask Dixit (UI) to present the abort and retry action accessibly. This is not expressible using the current mission events and should not be added as a random mission choice.
+  By default it queries the previous seven UTC days. To choose a date window, run:
+
+  ```sh
+  node src/features/missions/scripts/refresh-donki-snapshot.mjs 2026-11-07 2026-11-14
+  ```
+
+- After refreshing, inspect the snapshot diff and validate before committing:
+
+  ```sh
+  git diff -- src/features/missions/data/donki-cme-snapshot.json
+  npm test
+  npm run typecheck
+  npm run build
+  ```
+
+  If the checks pass, commit only the intended missions paths on `feat/genius-missions`, push that branch, and ask Himamshu to merge it. The deployed static game changes only after that merge and the normal deployment. The game itself never makes NASA requests and keeps using its bundled snapshot offline.
+
+### Which archived data is used in events
+
+- **DONKI CME snapshot (`data/donki-cme-snapshot.json`)**: imported by `index.ts`. Its observation date and estimated CME speed appear in the Shift 2 shelter decision and Shift 3 authored drill; its source is also credited in Shift 6. The CME does not calculate or trigger the hazard or reserve losses. Those remain authored mechanics, not measured Mars damage or crew dose.
+- **InSight weather snapshot (`data/insight-mars-weather-raw.json`)**: imported by `index.ts`. Sol 675 pressure is shown in Shift 1 text; wind and temperature are shown in Shift 6 text. It is a static local snapshot and the DONKI refresh script does not update it.
+- **CSA food and NASA DSN references**: their source records are shown for attribution and inform the Shift 4/5 teaching concepts, but they are not local API snapshots.
+- **Historical May 2024 DONKI raw fixture**: retained for provenance/tests; it is not the active CME snapshot imported by `index.ts`.
+- **Other unverified fixtures**: `nasa-apis-extra-raw.json` and `donki-flr-sep-may2024-raw.json` are not active event inputs or mission sources. Do not treat them as verified evidence until their provenance and raw responses are checked.
+- No extra UI/API work is needed to show the current source fields: the existing source drawer renders mission source metadata and the decision panel renders event descriptions. Verify those in the integrated browser flow after a snapshot refresh.
+
+### Integration checks and handoff
+
+- The refresh merge recorded in `docs/MERGE_LOG.md` passed project tests, typecheck and production build. Later integrated work may add tests, so rerun the current suite after refreshing instead of relying on the historical test count.
+- To hand off a new snapshot update, tell Himamshu the feature branch, commit hash, exact owned paths, validation commands/results, and any remaining caveats. Ask Dixit only for a UI check if the displayed source/wording needs verification; ask Rohit if gameplay rules or contracts must change.
+- Current feature branch is published and integrated; it contains the launch-failure note removal. Unverified extra fixtures remain outside the feature handoff unless validated and deliberately added.
 
 ### Copy-ready team messages
 
-**To Himamshu (merge coordinator):**
+**Template to Himamshu after a future refresh:**
 
-> Missions handoff: `feat/genius-missions`, commits `4a9315f` and `45a8eab`, plus merge of current `origin/main` as `8d59925`. Scope is `src/features/missions/**`. DONKI refresh script and bundled snapshot are tested; the observation is used as context for the authored Shift 2/3 shelter drill, with the Mars-dose distinction stated. After syncing main, all 82 tests, typecheck and production build passed. No missions path conflicts. Please queue this branch for the normal serial merge. Two unverified raw fixtures remain untracked and are not part of the handoff.
-
-**To Rohit (game/contracts):**
-
-> Request for a separately coordinated feature: could we add a 1% once-per-expedition launch safety abort before Shift 1? It should be a non-graphic immediate stop, not a random mission choice, and must not reroll on Vue renders. Please define state/contract behavior and whether Retry counts as a new expedition and rerolls. Suggested copy: “Launch safety check failed. The expedition was stopped before landing.” I have not changed game code or contracts.
+> Missions handoff: `feat/genius-missions`, commit `<hash>`, scope `src/features/missions/**`. Refreshed bundled DONKI snapshot and verified the observation mapping to the authored Shift 2/3 shelter drill; no live game requests. Checks: `<test/typecheck/build results>`. Please queue this branch for the normal serial merge.
 
 **To Dixit (UI):**
 
-> The refreshed DONKI mission source needs no UI code change: `SourceCredits` already renders source title/link/date/units/mapping and `DecisionPanel` renders the event description. Please verify the new CME source card and authored-drill wording during integration. If Rohit implements the launch safety abort, please coordinate its accessible stop/retry presentation with him; no UI change is requested before that behavior is defined.
+> The refreshed DONKI mission source needs no UI code change: `SourceCredits` already renders source title/link/date/units/mapping and `DecisionPanel` renders the event description. Please verify the new CME source card and authored-drill wording during integration.
 
 ## Original Mission Milestone: Integrated
 
