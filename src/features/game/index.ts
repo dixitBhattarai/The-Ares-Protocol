@@ -1,4 +1,6 @@
 import type {
+  Choice,
+  ChoicePresentation,
   DebriefDetails,
   GameAction,
   GameState,
@@ -9,6 +11,42 @@ import type {
   Phase,
   TurnRecord,
 } from '../../contracts';
+
+export function getChoicePresentation(choice: Choice, event?: MissionEvent): ChoicePresentation {
+  if (choice.presentation) return choice.presentation;
+  if (choice.id === 'oxygen') {
+    return {
+      icon: '💨',
+      rarity: 'vital',
+      badge: 'LIFE SUPPORT',
+      summary: event?.id.includes('greenhouse')
+        ? 'Aerate hydroponic bioreactor & nutrient solution'
+        : 'MOXIE solid oxide electrolysis & air recycling',
+    };
+  }
+  if (choice.id === 'shield') {
+    return {
+      icon: '🛡️',
+      rarity: 'hazard-response',
+      badge: 'STORM SHIELD',
+      summary: 'Regolith radiation barrier fortification',
+    };
+  }
+  if (choice.id === 'comms') {
+    return {
+      icon: '📡',
+      rarity: 'experimental',
+      badge: 'DEEP SPACE',
+      summary: 'Interplanetary light-delay science telemetry',
+    };
+  }
+  return {
+    icon: '🔬',
+    rarity: 'standard',
+    badge: 'SURFACE SCIENCE',
+    summary: 'Planetary geology & rover sensor surveys',
+  };
+}
 
 export function getUpcomingHazardNotice(mission: MissionData, turn: number): string | undefined {
   if (!mission.events.length) return undefined;
