@@ -6,9 +6,9 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 
 | Branch | Reported tip | Scope | State |
 | --- | --- | --- | --- |
-| `feat/himamshu-world` | `bd51017` | `src/features/world/**`, `src/App.vue`, `src/contracts/index.ts` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors `8764bfa`; NASA assets, detailed interiors, and playable Earth/orbit preflight `c644a59`; procedural suit rig merged by `2a4f7f7`; checks passed |
+| `feat/himamshu-world` | `20a8f9d` | `src/features/world/**`, `src/App.vue`, `src/contracts/index.ts`, `docs/CONTRACTS.md` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors `8764bfa`; NASA assets, detailed interiors, and playable Earth/orbit preflight `c644a59`; procedural suit rig `2a4f7f7`; Mixamo locomotion clips `0fae932`; openable doors & free building exploration merged by `79ad90d`; checks passed |
 | `feat/rohit-game` | `4d02fd0` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory `72f8f65`; audio synthesis, star badges, keyboard navigation `b7c9c33`; contextual station procedures `44a7120`; full-reserve sound, in-viewport deck overlay, and roguelike choice cards merged by `828493c`; checks passed |
-| `feat/saurav-hud` | `2bdacef` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations `4d07adf`; in-game status polish `86c1beb`; science & shelter readout softening `44ff31e`; expandable science and shelter buttons `f994aa7`; stat icon spin and numerator progress roll `667ae75`; gentle cursor parallax and motion polish merged by `afff7e4`; checks passed |
+| `feat/saurav-hud` | `c5973b1` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations `4d07adf`; in-game status polish `86c1beb`; science & shelter readout softening `44ff31e`; expandable science and shelter buttons `f994aa7`; stat icon spin and numerator progress roll `667ae75`; gentle cursor parallax and motion polish `afff7e4`; viewport event toast details merged by `94ce20e`; checks passed |
 | `feat/anshu-physics` | `4108654` | `src/features/physics/**` | Grounded astronaut controller, reset and pause merged by `dfe1d24`; checks passed |
 | `feat/dixit-ui` | `0637603` | `src/features/ui/**` | Onboarding, decisions, pause, debrief replay & sources merged by `55799b3`; checks passed |
 | `feat/genius-missions` | `66a5322` | `src/features/missions/**` | Six teaching decisions & NASA CME evidence merged by `a8d9a39`; alert wording reconciled by `500c830`; checks passed |
@@ -199,6 +199,28 @@ Himamshu issued a standing mandate authorizing the merge coordinator to automati
    - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
    - Changes: Eased sub-pixel cursor parallax with distinct directions and depths across HUD elements and hazard toast (disabled on reduced-motion); softened low-reserve meter pulse; progress pop positioned beside icon.
    - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (11 test files, 78 tests passed); `npm run build` passed cleanly.
+
+### 14 Nov 2026 — Himamshu (world) and Saurav (HUD) locomotion and event toast integration
+
+1. **`feat/himamshu-world` (tip `21ce887`)**:
+   - Merged as `0fae932`, preserving Himamshu's commit `21ce887`.
+   - Scope: `src/features/world/**` (including `assets/astra.glb`, `manifest.json`, `astronaut.ts`, `expedition.ts`, `index.ts`, `locomotion.ts`, `locomotion.test.ts`, `nasa-assets.ts`, `prepare-mixamo.py`, `AssetCredits.vue`, `CREDITS.md`, `NOTES.md`).
+   - Changes: Integrated Mixamo astronaut idle and walking locomotion blend tree with speed-matched stride, weight transitions, animation mixer lifecycle management, and unit tests in `locomotion.test.ts`. Added Blender Mixamo animation extraction script and updated 3D asset manifest.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (12 test files, 81 tests passed); `npm run build` passed cleanly.
+
+2. **`feat/saurav-hud` (tip `c5973b1`)**:
+   - Merged as `94ce20e`, preserving Saurav's commits `8af0f6f`, `164ff68`, and `c5973b1`.
+   - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
+   - Changes: Surfaced viewport event toast details and contextual telemetry cues, matching the updated command deck aesthetic.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (12 test files, 81 tests passed); `npm run build` passed cleanly.
+
+### 14 Nov 2026 — Himamshu (world) openable doors and free building exploration integration
+
+1. **`feat/himamshu-world` (tip `20a8f9d`)**:
+   - Merged as `79ad90d`, preserving Himamshu's commits `5573049` and `20a8f9d`.
+   - Scope: `docs/CONTRACTS.md`, `src/App.vue`, `src/contracts/index.ts`, `src/features/world/ActivityPanel.vue`, `src/features/world/DoorPanel.vue`, `src/features/world/NOTES.md`, `src/features/world/doors.test.ts`, `src/features/world/doors.ts`, `src/features/world/expedition.ts`, `src/features/world/index.ts`, `src/features/world/interiors.ts`, `src/features/world/models.ts`, plus documentation updates in `AGENTS.md`, `docs/TASKS.md`, `docs/PROMPTS.md`, and all feature `AGENTS.md` files.
+   - Changes: User-approved gameplay direction assigning task-first exploration, randomized job offers, post-task card trade-offs, and cohesive station visuals. Added animated split sliding doors to all three Mars outpost modules (Habitat, Solar Station, Greenhouse) and matching interior front exits. Walk-in and walk-out transitions, E key or visual button open/close controls with door-readiness gating (instant in reduced-motion mode). Bounded interior exploration permitted without gating on active job selection; existing 3-step procedures remain intact. Exploration ribbon controls under viewport with accessible door travel. Additive contracts: `setDoorState`, `isDoorOpen`, and `setMotionPaused` (fixing cosmetic idle during preparation pause). Added unit tests in `doors.test.ts`.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (13 test files, 84 tests passed); `npm run build` passed cleanly in 1.11s with all client assets bundled.
 
 ### Updated open requests
 
