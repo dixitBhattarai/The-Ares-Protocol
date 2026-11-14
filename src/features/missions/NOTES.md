@@ -15,7 +15,7 @@
 - Updated mission sources and Shift 2/3 descriptions to use this observation as context and clarify that the shelter drill and reserve losses are authored, not measured Mars damage or crew dose.
 - Removed the unverified APOD/EONET/NeoWS record from active mission sources. `nasa-apis-extra-raw.json` and `donki-flr-sep-may2024-raw.json` remain unused/unverified. The InSight Sol 675 fixture remains static and is not refreshed by the DONKI script.
 - Added refresh and mission assertions, plus refresh instructions in `data/PROVENANCE.md`.
-- These edits and newly added snapshot/script/data files are currently local and uncommitted. The current feature branch is 16 commits behind `origin/main`; none of these follow-up changes are recorded as integrated in `docs/MERGE_LOG.md`.
+- The refresh follow-up is committed locally and not yet pushed or integrated; the feature branch is 26 commits behind `origin/main`. None of these follow-up changes are recorded as integrated in `docs/MERGE_LOG.md`. The unverified `nasa-apis-extra-raw.json` and `donki-flr-sep-may2024-raw.json` remain untracked and were intentionally excluded from the feature commit.
 - Validation run on these local changes: 12 focused mission/refresh tests passed, all 76 project tests passed, typecheck and production build passed, and all five mission JSON files parsed. Build retains the existing large physics-chunk advisory.
 
 ### Cross-feature request — not implemented
