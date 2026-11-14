@@ -17,12 +17,20 @@ const resourceInfo: Record<ResourceId, { label: string }> = {
 };
 
 type ReserveMotion = { direction: 'up' | 'down' | ''; key: number; fullKey: number; reachedFull: boolean };
+type ProgressStat = 'science' | 'shelter';
+type StatPop = { key: number; from: string; to: string };
 const reserveMotion = ref<Record<ResourceId, ReserveMotion>>({
   power: { direction: '', key: 0, fullKey: 0, reachedFull: false },
   oxygen: { direction: '', key: 0, fullKey: 0, reachedFull: false },
   supplies: { direction: '', key: 0, fullKey: 0, reachedFull: false },
 });
 const reserveTimers: Partial<Record<ResourceId, ReturnType<typeof setTimeout>>> = {};
+const statPops = ref<Record<ProgressStat, StatPop | null>>({ science: null, shelter: null });
+const statPopTimers: Partial<Record<ProgressStat, ReturnType<typeof setTimeout>>> = {};
+const expandedStat = ref<ProgressStat | null>(null);
+const pinnedStat = ref<ProgressStat | null>(null);
+const focusedStat = ref<ProgressStat | null>(null);
+let statPopKey = 0;
 
 const resources = computed(() => (Object.keys(resourceInfo) as ResourceId[]).map(id => {
   const value = Math.max(0, Math.min(100, props.state.resources[id]));
@@ -95,6 +103,21 @@ watch(
     }
     reserveMotion.value = motion;
 
+    const showProgressPop = (id: ProgressStat, before: number, now: number, max: number) => {
+      if (now <= before) return;
+      statPops.value = {
+        ...statPops.value,
+        [id]: { key: ++statPopKey, from: `${before}/${max}`, to: `${now}/${max}` },
+      };
+      if (statPopTimers[id]) clearTimeout(statPopTimers[id]);
+      statPopTimers[id] = setTimeout(() => {
+        statPops.value = { ...statPops.value, [id]: null };
+        delete statPopTimers[id];
+      }, 1450);
+    };
+    showProgressPop('science', previous[6], science, props.mission.scienceTarget);
+    showProgressPop('shelter', previous[5], shielding, 100);
+
     if (phase === 'ready' && turn === 0 && logLength === 0) {
       feedback.value = 'Mission reset. Your reserves are ready for a new plan.';
       feedbackTone.value = '';
@@ -138,11 +161,37 @@ watch(
 onUnmounted(() => {
   if (feedbackTimer) clearTimeout(feedbackTimer);
   for (const timer of Object.values(reserveTimers)) if (timer) clearTimeout(timer);
+  for (const timer of Object.values(statPopTimers)) if (timer) clearTimeout(timer);
   if (hazardTimer) clearTimeout(hazardTimer);
 });
 
 function meterText(value: number, level: string): string {
   return `${value} of 100 simplified game units. ${level} reserve.`;
+}
+
+function openStat(id: ProgressStat): void {
+  expandedStat.value = id;
+}
+
+function closeStat(id: ProgressStat): void {
+  if (focusedStat.value === id) return;
+  expandedStat.value = pinnedStat.value ?? null;
+}
+
+function focusStat(id: ProgressStat): void {
+  focusedStat.value = id;
+  expandedStat.value = id;
+}
+
+function blurStat(id: ProgressStat): void {
+  if (focusedStat.value !== id) return;
+  focusedStat.value = null;
+  if (expandedStat.value === id) expandedStat.value = pinnedStat.value ?? null;
+}
+
+function toggleStat(id: ProgressStat): void {
+  pinnedStat.value = pinnedStat.value === id ? null : id;
+  expandedStat.value = id;
 }
 </script>
 
@@ -208,44 +257,46 @@ function meterText(value: number, level: string): string {
     </div>
 
     <div class="secondary-grid">
-      <div class="secondary-card science-card">
-        <div class="secondary-heading">
-          <span class="secondary-icon science-icon" aria-hidden="true">✦</span>
-          <span class="secondary-copy">
-            <span class="secondary-label">SCIENCE GOAL</span>
-            <strong>{{ state.science }} <span>/ {{ mission.scienceTarget }}</span></strong>
-          </span>
+      <div class="stat-widget science-widget" :class="{ 'is-expanded': expandedStat === 'science' }" @mouseenter="openStat('science')" @mouseleave="closeStat('science')">
+        <span v-if="statPops.science" :key="statPops.science.key" class="progress-pop science-pop" aria-hidden="true"><span>{{ statPops.science.from }}</span><i>→</i><strong>{{ statPops.science.to }}</strong></span>
+        <div class="stat-detail" :aria-hidden="expandedStat !== 'science'">
+          <span class="secondary-label">SCIENCE GOAL</span>
+          <strong class="stat-value">{{ state.science }} <span>/ {{ mission.scienceTarget }}</span></strong>
+          <div
+            id="science-progress-detail"
+            class="science-track"
+            role="progressbar"
+            aria-label="Science goal progress"
+            :aria-valuemin="0"
+            :aria-valuemax="mission.scienceTarget"
+            :aria-valuenow="Math.min(state.science, mission.scienceTarget)"
+            :aria-valuetext="`${state.science} of ${mission.scienceTarget} science points`"
+          ><span :style="{ width: `${sciencePercent}%` }" /></div>
         </div>
-        <div
-          class="science-track"
-          role="progressbar"
-          aria-label="Science goal progress"
-          :aria-valuemin="0"
-          :aria-valuemax="mission.scienceTarget"
-          :aria-valuenow="Math.min(state.science, mission.scienceTarget)"
-          :aria-valuetext="`${state.science} of ${mission.scienceTarget} science points`"
-        >
-          <span :style="{ width: `${sciencePercent}%` }" />
-        </div>
+        <button class="stat-icon-button science-icon" type="button" :aria-label="`Science goal, ${state.science} of ${mission.scienceTarget}`" :aria-expanded="expandedStat === 'science'" aria-controls="science-progress-detail" @click="toggleStat('science')" @focus="focusStat('science')" @blur="blurStat('science')">
+          <span aria-hidden="true">✦</span>
+        </button>
       </div>
-      <div class="secondary-card shelter-card">
-        <div class="secondary-heading">
-          <span class="secondary-icon shelter-icon" aria-hidden="true">⬟</span>
-          <span class="secondary-copy">
-            <span class="secondary-label">SHELTER</span>
-            <strong>{{ state.shielding }}<span> / 100</span></strong>
-          </span>
+      <div class="stat-widget shelter-widget" :class="{ 'is-expanded': expandedStat === 'shelter' }" @mouseenter="openStat('shelter')" @mouseleave="closeStat('shelter')">
+        <span v-if="statPops.shelter" :key="statPops.shelter.key" class="progress-pop shelter-pop" aria-hidden="true"><span>{{ statPops.shelter.from }}</span><i>→</i><strong>{{ statPops.shelter.to }}</strong></span>
+        <div class="stat-detail" :aria-hidden="expandedStat !== 'shelter'">
+          <span class="secondary-label">SHELTER</span>
+          <strong class="stat-value">{{ state.shielding }}<span> / 100</span></strong>
+          <div
+            id="shelter-progress-detail"
+            class="shelter-track"
+            role="meter"
+            aria-label="Shelter protection"
+            :aria-valuemin="0"
+            :aria-valuemax="100"
+            :aria-valuenow="state.shielding"
+            :aria-valuetext="`${state.shielding} of 100 protection. ${state.shielding >= 60 ? 'Ready for a storm' : state.shielding >= 25 ? 'Some protection' : 'Needs protection'}`"
+          ><span :style="{ width: `${state.shielding}%` }" /></div>
+          <span class="shelter-note">{{ state.shielding >= 60 ? 'Storm ready' : state.shielding >= 25 ? 'Some protection' : 'Needs protection' }}</span>
         </div>
-        <div
-          class="shelter-track"
-          role="meter"
-          aria-label="Shelter protection"
-          :aria-valuemin="0"
-          :aria-valuemax="100"
-          :aria-valuenow="state.shielding"
-          :aria-valuetext="`${state.shielding} of 100 protection. ${state.shielding >= 60 ? 'Ready for a storm' : state.shielding >= 25 ? 'Some protection' : 'Needs protection'}`"
-        ><span :style="{ width: `${state.shielding}%` }" /></div>
-        <span class="shelter-note">{{ state.shielding >= 60 ? 'Storm ready' : state.shielding >= 25 ? 'Some protection' : 'Needs protection' }}</span>
+        <button class="stat-icon-button shelter-icon" type="button" :aria-label="`Shelter protection, ${state.shielding} of 100`" :aria-expanded="expandedStat === 'shelter'" aria-controls="shelter-progress-detail" @click="toggleStat('shelter')" @focus="focusStat('shelter')" @blur="blurStat('shelter')">
+          <span aria-hidden="true">⬟</span>
+        </button>
       </div>
     </div>
 
@@ -257,7 +308,7 @@ function meterText(value: number, level: string): string {
       </p>
     </div>
 
-    <p v-if="feedback" class="feedback" :class="feedbackTone" aria-live="polite" aria-atomic="true">
+        <p v-if="feedback" class="feedback" :class="feedbackTone" aria-live="polite" aria-atomic="true">
       <span class="feedback-mark" aria-hidden="true">{{ feedbackTone === 'cost' ? '−' : feedbackTone === 'gain' ? '+' : '↻' }}</span>
       <span><strong>SHIFT UPDATE</strong>{{ feedback }}</span>
     </p>
@@ -335,27 +386,34 @@ function meterText(value: number, level: string): string {
 .low-pulse .reserve-meter { animation: reserve-critical-pulse 1.1s ease-in-out infinite; }
 .level-watch .reserve-fill { background: color-mix(in srgb, #ffe18a, transparent 12%); }
 .level-low .reserve-fill, .level-empty .reserve-fill { background: color-mix(in srgb, #ff9d7e, transparent 12%); }
-.secondary-grid { position: absolute; right: 20px; bottom: 42px; display: grid; gap: .52rem; width: min(190px, calc(100% - 28px)); margin: 0; text-align: right; }
-.secondary-card { min-width: 0; padding: .12rem 0 .2rem; border: 0; border-radius: 0; background: transparent; }
-.secondary-heading { justify-content: flex-end; gap: .38rem; }
-.secondary-icon { display: grid; place-items: center; width: 1.45rem; height: 1.45rem; flex: 0 0 auto; font-size: .9rem; filter: drop-shadow(0 1px 2px rgb(0 0 0 / 55%)); }
-.science-icon { color: #bfd5e8; }
-.shelter-icon { color: #dfcba9; }
-.secondary-copy { display: grid; justify-items: end; gap: .04rem; }
-.secondary-label { color: #e1ddcf; font-size: .52rem; font-weight: 800; letter-spacing: .09em; text-shadow: 0 1px 3px #171317; }
-.secondary-heading strong { color: #f1eee5; font-size: .86rem; line-height: 1.05; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px #171317; }
-.secondary-heading strong span { color: #e4dac9; font-size: .68em; }
-.science-track, .shelter-track { display: block; height: 3px; overflow: hidden; margin: .24rem 0 0 auto; border: 1px solid rgb(255 255 255 / 24%); border-radius: 999px; background: transparent; }
-.science-track { width: 100%; }
-.shelter-track { width: calc(100% - 2.3rem); }
+.secondary-grid { position: absolute; right: 18px; bottom: 42px; display: grid; justify-items: end; gap: .34rem; width: auto; margin: 0; }
+.stat-widget { position: relative; box-sizing: border-box; display: flex; align-items: center; justify-content: flex-end; gap: .28rem; width: 2.4rem; min-height: 2.4rem; overflow: visible; color: #f1eee5; transition: width 420ms cubic-bezier(.2,.85,.25,1); }
+.stat-widget.is-expanded { width: min(190px, calc(100vw - 34px)); }
+.stat-detail { box-sizing: border-box; display: grid; justify-items: end; align-content: center; gap: .12rem; width: 0; overflow: hidden; opacity: 0; text-align: right; transform: translateX(8px); transition: width 380ms cubic-bezier(.2,.85,.25,1), opacity 180ms ease, transform 380ms cubic-bezier(.2,.85,.25,1); pointer-events: none; }
+.stat-widget.is-expanded .stat-detail { width: calc(100% - 2.4rem); overflow: visible; opacity: 1; transform: translateX(0); }
+.secondary-label { color: #e1ddcf; font-size: .5rem; font-weight: 800; letter-spacing: .08em; text-shadow: 0 1px 3px #171317; white-space: nowrap; }
+.stat-value { color: #f1eee5; font-size: .82rem; line-height: 1.05; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px #171317; white-space: nowrap; }
+.stat-value span { color: #d5d0c5; font-size: .72em; }
+.science-track, .shelter-track { display: block; box-sizing: border-box; width: 100%; height: 4px; overflow: hidden; margin: .1rem 0 0 auto; border: 1px solid rgb(255 255 255 / 27%); border-radius: 999px; background: transparent; }
 .science-track > span, .shelter-track > span { display: block; height: 100%; border-radius: inherit; transition: width 360ms cubic-bezier(.2,.8,.2,1); }
 .science-track > span { background: #a8c9e6; }
 .shelter-track > span { background: #d5bd96; }
-.shelter-note { display: block; margin: .16rem 0 0; color: #e2d7c5; font-size: .56rem; font-weight: 650; letter-spacing: .01em; text-shadow: 0 1px 3px #171317; }
-.feedback { position: absolute; top: 88px; left: 14px; display: flex; align-items: flex-start; gap: .48rem; width: min(270px, calc(100% - 28px)); margin: 0; padding: .45rem .6rem; border-left: 2px solid rgb(255 207 145 / 80%); background: linear-gradient(90deg, rgb(12 23 29 / 48%), transparent); color: #fff5e6; font-size: .65rem; line-height: 1.35; text-shadow: 0 1px 4px #171317; animation: feedback-arrive .32s ease-out both; }
-.feedback > span:last-child { display: -webkit-box; overflow: hidden; gap: .1rem; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.feedback strong { color: #ffcf91; font-size: .55rem; letter-spacing: .09em; }
-.feedback-mark { width: 1rem; height: 1rem; display: grid; place-items: center; flex: 0 0 auto; color: #ffd28c; font-size: .95rem; font-weight: 900; }
+.shelter-note { display: block; margin: .04rem 0 0; color: #e2d7c5; font-size: .52rem; font-weight: 650; letter-spacing: .01em; text-shadow: 0 1px 3px #171317; white-space: nowrap; }
+.stat-icon-button { position: relative; z-index: 1; display: grid; place-items: center; flex: 0 0 2.4rem; width: 2.4rem; height: 2.4rem; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #d6d1c6; font: inherit; cursor: pointer; pointer-events: auto; transition: color 180ms ease, transform 240ms cubic-bezier(.2,.85,.25,1); }
+.stat-icon-button > span { display: grid; place-items: center; width: 100%; height: 100%; font-size: 1.08rem; filter: drop-shadow(0 1px 2px rgb(0 0 0 / 55%)); }
+.stat-icon-button:hover, .stat-widget.is-expanded .stat-icon-button { color: #fff3d4; transform: scale(1.08); }
+.stat-icon-button:focus-visible { outline: 2px solid #fff1ba; outline-offset: 2px; }
+.science-icon { color: #bfd5e8; }
+.shelter-icon { color: #dfcba9; }
+.progress-pop { position: absolute; z-index: 3; top: -.86rem; right: .15rem; display: flex; align-items: center; gap: .16rem; padding: .16rem .3rem; border: 1px solid rgb(255 255 255 / 35%); border-radius: 999px; background: rgb(16 24 29 / 82%); color: #e7e4da; box-shadow: 0 3px 9px rgb(0 0 0 / 20%); font-size: .55rem; font-weight: 750; line-height: 1; white-space: nowrap; transform-origin: 85% 100%; animation: progress-pop .34s cubic-bezier(.18,1.4,.42,1) both, progress-pop-away .24s 1.18s ease-in forwards; pointer-events: none; }
+.progress-pop i { color: #d0cbbf; font-size: .5rem; font-style: normal; }
+.progress-pop strong { color: #fff6d8; font-size: .61rem; font-weight: 950; }
+.science-pop { border-color: rgb(168 201 230 / 55%); }
+.shelter-pop { border-color: rgb(213 189 150 / 55%); }
+.feedback { position: absolute; top: 88px; left: 14px; display: flex; align-items: flex-start; gap: .32rem; width: min(240px, calc(100% - 28px)); margin: 0; padding: 0; border: 0; background: transparent; color: #fff0db; font-size: .58rem; line-height: 1.3; text-shadow: 0 1px 4px #171317; }
+.feedback > span:last-child { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.feedback strong { color: #ffcf91; font-size: .49rem; letter-spacing: .06em; }
+.feedback-mark { width: .75rem; height: .75rem; display: grid; place-items: center; flex: 0 0 auto; color: #ffd28c; font-weight: 900; }
 .delayed-effects { position: absolute; top: 132px; left: 14px; width: min(240px, calc(100% - 28px)); margin: 0; color: #fff1cf; text-shadow: 0 1px 4px #171317; }
 .delayed-heading { color: #f4d28f; font-size: .49rem; font-weight: 850; letter-spacing: .08em; }
 .delayed-item { display: grid; grid-template-columns: auto 1fr; gap: .3rem; margin: .12rem 0 0; color: #fff8e9; font-size: .56rem; }
@@ -371,7 +429,8 @@ function meterText(value: number, level: string): string {
 .toast-copy > strong { color: #ffdc96; font-size: .68rem; font-weight: 950; letter-spacing: .1em; text-shadow: 0 1px #50391f; }
 .toast-spark { align-self: start; color: #ffe6a8; font-size: 1rem; text-shadow: 0 0 10px #ffd779; animation: spark-spin 1.6s ease-in-out infinite; }
 @keyframes reserve-hover-bop { 0%, 100% { transform: scale(1) rotate(0); } 35% { transform: scale(1.16) rotate(-7deg); } 70% { transform: scale(1.12) rotate(6deg); } }
-@keyframes feedback-arrive { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes progress-pop { 0% { opacity: 0; transform: translateY(.35rem) scale(.55); } 62% { opacity: 1; transform: translateY(-.08rem) scale(1.12); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes progress-pop-away { to { opacity: 0; transform: translateY(-.55rem) scale(.88); } }
 @keyframes reserve-pop { 0% { transform: scaleY(.8); } 45% { transform: scaleY(1.28); filter: brightness(1.45); } 100% { transform: scaleY(1); } }
 @keyframes reserve-shimmy { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
 @keyframes reserve-shine { 0% { opacity: .9; transform: translateX(-120%); } 100% { opacity: 0; transform: translateX(150%); } }
@@ -384,23 +443,23 @@ function meterText(value: number, level: string): string {
   .hud-header { top: 50px; left: 10px; }
   .shift-track { top: 72px; left: 10px; width: 120px; }
   .reserve-grid { left: 10px; bottom: 38px; width: min(215px, calc(100% - 20px)); }
-  .secondary-grid { top: 32px; right: 10px; bottom: auto; width: min(178px, calc(100% - 20px)); gap: .48rem; }
+  .secondary-grid { top: 32px; right: 10px; bottom: auto; gap: .26rem; }
   .feedback, .delayed-effects { left: 10px; width: min(215px, calc(100% - 20px)); }
   .feedback { top: 90px; }
   .delayed-effects { top: 128px; }
   .reserve-grid { gap: .3rem; }
   .reserve-card { min-height: 20px; padding: 0; }
   .reserve-meter { height: 7px; }
-  .secondary-grid { width: min(168px, calc(100% - 20px)); }
-  .secondary-icon { width: 1.35rem; height: 1.35rem; font-size: .82rem; }
-  .secondary-heading strong { font-size: .82rem; }
+  .stat-widget.is-expanded { width: min(168px, calc(100vw - 20px)); }
+  .stat-icon-button { flex-basis: 2.2rem; width: 2.2rem; height: 2.2rem; }
+  .stat-widget.is-expanded .stat-detail { width: calc(100% - 2.2rem); }
   .achievement-toast { grid-template-columns: 2.5rem minmax(0, 1fr) .7rem; gap: .55rem; min-height: 90px; padding: .68rem .72rem; font-size: .82rem; }
   .toast-medal { width: 2.45rem; height: 2.45rem; }
   .toast-medal span { width: 1.3rem; height: 1.3rem; }
   .toast-copy > strong { font-size: .58rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .shift-track > span, .reserve-fill, .science-track > span, .icon-tooltip { transition: none; }
-  .motion-up, .motion-down, .reserve-icon-wrap:hover, .reserve-icon:focus-visible, .reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap, .feedback, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
+  .shift-track > span, .reserve-fill, .science-track > span, .icon-tooltip, .stat-widget, .stat-detail, .stat-icon-button { transition: none; }
+  .motion-up, .motion-down, .reserve-icon-wrap:hover, .reserve-icon:focus-visible, .reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap, .progress-pop, .progress-pop strong, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
 }
 </style>
