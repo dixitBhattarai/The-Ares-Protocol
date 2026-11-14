@@ -5,7 +5,7 @@ import type { GameState } from '../../contracts';
 import { frameOutpost } from './camera';
 import { createStation } from './models';
 import { createModelKit, WorldResources } from './resources';
-import { applyStationStatus, getStationStatus } from './status';
+import { applyStationStatus, getStationStatus, getWorldEventNotice } from './status';
 import { pickStationAt } from './picking';
 
 function snapshot(power = 70, shielding = 0): GameState {
@@ -99,11 +99,12 @@ describe('world spatial and ownership contracts', () => {
   it('maps only the relevant reserve to each station and never alters the snapshot', () => {
     const state = snapshot(20, 75);
     state.resources.oxygen = 40;
-    state.resources.supplies = 41;
+    state.resources.supplies = 46;
     const before = JSON.stringify(state);
     expect(getStationStatus('solar', state)).toMatchObject({ reserve: 20, level: 'critical' });
     expect(getStationStatus('habitat', state)).toMatchObject({ reserve: 40, level: 'low' });
-    expect(getStationStatus('greenhouse', state)).toMatchObject({ reserve: 41, level: 'normal' });
+    expect(getStationStatus('greenhouse', state)).toMatchObject({ reserve: 46, level: 'normal' });
+    expect(getStationStatus('greenhouse', { ...state, resources: { ...state.resources, supplies: 45 } }).level).toBe('low');
     expect(JSON.stringify(state)).toBe(before);
   });
 
@@ -123,6 +124,31 @@ describe('world spatial and ownership contracts', () => {
       expect(visual.shelterPanels[0].scale.y).toBeGreaterThanOrEqual(.01);
       expect(visual.shelterPanels[0].scale.y).toBeLessThanOrEqual(.58);
     }
+    resources.dispose();
+  });
+
+  it('displays supplied event outcomes without inventing one for a shift or after restart', () => {
+    expect(getWorldEventNotice({ ...snapshot(), turn: 3 })).toBe('');
+    expect(getWorldEventNotice({ ...snapshot(), lastHazardNotice: '  Recorded outcome  ' })).toBe('Recorded outcome');
+    expect(getWorldEventNotice({ ...snapshot(), phase: 'ready', lastHazardNotice: 'Old event' })).toBe('');
+    expect(getWorldEventNotice({ ...snapshot(), lastHazardNotice: '   ' })).toBe('');
+  });
+
+  it('restores alert beacons and bounds their light output without changing game state', () => {
+    const resources = new WorldResources();
+    const visual = createStation('solar', createModelKit(resources), resources);
+    const state = snapshot(45, 15);
+    const before = JSON.stringify(state);
+    const status = getStationStatus('solar', state);
+    applyStationStatus(visual, status, state.resources.power, state.shielding, false);
+    const normal = visual.beacon.color.getHex();
+    applyStationStatus(visual, status, state.resources.power, state.shielding, true);
+    expect(visual.beacon.color.getHex()).not.toBe(normal);
+    expect(visual.beacon.emissiveIntensity).toBeGreaterThanOrEqual(.1);
+    expect(visual.beacon.emissiveIntensity).toBeLessThanOrEqual(.6);
+    applyStationStatus(visual, status, state.resources.power, state.shielding, false);
+    expect(visual.beacon.color.getHex()).toBe(normal);
+    expect(JSON.stringify(state)).toBe(before);
     resources.dispose();
   });
 });

@@ -6,11 +6,12 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 
 | Branch | Reported tip | Scope | State |
 | --- | --- | --- | --- |
-| `feat/himamshu-world` | `95a03b3` | `src/features/world/**` | Integrated locally by `c235948`; verified with game/HUD |
+| `feat/himamshu-world` | `7f156a5` | `src/features/world/**` | Initial `c235948`; continuation merged by `0c4b2cd`; checks passed |
 | `feat/rohit-game` | `2911ae0` | Game reducer/tests/audio/notes, contracts, app shell | First integrated by `c1a6f25`; follow-up by `932f930`; checks passed |
 | `feat/saurav-hud` | `999a70f` | HUD component and notes | Integrated locally by `3f1419b`; checks passed |
+| `feat/genius-missions` | `66a5322` | Mission branch discovered by fetch | Available remotely; not merged or validated in this task |
 
-Verify refs, scope and checks before a merge; this table is not authorization to merge. Anshu, Dixit and Genius have no published handoff recorded at this review.
+Verify refs, scope and checks before a merge; this table is not authorization to merge. Anshu and Dixit have no published branch recorded at this review.
 
 ## Remote review and publication — 14 November 2026
 
@@ -39,6 +40,15 @@ Verify refs, scope and checks before a merge; this table is not authorization to
 - Rohit/Anshu: optional reset/pause hooks are wired but the current physics adapter doesn't implement them. The shell currently says the astronaut reset even when no reset method exists; make that message conditional until the controller handoff lands.
 - Genius/Dixit/Rohit: make the authored Shift 3 hazard visible before the decision, and surface the supplied structured debrief. Current content remains a repeated authored event; do not label its numbers as NASA measurements.
 - Saurav/Rohit: HUD passed browser checks, but desktop HUD is a 760px block above the full-width scene. Coordinate final app layout with the UI owner; no layout file was edited during integration.
+
+### 14 Nov 2026 — world continuation
+
+- Reviewed and merged the previously selected `feat/himamshu-world` at `7f156a5` as `0c4b2cd`, preserving `2d5a661` (pose-driven walking/contact shadows) and `7f156a5` (supplied event feedback). No conflicts. All authored edits are under `src/features/world/**`; shared app, contracts, physics and dependencies are unchanged.
+- Public `createWorld`/adapter API and station collision envelopes remain compatible. Event beacons/report render `lastHazardNotice` already supplied by game; they infer no radiation risk or damage. Reserve warning bands match the existing HUD.
+- Main typecheck and production build passed. Standard `npm test` passed 48 tests including the local worktree copy; the deduplicated main suite passed 24 tests. The existing large Three/Rapier chunk warning remains.
+- Production browser passed three station callbacks, sheltered win, research-only loss, pause/resume, reserve replay, event report display/clearing and 360px report/layout bounds with one canvas and no page exceptions. Feature browser additionally checked real movement/gait, reduced motion, canvas raycasts, keyboard selection, map-edge resize, repeated teardown/remount and initialization-failure cleanup. Screenshots inspected; artifacts stay ignored.
+- Fresh fetch discovered `origin/feat/genius-missions` at `66a5322`. It is queued separately; this entry neither validates nor authorizes its merge. Rohit remains at `2911ae0`; Saurav's branch now also contains the already integrated main baseline. No new Anshu/Dixit branch was observed.
+- Remaining requests are listed above and in world `NOTES.md`, including authored hazard wording for Rohit/Genius. No deploy or branch/worktree deletion was performed. Publication follows these checks; final pushed main hash is reported in the handoff.
 
 For each completed merge, append:
 
