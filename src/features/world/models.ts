@@ -7,7 +7,7 @@ export interface StationVisual {
   windows: THREE.MeshStandardMaterial;
   indicator: THREE.MeshStandardMaterial;
   shelterPanels: THREE.Mesh[];
-  selection: THREE.LineSegments;
+  selection: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>;
 }
 
 export const STATION_NAMES: Record<StationId, string> = {

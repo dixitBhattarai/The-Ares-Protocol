@@ -3,7 +3,8 @@ import { STATIONS } from '../../contracts';
 import type { Vec3 } from '../../contracts';
 
 /** Fit base + astronaut in camera space, rather than cropping on narrow screens. */
-export function frameOutpost(camera: THREE.OrthographicCamera, aspect: number, player: Vec3): void {
+export function frameOutpost(camera: THREE.OrthographicCamera, aspect: number, player: Vec3,
+  insets = { top: 0, bottom: 0 }): void {
   const bounds = new THREE.Box3(new THREE.Vector3(-2, 0, 3), new THREE.Vector3(2, 3.5, 7));
   for (const station of STATIONS) {
     bounds.expandByPoint(new THREE.Vector3(station.position.x - 2.3, 0, station.position.z - 2));
@@ -27,9 +28,13 @@ export function frameOutpost(camera: THREE.OrthographicCamera, aspect: number, p
     }
   }
   const safeAspect = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
-  const halfHeight = Math.max(6, vertical * 1.12, horizontal * 1.12 / safeAspect);
-  camera.top = halfHeight;
-  camera.bottom = -halfHeight;
+  const top = Math.max(0, Math.min(.4, insets.top));
+  const bottom = Math.max(0, Math.min(.25, insets.bottom));
+  const halfHeight = Math.max(6, vertical * 1.12 / (1 - top - bottom), horizontal * 1.12 / safeAspect);
+  // Shift the projection so the scene fits below labels and above the caption.
+  const offset = halfHeight * (top - bottom);
+  camera.top = halfHeight + offset;
+  camera.bottom = -halfHeight + offset;
   camera.left = -halfHeight * safeAspect;
   camera.right = halfHeight * safeAspect;
   camera.updateProjectionMatrix();
