@@ -74,3 +74,14 @@ Original baseline: `710e015`. Continuation baseline: checked main `097f63f`, bro
 - Current cross-owner blocker: Antigravity's merge log records the Genius mission merge stopped by `game.test.ts:78` expecting "imminent" while the mission supplies an active storm notice. Rohit owns that fix. The six-event NASA mission pack is not in this tested baseline; no claim that it has passed integration.
 - Rohit/UI layout request remains: the stacked desktop HUD, scene and decision panels require scrolling between reserves and choices at 1280x960. Consider a shared app grid to keep those visible together. World stays within its host and does not edit shell layout.
 
+## Milestone 7 — scene art direction
+
+- Reworked lighting/exposure and enabled one 1024px directional shadow map. Shadows refresh on pose/gait/state changes instead of recalculating on idle frames; shadow GPU targets are explicitly disposed. No extra animation loop, backend, package or downloaded asset.
+- Added softened module edges, an arched glazed greenhouse with ribs, deep-blue solar cells, circular equipment pads and darker connecting paths. Ground remains a flat box at Y=0; rounded geometry is limited to presentation objects. Existing station envelopes and public adapter are unchanged. Camera fits the base more closely while retaining tested map-edge safety.
+- Full typecheck, 56 tests and production build pass. Browser passed canvas picking for all three modules, keyboard selection, narrow map-edge resize, repeated remount/dispose and injected observer failure. Real walking, neutral/pause/reduced-motion gait and shadow alignment passed; an initial sampling-race failure was corrected in the temporary browser check by waiting for both movement and gait. No production test hook added.
+
+## Temporary shared-layout handoff — authorized by Himamshu, 14 Nov 2026
+
+- Himamshu explicitly approved: "Redesign the full page too; I'll coordinate with Rohit." This transfers the layout work in `src/App.vue` and `src/styles.css` for this milestone only. Rohit retains game/App engineering ownership afterwards. No HUD/UI/physics feature files, contracts, manifests or lockfiles are authored here.
+- The next separate commit contains the shared dashboard layout. Antigravity remains merge coordinator; no main checkout edits or pushes are performed by this task. Review both world and layout commits together before integration.
+

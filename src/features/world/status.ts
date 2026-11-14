@@ -35,7 +35,11 @@ export function applyStationStatus(visual: StationVisual, status: StationStatus,
   visual.indicator.emissive.set(light);
   visual.indicator.emissiveIntensity = .15 + displayReserve(power) / 100 * .4;
   visual.windows.emissiveIntensity = displayReserve(power) / 100 * .4;
-  visual.windows.color.set(displayReserve(power) <= 20 ? '#516576' : '#93d8db');
+  const solar = visual.group.name === 'solar';
+  visual.windows.color.set(solar
+    ? displayReserve(power) <= 20 ? '#19354b' : '#28587b'
+    : displayReserve(power) <= 20 ? '#516576' : '#93d8db');
+  if (solar) visual.windows.emissiveIntensity *= .15;
   const beaconColor = hasEvent ? '#ffd087' : light;
   visual.beacon.color.set(beaconColor);
   visual.beacon.emissive.set(beaconColor);

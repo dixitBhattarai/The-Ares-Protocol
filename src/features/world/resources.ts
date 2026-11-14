@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 /** Tracks ownership at creation time, including assets not yet attached to a scene. */
 export class WorldResources {
@@ -35,12 +36,13 @@ export class WorldResources {
 }
 
 export function createModelKit(resources: WorldResources) {
-  const box = resources.geometry(new THREE.BoxGeometry(1, 1, 1));
+  const box = resources.geometry(new RoundedBoxGeometry(1, 1, 1, 2, .045));
+  const flatBox = resources.geometry(new THREE.BoxGeometry(1, 1, 1));
   const sphere = resources.geometry(new THREE.SphereGeometry(1, 12, 8));
   const cylinder = resources.geometry(new THREE.CylinderGeometry(1, 1, 1, 12));
   const palette = {
-    ivory: '#e7e3cf', trim: '#384958', dark: '#162a37', orange: '#f3a64b',
-    blue: '#355e88', glass: '#9de8d4', green: '#82bc76', soil: '#573b37',
+    ivory: '#e3e4dd', trim: '#263d48', dark: '#10252e', orange: '#ff9851',
+    blue: '#17465f', glass: '#9de8d4', green: '#75b784', soil: '#3c3231',
   };
   const materials = Object.fromEntries(Object.entries(palette).map(([key, color]) => [
     key, resources.material(new THREE.MeshStandardMaterial({ color, roughness: .8 })),
@@ -57,6 +59,7 @@ export function createModelKit(resources: WorldResources) {
   return {
     materials,
     box: (parent: THREE.Object3D, material: THREE.Material, size: readonly number[], position: readonly number[]) => mesh(parent, box, material, size, position),
+    flatBox: (parent: THREE.Object3D, material: THREE.Material, size: readonly number[], position: readonly number[]) => mesh(parent, flatBox, material, size, position),
     sphere: (parent: THREE.Object3D, material: THREE.Material, size: readonly number[], position: readonly number[]) => mesh(parent, sphere, material, size, position),
     cylinder: (parent: THREE.Object3D, material: THREE.Material, size: readonly number[], position: readonly number[]) => mesh(parent, cylinder, material, size, position),
   };
