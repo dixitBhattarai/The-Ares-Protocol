@@ -59,6 +59,7 @@ export function furnishRoom(equipment: THREE.Group, id: string, kit: ModelKit, s
     for (const z of [-.5,1.7]) kit.cylinder(equipment, steel, [.025,1.5,.025], [x,1,z]);
   }
   if (id === 'solar' || id === 'space') for (const x of [-2, 2]) {
+    if(id==='solar'&&x===2){kit.box(equipment,steel,[.8,.12,1.1],[x,.06,.2]);continue;}
     kit.box(equipment, steel, [.8, 1.6, 1.1], [x,.8,.2]);
     for (let y = .3; y < 1.5; y += .3) kit.box(equipment, kit.materials.dark, [.65,.2,.04], [x,y,.78]);
     kit.box(equipment, screens[0], [.12,.08,.045], [x + .2,1.5,.8]);

@@ -50,3 +50,23 @@
   .ares-world__phase, .ares-world__event summary { font-size: 8px; }
   .ares-world__hint { left: 10px; font-size: 11px; }
 }
+
+/* Glass instruments remain children of .ares-world, above the renderer only. */
+.ares-world__heading{top:16px;left:18px;font-size:13px;letter-spacing:.12em;color:#fff1d7;padding:10px 13px;border:1px solid #f3d2a44d;border-radius:12px;background:#192c3970;backdrop-filter:blur(10px)}
+.ares-world__heading span{font-size:10px}.ares-world__status{top:16px;right:350px}.ares-world__phase{font-size:10px;border-radius:9px;padding:9px 12px;background:#193441ab}
+.ares-world__label{font-size:13px;min-height:44px;padding:9px 12px;width:150px;border:1px solid #d3f0f080;border-radius:14px;background:linear-gradient(135deg,#21414ed9,#152e3bba);box-shadow:0 8px 30px #0719233d;backdrop-filter:blur(12px)}
+.ares-world__label:hover{background:#2c5964e0}.ares-world__readout{font-size:11px}.ares-world__hint{right:auto;left:18px;bottom:18px;padding:8px 12px;max-width:310px;font-size:11px;border:1px solid #c2e4df50;border-radius:10px;background:#132e3abf}
+.ares-world__task-toast{top:138px;left:18px;max-width:205px;padding:10px 12px;font-size:12px;border-width:1px;background:#1a3d49d9;backdrop-filter:blur(12px)}
+.ares-world__task-toast button{min-width:44px;min-height:44px}.ares-world__work-prompt{position:absolute;left:50%;bottom:32px;transform:translateX(-50%);max-width:calc(100% - 310px);min-height:50px;padding:12px 22px;z-index:9;border:1px solid #ffdfa1ab;border-radius:16px;color:#fff5dc;background:linear-gradient(135deg,#234c58e8,#17313fed);backdrop-filter:blur(14px);box-shadow:0 8px 35px #061d2f66,0 0 20px #a8e1d51f;font:700 15px/1.35 system-ui;cursor:pointer;text-align:center}
+.ares-world__work-prompt[hidden]{display:none}.ares-world__work-prompt:hover{border-color:#fff0bf;background:#356270}.ares-world__work-prompt:active{scale:.97}.ares-world__work-prompt:focus-visible{outline:3px solid #ffe3a6;outline-offset:4px}.ares-world__work-prompt:disabled{opacity:.65}
+.ares-world__camera-controls{left:auto;top:auto;bottom:18px;right:18px;transform:none;width:auto;max-width:240px;z-index:10}
+.ares-world__camera-controls summary{min-height:44px;padding:11px 16px;box-sizing:border-box;border:1px solid #c8e8ef6b;border-radius:12px;color:#ebfaf7;background:#173442d4;backdrop-filter:blur(12px);font:700 12px system-ui;cursor:pointer}
+.ares-world__camera-options{position:absolute;bottom:54px;right:0;width:225px;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;border:1px solid #c8e8ef6b;border-radius:13px;background:#16313ff0;backdrop-filter:blur(12px)}
+.ares-world__camera-controls button{font-size:11px;min-height:44px;padding:8px}.ares-world__camera-controls summary:focus-visible{outline:3px solid #ffe3a6;outline-offset:3px}
+@media(max-width:600px){
+ .ares-world__heading{left:10px;top:10px;font-size:10px;padding:7px 9px;max-width:110px}.ares-world__heading span{display:none}.ares-world__status{right:10px;top:65px}.ares-world__phase{display:none}.ares-world__label{font-size:11px;min-height:44px;width:112px;padding:7px}.ares-world__readout{font-size:10px}
+ .ares-world__work-prompt{bottom:184px;left:10px;right:10px;max-width:none;transform:none;font-size:13px;min-height:50px;padding:10px 15px}.ares-world__task-toast{top:166px;left:10px;max-width:155px;font-size:11px}.ares-world__hint{left:10px;bottom:12px;max-width:180px;font-size:9px;padding:6px 8px}.ares-world__camera-controls{bottom:12px;right:10px}
+}
+@media(prefers-reduced-motion:reduce){.ares-world__work-prompt:active{scale:1}}
+.ares-world__heading span{display:none}
+@media(max-width:600px){.ares-world__heading{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
