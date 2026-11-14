@@ -10,7 +10,7 @@ defineEmits<{ control: [value: string]; travel: []; enter: []; exit: []; cancel:
     <h2>{{ title }}</h2>
     <p class="impact">On completion: {{ impact }}</p>
     <template v-if="!inside">
-      <p>Walk to the {{ station }} door. Press E to open it, then walk through or use Enter room. Finish the procedure inside to apply this shift’s choice.</p>
+      <p>Walk to the {{ station }} door. Press E to open it, then walk through or use Enter room. Finish the minigame inside to earn the job reward.</p>
       <button @click="$emit('enter')">Enter nearby module</button>
       <button @click="$emit('travel')">Accessible travel to task door</button>
     </template>
@@ -21,7 +21,7 @@ defineEmits<{ control: [value: string]; travel: []; enter: []; exit: []; cancel:
       <button @click="$emit('exit')">Exit module</button>
     </template>
     <p role="status">{{ feedback }}</p>
-    <p class="note">No shift cost or reward is applied until the procedure is complete. Storm outcomes use authored game rules, not medical predictions.</p>
+    <p class="note">The reward is paid once when all checks are complete. Outpost systems and hazards continue while you work; use Pause for a break. These are authored game rules, not medical predictions.</p>
     <div class="actions"><button @click="$emit('pause')">{{ paused ? 'Resume activity' : 'Pause activity' }}</button><button @click="$emit('cancel')">Cancel task</button></div>
   </section>
 </template>

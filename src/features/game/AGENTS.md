@@ -4,6 +4,11 @@ Read root `AGENTS.md` and all `docs/` coordination files. Own `src/features/game
 
 ## Task
 
+### Latest task/reward/automatic hazard direction — 14 Nov
+
+Supersedes older card requirements below: no three-card decisions or post-task cards in the playable loop. Any station job can be started, minigame completion gives one positive payout, and six completed jobs end the mission. Negatives come from active-time reserve consumption and automatic warned hazards; matching maintenance prevents hazard damage. Read root AGENTS.md and docs/CONTRACTS.md for the implemented optional station-tasks mode, action tokens and pause/reset rules. Himamshu's explicit user-requested cross-feature handoff is recorded in the local notes; normal ownership resumes afterward. Do not reintroduce card-first or post-task choice gates.
+
+
 ### Current task-first loop and integration ownership
 
 Implement and coordinate the migration to explore → choose one of 2–3 available station jobs → minigame → base task outcome → three-card modifier offer → choose once → explore. Do not retain card-first walking gates. Game remains the only state writer: task completion and card resolution are distinct validated actions with once-only IDs; reward/cost cannot be applied twice by controls, replayed clicks or UI rerenders. Six completed jobs/shifts retain win/loss/debrief pacing. Essential jobs remain available; seeded optional variants and capped one-time loot reward exploration without required cooldowns or infinite farming. Add meaningful tests for these transitions, pause/restart, invalid/stale completion IDs, card duration/stacking and seeded offer reproducibility.

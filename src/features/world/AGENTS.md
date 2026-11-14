@@ -6,6 +6,11 @@ Himamshu also owns merge coordination as a separate task. This world-feature pro
 
 ## Task
 
+### Latest task/reward/automatic hazard direction — 14 Nov
+
+Supersedes older card requirements below: no three-card decisions or post-task cards in the playable loop. Any station job can be started, minigame completion gives one positive payout, and six completed jobs end the mission. Negatives come from active-time reserve consumption and automatic warned hazards; matching maintenance prevents hazard damage. Read root AGENTS.md and docs/CONTRACTS.md for the implemented optional station-tasks mode, action tokens and pause/reset rules. Himamshu's explicit user-requested cross-feature handoff is recorded in the local notes; normal ownership resumes afterward. Do not reintroduce card-first or post-task choice gates.
+
+
 ### Continuous building handoff — 14 Nov
 
 The user explicitly authorized the coordinated App/contracts/world/physics slice replacing Earth/Mars portal teleports with hollow buildings. Read the updated spatial contract: station centers (-7,0), (7,0), (0,-9), half-size 3.2. Keep doors, walls, furniture obstacles and camera aligned. World supplies visuals/door readiness; physics alone moves the astronaut, including guided entry/exit. Legacy interior pose hooks serve the orbit cabin only. This supersedes older portal-first guidance below. Later cross-owner changes still require coordination.
