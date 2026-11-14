@@ -1,5 +1,6 @@
 .ares-world { position: relative; width: 100%; height: 100%; overflow: hidden; isolation: isolate; background: #482f32; }
 .ares-world canvas { display: block; width: 100%; height: 100%; }
+.ares-world--interior .ares-world__label, .ares-world--journey .ares-world__label, .ares-world--journey .ares-world__hint, .ares-world--journey .ares-world__status, .ares-world--journey .ares-world__heading { display: none; }
 .ares-world__heading { position: absolute; top: 12px; left: 16px; margin: 0; color: #fff1cf; pointer-events: none; font: 600 11px/1.5 system-ui, sans-serif; letter-spacing: .16em; text-shadow: 0 1px 5px #2b2024; }
 .ares-world__heading span { display: block; font-size: 9px; font-weight: 400; letter-spacing: .08em; opacity: .8; }
 .ares-world__label { position: absolute; transform: translate(-50%, -100%); width: 132px; padding: 5px 6px; border: 1px solid #ead1a48c; border-radius: 7px; background: #26333bf2; color: #fff1cf; font: 600 12px/1.35 system-ui, sans-serif; white-space: nowrap; box-shadow: 0 3px 9px #241e2433; text-align: center; }

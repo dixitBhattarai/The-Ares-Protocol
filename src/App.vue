@@ -2,12 +2,14 @@
 // Integration shell: Rohit owns this file. Himamshu's layout handoff is recorded in world/NOTES.md.
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
 import { STATIONS } from './contracts';
-import type { GameAction, PhysicsAdapter, Vec3, WorldAdapter } from './contracts';
+import type { GameAction, PhysicsAdapter, Vec3, WorldAdapter, StationId } from './contracts';
 import { createInitialState, getCurrentEvent, reduceGame } from './features/game';
 import { soundFX } from './features/game/audio';
 import { loadMission } from './features/missions';
 import HudOverlay from './features/hud/HudOverlay.vue';
 import MissionPanels from './features/ui/MissionPanels.vue';
+import ActivityPanel from './features/world/ActivityPanel.vue';
+import { getActivity, advanceActivity, type Activity } from './features/game/activities';
 
 const mission = loadMission();
 const state = shallowRef(createInitialState(mission));
@@ -16,6 +18,46 @@ const commandPanel = ref<HTMLElement>();
 const graphicsError = ref('');
 const stationMessage = ref('Click a base module to inspect systems, or use WASD / Arrow keys to walk.');
 const soundEnabled = ref(true);
+const activeActivity = shallowRef<(Activity & { choiceId: string; impact: string }) | null>(null);
+const activityProgress = ref(0);
+const activityFeedback = ref('');
+const interior = ref<StationId | null>(null);
+const nearby = ref<StationId | null>(null);
+const flightProgress = ref<number | null>(null);
+let arrivalComplete = false;
+
+function finishArrival() { flightProgress.value = null; arrivalComplete = true; world?.setJourney?.(null); dispatch({ type: 'START' }); }
+function leaveModule() { physics?.exitInterior?.(); world?.setInterior?.(null); interior.value = null; physics?.resumeInput?.(); }
+function cancelActivity() { leaveModule(); activeActivity.value = null; activityProgress.value = 0; world?.setActivityProgress?.(0); world?.setObjective?.(null); }
+function enterModule(id: StationId | null = nearby.value) {
+  if (state.value.phase !== 'running' || interior.value) return;
+  if (!id || nearby.value !== id) { activityFeedback.value = 'Walk closer to the door first, or use accessible travel.'; return; }
+  if (activeActivity.value && activeActivity.value.station !== id) { activityFeedback.value = `Your task is at the ${activeActivity.value.station}.`; return; }
+  if (!activeActivity.value) { stationMessage.value = 'Choose a shift task first, then enter its module.'; return; }
+  interior.value = id; physics?.enterInterior?.(); world?.setInterior?.(id); activityFeedback.value = 'Read the procedure, then use the console controls in order.';
+}
+function travelToTask() {
+  if (!activeActivity.value || state.value.phase !== 'running') return;
+  leaveModule();
+  const station = STATIONS.find(s => s.id === activeActivity.value!.station)!;
+  physics?.reset?.({ x: station.position.x, y: .8, z: station.position.z + 2.6 });
+  nearby.value = station.id;
+  activityFeedback.value = 'At the task door. Enter the module to work.';
+}
+function operateControl(control: string) {
+  const task = activeActivity.value;
+  if (!task || interior.value !== task.station || state.value.phase !== 'running') return;
+  const next = advanceActivity(task, activityProgress.value, control);
+  if (next === activityProgress.value) { activityFeedback.value = 'That control comes later. Follow the numbered procedure.'; return; }
+  activityProgress.value = next;
+  world?.setActivityProgress?.(next);
+  activityFeedback.value = `Step ${next} complete.`;
+  if (next === task.steps.length) {
+    cancelActivity();
+    dispatch({ type: 'CHOOSE', choiceId: task.choiceId }, true);
+    stationMessage.value = `Completed ${task.title}. ${state.value.lastHazardNotice ?? 'Reserves and mission history now show the result.'}`;
+  }
+}
 
 const stationDescriptions: Record<string, string> = {
   habitat: 'Habitat Module: Life support, crew quarters, and radiation storm shelter. Reinforcing shielding protects vital systems.',
@@ -36,24 +78,54 @@ function toggleSound() {
   soundFX.enabled = soundEnabled.value;
 }
 
-function dispatch(action: GameAction) {
+function dispatch(action: GameAction, procedureComplete = false) {
+  if (action.type === 'START' && !arrivalComplete && world && !graphicsError.value) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) arrivalComplete = true;
+    else { if (flightProgress.value === null) flightProgress.value = 0; return; }
+  }
+  if (action.type === 'CHOOSE' && !procedureComplete && state.value.phase === 'running' && physics && !graphicsError.value) {
+    if (activeActivity.value) return;
+    const event = getCurrentEvent(mission, state.value);
+    const choice = event?.choices.find(c => c.id === action.choiceId);
+    if (!event || !choice) return;
+    const impact = [...Object.entries(choice.effect.resources ?? {}).map(([name, value]) => `${name} ${value! > 0 ? '+' : ''}${value}`), ...(choice.effect.shielding ? [`shelter +${choice.effect.shielding}`] : []), ...(choice.effect.science ? [`science +${choice.effect.science}`] : []), ...(choice.delayedEffect ? [`Delayed: ${choice.delayedEffect.description}`] : [])].join(' · ');
+    activeActivity.value = { ...getActivity(event, choice), choiceId: choice.id, impact };
+    activityProgress.value = 0; activityFeedback.value = `Go to the ${activeActivity.value.station} to carry out your plan.`;
+    world?.setObjective?.(activeActivity.value.station);
+    return;
+  }
+  if (action.type === 'RESTART') { cancelActivity(); arrivalComplete = false; flightProgress.value = null; world?.setJourney?.(null); }
   const previousState = state.value;
   state.value = reduceGame(state.value, action, mission);
   if (state.value !== previousState) {
     void nextTick(() => { if (commandPanel.value) commandPanel.value.scrollTop = 0; });
   }
 
-  if (action.type === 'CHOOSE') {
+  if (action.type === 'START') {
+    soundFX.playStart();
+  } else if (action.type === 'CHOOSE') {
     if (state.value.phase === 'won') {
       soundFX.playVictory();
     } else if (state.value.phase === 'lost') {
       soundFX.playDepleted();
     } else if (state.value.lastHazardNotice) {
       soundFX.playHazard();
+    } else if (action.choiceId === 'comms') {
+      soundFX.playTransmission();
+    } else if (action.choiceId === 'oxygen') {
+      soundFX.playOxygen();
+    } else if (action.choiceId === 'shield') {
+      soundFX.playShield();
     } else {
       soundFX.playDecision();
     }
+
+    const { power, oxygen, supplies } = state.value.resources;
+    if (state.value.phase === 'running' && (power <= 20 || oxygen <= 20 || supplies <= 20)) {
+      setTimeout(() => soundFX.playWarning(), 180);
+    }
   } else if (action.type === 'RESTART') {
+    soundFX.playRestart();
     if (physics?.reset) {
       physics.reset();
       stationMessage.value = 'Outpost and astronaut reset to spawn. Plan your shifts carefully.';
@@ -73,8 +145,16 @@ function pauseWhenHidden() {
   if (document.hidden) dispatch({ type: 'PAUSE' });
 }
 
+let lastCheckedPose = { x: 999, y: 999, z: 999 };
 function checkStationProximity(pose: Vec3) {
+  if (interior.value) { nearby.value = null; return; }
+  nearby.value = STATIONS.find(s => Math.hypot(pose.x - s.position.x, pose.z - s.position.z) < 3.8)?.id ?? null;
   if (currentSelectedStation) return;
+  const dx = pose.x - lastCheckedPose.x;
+  const dz = pose.z - lastCheckedPose.z;
+  if (dx * dx + dz * dz < 0.0025) return;
+  lastCheckedPose = { x: pose.x, y: pose.y, z: pose.z };
+
   for (const station of STATIONS) {
     const dist = Math.hypot(pose.x - station.position.x, pose.z - station.position.z);
     if (dist < 4.0) {
@@ -93,8 +173,16 @@ function checkStationProximity(pose: Vec3) {
 
 function handleGlobalKeydown(event: KeyboardEvent) {
   if ((event.target as HTMLElement | null)?.closest('button, input, textarea, select, [contenteditable]')) return;
+  if (event.code === 'KeyE') { if (interior.value) leaveModule(); else enterModule(); return; }
   if (event.code === 'KeyM') {
     toggleSound();
+    return;
+  }
+  if (state.value.phase === 'ready') {
+    if (['Space', 'Enter', 'KeyS'].includes(event.code)) {
+      event.preventDefault();
+      dispatch({ type: 'START' });
+    }
     return;
   }
   if (state.value.phase === 'running') {
@@ -106,15 +194,20 @@ function handleGlobalKeydown(event: KeyboardEvent) {
       dispatch({ type: 'CHOOSE', choiceId: currentEvent.choices[1].id });
     } else if (['Digit3', 'Numpad3'].includes(event.code) && currentEvent.choices[2]) {
       dispatch({ type: 'CHOOSE', choiceId: currentEvent.choices[2].id });
-    } else if (event.code === 'KeyP') {
+    } else if (['Digit4', 'Numpad4'].includes(event.code) && currentEvent.choices[3]) {
+      dispatch({ type: 'CHOOSE', choiceId: currentEvent.choices[3].id });
+    } else if (event.code === 'KeyP' || event.code === 'Space') {
+      event.preventDefault();
       dispatch({ type: 'PAUSE' });
     }
   } else if (state.value.phase === 'paused') {
-    if (event.code === 'KeyP' || event.code === 'Space') {
+    if (['KeyP', 'Space', 'Enter'].includes(event.code)) {
+      event.preventDefault();
       dispatch({ type: 'RESUME' });
     }
   } else if (['won', 'lost'].includes(state.value.phase)) {
-    if (event.code === 'KeyR') {
+    if (['KeyR', 'Space', 'Enter'].includes(event.code)) {
+      event.preventDefault();
       dispatch({ type: 'RESTART' });
     }
   }
@@ -130,6 +223,7 @@ onMounted(async () => {
     ]);
     if (disposed) return;
     world = createWorld(host.value!, station => {
+      if (activeActivity.value && nearby.value === station) { enterModule(station); return; }
       currentSelectedStation = station;
       stationMessage.value = stationDescriptions[station] || `Selected: ${station}. Use decision cards below to manage operations.`;
     });
@@ -142,6 +236,11 @@ onMounted(async () => {
     const tick = (now: number) => {
       const elapsed = Math.min((now - previous) / 1000, 0.1);
       previous = now;
+      if (flightProgress.value !== null && !document.hidden) {
+        flightProgress.value = Math.min(1, flightProgress.value + elapsed / 8);
+        world!.setJourney?.(flightProgress.value);
+        if (flightProgress.value >= 1) finishArrival();
+      }
       if (state.value.phase === 'running') {
         accumulator = Math.min(accumulator + elapsed, 0.1);
         while (accumulator >= 1 / 60) {
@@ -217,7 +316,24 @@ onBeforeUnmount(() => {
           role="region"
           aria-label="Interactive 3D Mars Outpost Viewport"
         />
-        <p class="scene-status" role="status">{{ graphicsError || stationMessage }}</p>
+        <div v-if="flightProgress !== null" class="arrival-overlay" role="status">
+          <h2>Earth → Mars</h2><p>{{ flightProgress < .3 ? 'Leaving home' : flightProgress < .85 ? 'Cruising to the Red Planet' : 'Approaching Ares Outpost' }}</p>
+          <progress :value="flightProgress" max="1" aria-label="Journey to Mars" />
+          <p>Condensed journey · not real travel time or scale</p><button @click="finishArrival">Skip flight / land on Mars</button>
+        </div>
+        <p class="scene-status" role="status">
+          <span v-if="currentSelectedStation" class="selected-badge">
+            MODULE: {{ currentSelectedStation.toUpperCase() }}
+            <button
+              type="button"
+              class="clear-station-btn"
+              title="Clear station inspection"
+              aria-label="Clear station inspection"
+              @click="currentSelectedStation = null; stationMessage = 'Outpost view. Click modules or walk near them.'"
+            >×</button>
+          </span>
+          {{ graphicsError || stationMessage }}
+        </p>
         <div class="surface-footer"><span>STYLIZED MARS OUTPOST</span><span>WASD / ARROWS <span aria-hidden="true">·</span> SELECT A MODULE</span></div>
       </section>
       <aside ref="commandPanel" class="command-panel" aria-label="Mission command panel" tabindex="0" @keydown.stop @focusin="physics?.pauseInput?.()" @focusout="state.phase === 'running' && physics?.resumeInput?.()">
@@ -225,7 +341,8 @@ onBeforeUnmount(() => {
         <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
           {{ state.upcomingHazardNotice }}
         </p>
-        <MissionPanels
+        <ActivityPanel v-if="activeActivity" :station="activeActivity.station" :title="activeActivity.title" :steps="activeActivity.steps" :impact="activeActivity.impact" :progress="activityProgress" :inside="interior === activeActivity.station" :feedback="activityFeedback" :paused="state.phase === 'paused'" @control="operateControl" @travel="travelToTask" @enter="enterModule()" @exit="leaveModule" @cancel="cancelActivity" @pause="dispatch({ type: state.phase === 'paused' ? 'RESUME' : 'PAUSE' })" />
+        <MissionPanels v-else
           :state="state"
           :mission="mission"
           :event="getCurrentEvent(mission, state)"
@@ -237,6 +354,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.world-panel { position: relative; }
+.arrival-overlay { position: absolute; inset: 50px 0 auto; padding: 20px; text-align: center; color: #e9e8d6; pointer-events: none; text-shadow: 0 2px 6px #000; }
+.arrival-overlay button { pointer-events: auto; }
 .ares-app { max-width: 1800px; margin: auto; padding: 0 22px 20px; }
 .app-header { height: 88px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .brand { display: flex; align-items: center; gap: 13px; }
@@ -257,6 +377,9 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
 .live-dot { display: inline-block; width: 5px; height: 5px; margin-right: 7px; border-radius: 50%; background: #9ac5b5; box-shadow: 0 0 0 3px #9ac5b514; }
 .viewport { min-height: 0; overflow: hidden; background: #765040; }
 .scene-status { margin: 0; padding: 11px 16px; color: #becbd0; font-size: 11px; line-height: 1.5; }
+.selected-badge { display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; padding: 2px 7px; background: #263e48; border: 1px solid #486877; border-radius: 4px; font-size: 10px; font-weight: 700; color: #bde0ea; }
+.clear-station-btn { font-size: 11px; padding: 0 4px; background: transparent; border: none; color: #a4c4cf; cursor: pointer; line-height: 1; }
+.clear-station-btn:hover { color: #ffffff; }
 .command-panel { min-width: 0; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: #49606a transparent; border: 1px solid #34434c; border-radius: 14px; background: linear-gradient(145deg, #182731, #111d26); }
 .command-heading { position: sticky; top: 0; z-index: 3; background: #1b2c35; border-bottom: 1px solid #34434c; font-size: 8px; }
 .command-panel :deep(.mission-panels-root) { padding: 16px; gap: 18px; }
