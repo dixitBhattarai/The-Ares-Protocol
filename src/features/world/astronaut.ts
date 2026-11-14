@@ -3,6 +3,7 @@ import type { ModelKit } from './resources';
 
 export interface AstronautVisual {
   group: THREE.Group;
+  fallback: THREE.Group;
   legs: readonly THREE.Group[];
   arms: readonly THREE.Group[];
 }
@@ -34,7 +35,10 @@ export function createAstronaut(kit: ModelKit): AstronautVisual {
     group.add(arm);
     return arm;
   });
-  return { group, legs, arms };
+  const fallback = new THREE.Group();
+  for (const child of [...group.children]) fallback.add(child);
+  group.add(fallback);
+  return { group, fallback, legs, arms };
 }
 
 /** Animate only the visual rig. The caller supplies distance-based cycle and pose. */
