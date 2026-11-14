@@ -80,6 +80,22 @@ describe('boundary clamping and ground height', () => {
 });
 
 describe('Mars gravity and station colliders in Rapier 3D', () => {
+  it('enters a bounded room and restores the saved surface pose once on exit', async () => {
+    const physics = await createPhysics();
+    physics.reset?.({ x: -5, y: .8, z: 2.6 });
+    physics.enterInterior?.();
+    expect(physics.getPlayerPose().x).toBeCloseTo(0);
+    expect(physics.getPlayerPose().z).toBeCloseTo(2);
+    physics.enterInterior?.();
+    for (let i = 0; i < 30; i++) physics.step(1 / 60);
+    expect(physics.getPlayerPose().y).toBeGreaterThan(.75);
+    physics.exitInterior?.();
+    expect(physics.getPlayerPose().x).toBeCloseTo(-5);
+    expect(physics.getPlayerPose().z).toBeCloseTo(2.6);
+    physics.exitInterior?.();
+    expect(physics.getPlayerPose().x).toBeCloseTo(-5);
+    physics.dispose();
+  });
   it('cites and configures Mars surface gravity at 3.72076 m/s²', () => {
     expect(MARS_GRAVITY).toBeCloseTo(3.72, 2);
     expect(MARS_GRAVITY).toBe(3.72076);
@@ -337,5 +353,17 @@ describe('Reset, Pause, Focus and Lifecycle Hooks', () => {
 
     // Calling step after dispose should be a safe no-op
     expect(() => physics.step(1 / 60)).not.toThrow();
+  });
+  it('bounds interior movement and clears the room mode when resetting the mission', async () => {
+    const physics = await createPhysics();
+    physics.enterInterior?.();
+    window.dispatchEvent({ type: 'keydown', code: 'KeyD' } as any);
+    for (let i = 0; i < 240; i++) physics.step(1 / 60);
+    expect(physics.getPlayerPose().x).toBeLessThanOrEqual(2.6001);
+    physics.reset?.();
+    physics.exitInterior?.();
+    expect(physics.getPlayerPose().x).toBeCloseTo(DEFAULT_SPAWN.x);
+    expect(physics.getPlayerPose().z).toBeCloseTo(DEFAULT_SPAWN.z);
+    physics.dispose();
   });
 });

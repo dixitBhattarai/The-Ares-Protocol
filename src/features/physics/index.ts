@@ -95,6 +95,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   const pressed = new Set<string>();
   let isInputPaused = false;
   let isDisposed = false;
+  let outsidePose: Vec3 | undefined;
 
   const keyDown = (event: KeyboardEvent) => {
     if (isDisposed || isInputPaused) return;
@@ -146,8 +147,10 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       world.step();
 
       const pose = body.translation();
-      let clampedX = Math.max(BOUNDARY_MIN, Math.min(BOUNDARY_MAX, pose.x));
-      let clampedZ = Math.max(BOUNDARY_MIN, Math.min(BOUNDARY_MAX, pose.z));
+      const min = outsidePose ? -2.6 : BOUNDARY_MIN;
+      const max = outsidePose ? 2.6 : BOUNDARY_MAX;
+      let clampedX = Math.max(min, Math.min(max, pose.x));
+      let clampedZ = Math.max(min, Math.min(max, pose.z));
       let clampedY = pose.y;
 
       if (clampedY < GROUND_Y) {
@@ -167,6 +170,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       return { x: pose.x, y: pose.y, z: pose.z };
     },
     reset(pose?: Vec3) {
+      outsidePose = undefined;
       if (isDisposed) return;
       clearKeys();
       const target = pose ? { x: pose.x, y: pose.y, z: pose.z } : { ...DEFAULT_SPAWN };
@@ -180,6 +184,20 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       clearKeys();
       const curLinvel = body.linvel();
       body.setLinvel({ x: 0, y: curLinvel.y, z: 0 }, true);
+    },
+    enterInterior() {
+      if (isDisposed || outsidePose) return;
+      outsidePose = { ...body.translation() };
+      clearKeys();
+      body.setTranslation({ x: 0, y: .8, z: 2 }, true);
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    },
+    exitInterior() {
+      if (isDisposed || !outsidePose) return;
+      body.setTranslation(outsidePose, true);
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      outsidePose = undefined;
+      clearKeys();
     },
     resumeInput() {
       if (isDisposed) return;
