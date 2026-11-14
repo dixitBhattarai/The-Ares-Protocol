@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { GameState } from '../../contracts';
 import { reduceGame } from '../game';
 import donkiRawData from './data/donki-cme-may2024-raw.json';
+import donkiSnapshot from './data/donki-cme-snapshot.json';
 import { loadMission } from './index';
 
 describe('Mission Architecture & Schema Acceptance', () => {
@@ -99,7 +100,7 @@ describe('NASA Evidence, Provenance & Source Resolution', () => {
     expect(mission.sources.length).toBeGreaterThanOrEqual(1);
 
     const sourceMap = new Map(mission.sources.map(s => [s.id, s]));
-    expect(sourceMap.has('nasa-donki-cme-2024')).toBe(true);
+    expect(sourceMap.has('nasa-donki-cme-snapshot')).toBe(true);
 
     for (const source of mission.sources) {
       expect(source.id).toBeDefined();
@@ -119,6 +120,21 @@ describe('NASA Evidence, Provenance & Source Resolution', () => {
         expect(knownSourceIds.has(sourceId)).toBe(true);
       }
     }
+  });
+
+  it('uses the bundled DONKI snapshot in the shelter and hazard decisions', () => {
+    const source = mission.sources.find(s => s.id === 'nasa-donki-cme-snapshot');
+    const shelterEvent = mission.events.find(e => e.id === 'shift-2-shelter-vs-exploration');
+    const hazardEvent = mission.events.find(e => e.id === 'shift-3-solar-weather-alert');
+
+    expect(source?.url).toBe(donkiSnapshot.metadata.queryUrl);
+    expect(source?.retrievedAt).toBe(donkiSnapshot.metadata.retrievedAt);
+    expect(source?.observedAt).toBe(donkiSnapshot.observation.startTime);
+    expect(source?.units).toContain(`${donkiSnapshot.observation.speedKmPerSecond} km/s`);
+    expect(shelterEvent?.description).toContain(donkiSnapshot.observation.startTime);
+    expect(shelterEvent?.description).toContain(`${donkiSnapshot.observation.speedKmPerSecond} km/s`);
+    expect(hazardEvent?.description).toContain('authored solar-weather shelter drill');
+    expect(hazardEvent?.description).toContain('not measured Mars damage');
   });
 
   it('loads and verifies authentic raw NASA DONKI CME fixture data', () => {
