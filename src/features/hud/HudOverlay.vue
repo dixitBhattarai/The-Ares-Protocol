@@ -2,7 +2,14 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { GameState, MissionData, ResourceId } from '../../contracts';
 
-const props = defineProps<{ state: Readonly<GameState>; mission: MissionData }>();
+type JourneyStage = 'earth' | 'space' | 'transit';
+const props = defineProps<{
+  state: Readonly<GameState>;
+  mission: MissionData;
+  /** Optional shell context for the Earth/orbit introduction and flight between stages. */
+  stage?: JourneyStage | null;
+  stageProgress?: { value: number; max: number };
+}>();
 const hudTarget = ref<string | HTMLElement>('body');
 const hazardToastElement = ref<HTMLElement | null>(null);
 let gameViewport: HTMLElement | null = null;
@@ -71,6 +78,16 @@ const shift = computed(() => Math.min(props.state.turn + 1, props.mission.maxTur
 const shiftPercent = computed(() => props.mission.maxTurns > 0
   ? Math.min(100, Math.max(0, props.state.turn / props.mission.maxTurns * 100))
   : 0);
+const stagePercent = computed(() => {
+  const { value = 0, max = 0 } = props.stageProgress ?? {};
+  return max > 0 ? Math.min(100, Math.max(0, value / max * 100)) : 0;
+});
+const stageCopy = computed(() => {
+  if (props.stage === 'earth') return { label: 'EARTH · LAUNCH LAB', title: 'Launch prep', detail: 'Suit check · cargo check · launch approval' };
+  if (props.stage === 'space') return { label: 'ORBIT · COMMS CABIN', title: 'Orbit checks', detail: 'Beacon · antenna · flight plan' };
+  if (props.stage === 'transit') return { label: 'EXPEDITION · IN TRANSIT', title: 'Journey to Mars', detail: 'Your crew is travelling to the next mission stage' };
+  return null;
+});
 const sciencePercent = computed(() => props.mission.scienceTarget > 0
   ? Math.min(100, Math.max(0, props.state.science / props.mission.scienceTarget * 100))
   : 0);
@@ -322,19 +339,20 @@ function toggleStat(id: ProgressStat): void {
 
 <template>
   <Teleport :to="hudTarget">
-  <section v-if="state.phase === 'running'" class="hud" aria-label="Outpost status">
+  <section v-if="state.phase === 'running' || stageCopy" class="hud" :class="{ 'journey-hud': stageCopy }" :aria-label="stageCopy ? `${stageCopy.title} status` : 'Outpost status'">
     <header class="hud-header">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true">✦</span>
+        <span class="brand-mark" aria-hidden="true">{{ stage === 'earth' ? '🌍' : stage === 'space' ? '🛰️' : stage === 'transit' ? '🚀' : '✦' }}</span>
         <div class="mission-heading">
-          <span class="eyebrow">ARES · OUTPOST 01</span>
-          <strong>SHIFT {{ shift }} <span>OF {{ mission.maxTurns }}</span></strong>
+          <span class="eyebrow">{{ stageCopy?.label ?? 'ARES · OUTPOST 01' }}</span>
+          <strong v-if="stageCopy">{{ stageCopy.title }}</strong>
+          <strong v-else>SHIFT {{ shift }} <span>OF {{ mission.maxTurns }}</span></strong>
         </div>
       </div>
       <span class="unit-tag">GAME UNITS</span>
     </header>
 
-    <div
+    <div v-if="!stageCopy"
       class="shift-track"
       role="progressbar"
       aria-label="Mission shifts completed"
@@ -344,6 +362,10 @@ function toggleStat(id: ProgressStat): void {
       :aria-valuetext="`${Math.min(state.turn, mission.maxTurns)} of ${mission.maxTurns} shifts completed`"
     >
       <span :style="{ width: `${shiftPercent}%` }" />
+    </div>
+    <div v-else class="stage-progress" :class="`stage-${stage}`">
+      <div class="stage-progress-copy"><span>{{ stageCopy.detail }}</span><strong v-if="stage !== 'transit'">{{ stageProgress?.value ?? 0 }}<i>/{{ stageProgress?.max ?? 3 }}</i></strong><strong v-else>{{ Math.round(stagePercent) }}<i>%</i></strong></div>
+      <div class="stage-track" role="progressbar" :aria-label="stage === 'transit' ? 'Journey progress' : `${stageCopy.title} progress`" :aria-valuemin="0" :aria-valuemax="stage === 'transit' ? 100 : (stageProgress?.max ?? 3)" :aria-valuenow="stage === 'transit' ? Math.round(stagePercent) : (stageProgress?.value ?? 0)" :aria-valuetext="stage === 'transit' ? `${Math.round(stagePercent)} percent complete` : `${stageProgress?.value ?? 0} of ${stageProgress?.max ?? 3} checks complete`"><span :style="{ width: `${stagePercent}%` }" /></div>
     </div>
 
     <div class="reserve-grid" aria-label="Outpost reserves">
@@ -393,7 +415,7 @@ function toggleStat(id: ProgressStat): void {
       </article>
     </div>
 
-    <div class="secondary-grid">
+    <div v-if="!stageCopy" class="secondary-grid">
       <div class="stat-widget science-widget" :class="{ 'is-expanded': expandedStat === 'science' }" @mouseenter="openStat('science')" @mouseleave="closeStat('science')">
         <span v-if="statPops.science" :key="statPops.science.key" class="progress-pop science-pop" aria-hidden="true"><span class="progress-numerator"><span class="count-old">{{ statPops.science.from }}</span><span class="count-new">{{ statPops.science.to }}</span></span><span class="progress-denominator">/{{ statPops.science.max }}</span></span>
         <div class="stat-detail" :aria-hidden="expandedStat !== 'science'">
@@ -437,7 +459,7 @@ function toggleStat(id: ProgressStat): void {
       </div>
     </div>
 
-    <div v-if="delayedEffects.length" class="delayed-effects" aria-label="Upcoming delayed effects">
+    <div v-if="!stageCopy && delayedEffects.length" class="delayed-effects" aria-label="Upcoming delayed effects">
       <span class="delayed-heading"><span aria-hidden="true">◷</span> COMING UP</span>
       <p v-for="effect in delayedEffects" :key="effect.key" class="delayed-item">
         <span class="delayed-timing">{{ effect.timing }}</span>
@@ -445,7 +467,7 @@ function toggleStat(id: ProgressStat): void {
       </p>
     </div>
 
-        <p v-if="feedback" class="feedback" :class="feedbackTone" aria-live="polite" aria-atomic="true">
+        <p v-if="!stageCopy && feedback" class="feedback" :class="feedbackTone" aria-live="polite" aria-atomic="true">
       <span class="feedback-mark" aria-hidden="true">{{ feedbackTone === 'cost' ? '−' : feedbackTone === 'gain' ? '+' : '↻' }}</span>
           <span class="feedback-copy"><strong>SHIFT UPDATE</strong><span>{{ feedback }}</span></span>
     </p>
@@ -508,6 +530,16 @@ function toggleStat(id: ProgressStat): void {
 .shift-track { position: absolute; top: 105px; left: 14px; display: block; width: min(180px, calc(100% - 28px)); height: .42rem; overflow: hidden; margin: 0; border: 1px solid rgb(255 229 163 / 50%); border-radius: 999px; background: repeating-linear-gradient(90deg, rgb(12 28 38 / 88%) 0 8px, rgb(28 45 52 / 88%) 8px 10px); box-shadow: inset 0 1px 3px rgb(0 0 0 / 45%), 0 2px 8px rgb(0 0 0 / 25%); }
 .shift-track { translate: var(--hud-shift-x, 0px) var(--hud-shift-y, 0px); }
 .shift-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ffe184, #ffbb59 55%, #fff4bc); box-shadow: 0 0 9px rgb(255 199 88 / 80%); transition: width 260ms ease; }
+.stage-progress { position: absolute; top: 105px; left: 14px; display: grid; gap: .34rem; width: min(240px, calc(100% - 28px)); padding: .48rem .58rem .54rem; border: 1px solid rgb(125 219 255 / 42%); border-radius: 11px; background: rgb(9 25 41 / 78%); box-shadow: 0 5px 18px rgb(0 0 0 / 24%), inset 0 1px 0 rgb(255 255 255 / 10%); backdrop-filter: blur(6px); animation: stage-arrive 360ms cubic-bezier(.2,.8,.25,1.15) both; }
+.stage-progress-copy { display: flex; align-items: center; justify-content: space-between; gap: .5rem; color: #e7f4ff; font-size: .62rem; font-weight: 750; }
+.stage-progress-copy > span { min-width: 0; }
+.stage-progress-copy > strong { flex: 0 0 auto; color: #fff3ba; font-size: .78rem; font-weight: 950; }
+.stage-progress-copy i { color: #b5d6e9; font-size: .7rem; font-style: normal; }
+.stage-track { height: 9px; overflow: hidden; border: 1px solid rgb(132 215 245 / 58%); border-radius: 999px; background: repeating-linear-gradient(90deg, #182c3b 0 9px, #304758 9px 11px); box-shadow: inset 0 1px 3px rgb(0 0 0 / 48%); }
+.stage-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #42cfda, #75e7fa 58%, #d5fcff); box-shadow: 0 0 9px rgb(84 225 244 / 75%); transition: width 420ms cubic-bezier(.2,.75,.25,1); }
+.stage-space .stage-track > span { background: linear-gradient(90deg, #a77aff, #f0a1ff 58%, #fff0ff); box-shadow: 0 0 9px rgb(208 126 255 / 72%); }
+.stage-transit .stage-track > span { background: linear-gradient(90deg, #ff9b54, #ffcf6c 58%, #fff4bc); box-shadow: 0 0 9px rgb(255 188 93 / 78%); }
+.journey-hud .reserve-card { filter: saturate(.96); }
 .reserve-grid { box-sizing: border-box; position: absolute; left: 14px; bottom: 42px; display: grid; grid-template-columns: minmax(0, 1fr); gap: .42rem; width: min(248px, calc(100% - 28px)); padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
 .reserve-grid { translate: var(--hud-reserves-x, 0px) var(--hud-reserves-y, 0px); }
 .reserve-card { --reserve-color: #ffd36f; display: grid; grid-template-columns: 31px minmax(0, 1fr) 32px; align-items: center; gap: 0; min-width: 0; min-height: 34px; padding: .12rem .38rem; border: 1px solid color-mix(in srgb, var(--reserve-color), transparent 52%); border-radius: 10px; background: linear-gradient(180deg, color-mix(in srgb, var(--reserve-color), transparent 88%), color-mix(in srgb, var(--reserve-color), transparent 95%)); box-shadow: 0 3px 10px rgb(0 0 0 / 23%), inset 0 1px 0 rgb(255 255 255 / 12%); transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease; }
@@ -612,12 +644,14 @@ function toggleStat(id: ProgressStat): void {
 @keyframes reserve-shine { 0% { opacity: .9; transform: translateX(-120%); } 100% { opacity: 0; transform: translateX(150%); } }
 @keyframes reserve-critical-pulse { 0%, 100% { box-shadow: inset 0 1px 2px rgb(0 0 0 / 20%); } 50% { box-shadow: 0 0 7px color-mix(in srgb, var(--reserve-color), transparent 52%), inset 0 1px 2px rgb(0 0 0 / 20%); } }
 @keyframes toast-in { 0% { opacity: 0; transform: translate(-50%, -18px) scale(.72); } 68% { opacity: 1; transform: translate(-50%, 4px) scale(1.035); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@keyframes stage-arrive { from { opacity: 0; transform: translateY(-7px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes toast-pulse { 0%, 100% { box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 24px rgb(244 196 104 / 25%), inset 0 1px 0 rgb(255 248 220 / 22%); } 50% { box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 35px rgb(255 215 133 / 58%), inset 0 1px 0 rgb(255 248 220 / 35%); } }
 @keyframes toast-out { to { opacity: 0; transform: translate(-50%, -9px) scale(.96); } }
 @keyframes spark-spin { 50% { transform: rotate(40deg) scale(1.25); } }
 @media (max-width: 420px) {
   .hud-header { top: 50px; left: 10px; width: min(224px, calc(100% - 20px)); }
   .shift-track { top: 100px; left: 10px; width: 160px; }
+  .stage-progress { top: 100px; left: 10px; width: min(220px, calc(100% - 20px)); }
   .reserve-grid { left: 10px; bottom: 38px; width: min(215px, calc(100% - 20px)); padding: .48rem .5rem; }
   .secondary-grid { top: 32px; right: 10px; bottom: auto; gap: .26rem; }
   .feedback, .delayed-effects { left: 10px; width: min(222px, calc(100% - 20px)); }
@@ -636,8 +670,8 @@ function toggleStat(id: ProgressStat): void {
 }
 @media (prefers-reduced-motion: reduce) {
   .shift-track > span, .reserve-fill, .science-track > span, .icon-tooltip, .stat-widget, .stat-detail, .stat-icon-button { transition: none; }
-  .hud-header, .shift-track, .reserve-grid, .science-widget, .shelter-widget, .feedback, .delayed-effects, .achievement-toast { translate: none !important; }
+  .hud-header, .shift-track, .stage-progress, .reserve-grid, .science-widget, .shelter-widget, .feedback, .delayed-effects, .achievement-toast { translate: none !important; }
   .progress-pop { translate: 0 -50% !important; }
-  .motion-up, .motion-down, .reserve-icon-wrap:hover, .reserve-icon:focus-visible, .reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap, .stat-icon-button:hover > span, .stat-icon-button:focus-visible > span, .progress-pop, .count-old, .count-new, .progress-denominator, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
+  .stage-progress, .motion-up, .motion-down, .reserve-icon-wrap:hover, .reserve-icon:focus-visible, .reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap, .stat-icon-button:hover > span, .stat-icon-button:focus-visible > span, .progress-pop, .count-old, .count-new, .progress-denominator, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
 }
 </style>
