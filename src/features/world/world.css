@@ -14,7 +14,7 @@
 .ares-world__event summary { list-style: none; padding: 4px 7px; border: 1px solid #efbd7d; border-radius: 4px; background: #3a302a; cursor: pointer; font: 700 9px/1.3 system-ui, sans-serif; }
 .ares-world__event summary::-webkit-details-marker { display: none; }
 .ares-world__event summary:focus-visible { outline: 3px solid #fff0af; outline-offset: 3px; }
-.ares-world__event p { position: absolute; right: 0; top: calc(100% + 6px); width: min(280px, calc(100vw - 32px)); margin: 0; padding: 12px; border: 1px solid #efbd7d; border-radius: 8px; background: #26333bf8; box-shadow: 0 4px 15px #241e2440; color: #fff1cf; font: 12px/1.5 system-ui, sans-serif; overflow-wrap: anywhere; }
+.ares-world__event p { position: absolute; right: 0; top: calc(100% + 6px); box-sizing: border-box; width: min(280px, calc(var(--ares-world-width, 100vw) - 32px)); max-height: calc(var(--ares-world-height, 220px) - 68px); overflow-y: auto; margin: 0; padding: 12px; border: 1px solid #efbd7d; border-radius: 8px; background: #26333bf8; box-shadow: 0 4px 15px #241e2440; color: #fff1cf; font: 12px/1.5 system-ui, sans-serif; overflow-wrap: anywhere; }
 .ares-world--compact-labels .ares-world__label { width: calc(33.333% - 8px); }
 .ares-world--compact-labels .ares-world__label::after { display: none; }
 .ares-world__you { position: absolute; padding: 2px 4px; transform: translate(-50%, -100%); border: 1px solid #ffe4a2; border-radius: 4px; background: #26333bed; color: #ffe4a2; font: 700 10px/1.2 system-ui, sans-serif; pointer-events: none; }

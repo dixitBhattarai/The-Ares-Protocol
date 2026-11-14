@@ -61,3 +61,8 @@ Original baseline: `710e015`. Continuation baseline: checked main `097f63f`, bro
 - Kept solid geometry inside the existing envelopes; the envelope test caught and corrected a 5mm roof-detail overshoot before commit. Flat crater decals remain clear of central paths and add no raised obstacles. Their instances and texture use existing cleanup ownership.
 - Validation on published baseline `0ec33ae`: typecheck, 25 tests and production build passed. Browser passed three real canvas picks, Enter/Space/Escape, map-edge resize, repeated disposal/remount and observer-failure cleanup. Real controller movement, reduced-motion gait, event keyboard isolation, next-shift/replay clearing also passed without page exceptions. Inspected desktop and 360px screenshots.
 - Antigravity owns ongoing main integration. This task authors only world files and will publish its feature branch for that coordinator; it does not merge or push main. A combined six-feature release still needs validation after the other handoffs are integrated.
+
+## Milestone 6 — embedded report bounds
+
+- Event report width and scroll height now follow the actual world host, so a narrow embedded game panel cannot size its popup to the whole browser. Full supplied text remains available by scrolling; no truncation or simulation change.
+- Browser verified a long supplied report inside a 240x220 host on a 1280px browser: all bounds stayed within the host, scrolling worked and full text was retained. Typecheck, 25 tests and production build passed on the world continuation baseline.

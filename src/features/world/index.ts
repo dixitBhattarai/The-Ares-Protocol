@@ -202,6 +202,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       if (disposed) return;
       width = Math.max(1, host.clientWidth);
       height = Math.max(1, host.clientHeight);
+      container.style.setProperty('--ares-world-width', `${width}px`);
+      container.style.setProperty('--ares-world-height', `${height}px`);
       renderer!.setSize(width, height, false);
       cameraDirty = true;
     };
