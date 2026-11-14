@@ -32,3 +32,7 @@ You own the status display, not the welcome/decision/pause/results screens (Dixi
 2. Change feedback/warnings: `feat(hud): explain changes and warnings`.
 
 Run typecheck/tests/build plus narrow-screen and keyboard checks. Stage only `src/features/hud`, inspect diff and commit each working milestone. Update notes; hand Himamshu branch/hash/paths/validation/limits for merging. Send prop/API requests to Rohit. Do not edit contracts/App/global CSS/packages or Dixit's UI, and do not merge into main.
+
+## Temporary rocket cabin handoff — 14 Nov
+
+No HUD files or reserve behavior change in the coordinated cabin slice. Flight-seat progress stays in the world/flight UI; Saurav retains HUD ownership after handoff.

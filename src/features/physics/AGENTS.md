@@ -38,3 +38,7 @@ Keep `createPhysics(): Promise<PhysicsAdapter>`, `step(seconds)`, `getPlayerPose
 2. Focus/pause/reset reliability: `fix(physics): handle focus pause and reset`.
 
 Run typecheck/tests/build and manual movement/collision checks. Stage only `src/features/physics`, review staged diff and commit milestones. Update notes; hand Himamshu branch/hash/paths/checks/limits for merging; send reset/input API requests to Rohit. Do not edit App/contracts/dependencies, add a second render loop or merge into main.
+
+## Temporary rocket cabin handoff — 14 Nov
+
+No physics files are part of the current cabin slice. The zero-gravity visual drift is implemented in the world view; it leaves the existing orbit controller envelope and movement behavior unchanged. Anshu retains physics ownership after handoff.
