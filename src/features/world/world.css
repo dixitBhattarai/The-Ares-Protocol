@@ -21,6 +21,11 @@
 .ares-world__you[hidden] { display: none; }
 .ares-world__label:focus-visible { outline: 3px solid #fff0af; outline-offset: 3px; }
 .ares-world__label::after { content: ''; position: absolute; bottom: -6px; left: calc(50% - 1px); height: 5px; width: 1px; background: #ead1a4; }
+.ares-world__label::before { display: inline-block; margin-right: 5px; color: #b8ded6; font: 700 9px/1.4 system-ui, sans-serif; letter-spacing: .04em; }
+.ares-world__label[data-station='habitat']::before { content: '01 /'; }
+.ares-world__label[data-station='solar']::before { content: '02 /'; }
+.ares-world__label[data-station='greenhouse']::before { content: '03 /'; }
+.ares-world__label[aria-pressed='true']::before { color: #405664; }
 .ares-world__hint { position: absolute; bottom: 10px; left: 16px; right: 16px; margin: 0; color: #fff1cf; text-shadow: 0 1px 5px #2b2024; pointer-events: none; font: 12px/1.5 system-ui, sans-serif; }
 @media (max-width: 480px) {
   .ares-world__heading { top: 8px; left: 10px; font-size: 9px; }

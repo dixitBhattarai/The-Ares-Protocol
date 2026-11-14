@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { StationId } from '../../contracts';
 import { WorldResources, type ModelKit } from './resources';
+import { createDustTexture, createSurfaceDetails } from './landscape';
 
 export interface StationVisual {
   group: THREE.Group;
@@ -36,6 +37,11 @@ export function createStation(id: StationId, kit: ModelKit, resources: WorldReso
     kit.box(group, ivory, [2.8, 1.5, 2.8], [0, -.08, 0]);
     kit.box(group, trim, [2.88, .18, 2.88], [0, .73, 0]);
     kit.box(group, ivory, [2.6, .12, 2.6], [0, .88, 0]);
+    for (const x of [-.75, .75]) {
+      kit.box(group, trim, [.46, .045, .8], [x, .965, -.35]);
+      for (let z = -.6; z <= -.1; z += .16) kit.box(group, ivory, [.36, .02, .05], [x, .99, z]);
+    }
+    for (const x of [-1.35, 1.35]) kit.box(group, orange, [.08, 1.25, .045], [x, -.12, 1.44]);
     kit.box(group, orange, [.78, 1.3, .08], [0, -.16, 1.43]);
     kit.box(group, dark, [.56, 1.08, .04], [0, -.22, 1.48]);
     for (const x of [-.91, .91]) {
@@ -107,14 +113,23 @@ export function createGroundShadow(resources: WorldResources, width: number, dep
 
 export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.Group {
   const terrain = new THREE.Group();
-  const dust = resources.material(new THREE.MeshStandardMaterial({ color: '#b96547', roughness: 1 }));
+  const dust = resources.material(new THREE.MeshStandardMaterial({ map: createDustTexture(resources), roughness: 1 }));
   const desert = resources.material(new THREE.MeshStandardMaterial({ color: '#985039', roughness: 1 }));
-  const path = resources.material(new THREE.MeshStandardMaterial({ color: '#d79a6d', roughness: 1 }));
+  const path = resources.material(new THREE.MeshStandardMaterial({ color: '#bfa287', roughness: 1 }));
+  const paint = resources.material(new THREE.MeshBasicMaterial({ color: '#e5cfaa', transparent: true, opacity: .65 }));
   kit.box(terrain, desert, [180, .15, 180], [0, -.29, 0]);
   // Matches the floor collider: the playable surface is perfectly flat at Y=0.
   kit.box(terrain, dust, [40, .2, 40], [0, -.1, 0]);
   kit.box(terrain, path, [12, .008, 2.1], [0, .004, 0]);
   kit.box(terrain, path, [2.1, .008, 11.8], [0, .004, -.1]);
+  terrain.add(createSurfaceDetails(resources));
+  // Painted walkway guides stay flat and outside the station collision boxes.
+  for (const x of [-1.02, 1.02]) for (let z = -4.2; z <= 4; z += .7) {
+    kit.box(terrain, paint, [.045, .002, .3], [x, .01, z]);
+  }
+  for (const z of [-1.02, 1.02]) for (const x of [-3, -2.3, -1.6, 1.6, 2.3, 3]) {
+    kit.box(terrain, paint, [.3, .002, .045], [x, .01, z]);
+  }
   const ring = resources.geometry(new THREE.RingGeometry(1.25, 1.35, 40));
   const landing = new THREE.Mesh(ring, resources.material(new THREE.MeshBasicMaterial({ color: '#e9c794', side: THREE.DoubleSide })));
   landing.rotation.x = -Math.PI / 2;
