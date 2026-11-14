@@ -54,3 +54,7 @@ Rohit retains engineering ownership after this explicitly authorized handoff. Ta
 ## Scientific evidence record requirements
 
 `SourceRecord` requires ID, title, original URL, retrieval date, archived/live mode, usage notes and observation-to-game mapping; include observation date/units when relevant. Real observations retain provenance in `src/features/missions/data/`. `dataMode` is `archived` for bundled snapshots.
+
+## Additive exploration camera / Earth hooks — 14 Nov
+
+WorldAdapter optionally supplies getCameraYaw(): number and setEarthOutside(outside: boolean). PhysicsAdapter optionally accepts setCameraYaw(yaw: number). Yaw is radians around world +Y, measured from camera-target +Z; forward input moves opposite that horizontal camera offset. Default/overview yaw is zero. App supplies heading before physics fixed steps. Earth exterior uses the existing station footprints and exterior bounds; entering its training lab uses existing enterInterior/exitInterior hooks. The shell, not world code, owns the stage and pose transitions. Camera controls are updated/disposed inside world and never schedule another RAF.
