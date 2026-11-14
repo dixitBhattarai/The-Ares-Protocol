@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import type { StationId } from '../../contracts';
+import { STATIONS, type StationId } from '../../contracts';
 import { WorldResources, type ModelKit } from './resources';
+import { createDustTexture, createSurfaceDetails } from './landscape';
 
 export interface StationVisual {
   group: THREE.Group;
@@ -36,6 +37,11 @@ export function createStation(id: StationId, kit: ModelKit, resources: WorldReso
     kit.box(group, ivory, [2.8, 1.5, 2.8], [0, -.08, 0]);
     kit.box(group, trim, [2.88, .18, 2.88], [0, .73, 0]);
     kit.box(group, ivory, [2.6, .12, 2.6], [0, .88, 0]);
+    for (const x of [-.75, .75]) {
+      kit.box(group, trim, [.46, .045, .8], [x, .965, -.35]);
+      for (let z = -.6; z <= -.1; z += .16) kit.box(group, ivory, [.36, .02, .05], [x, .99, z]);
+    }
+    for (const x of [-1.35, 1.35]) kit.box(group, orange, [.08, 1.25, .045], [x, -.12, 1.44]);
     kit.box(group, orange, [.78, 1.3, .08], [0, -.16, 1.43]);
     kit.box(group, dark, [.56, 1.08, .04], [0, -.22, 1.48]);
     for (const x of [-.91, .91]) {
@@ -65,12 +71,27 @@ export function createStation(id: StationId, kit: ModelKit, resources: WorldReso
     const glass = resources.material(new THREE.MeshStandardMaterial({
       color: '#8ed7c0', transparent: true, opacity: .18, depthWrite: false, roughness: .3,
     }));
-    kit.box(group, glass, [2.8, 1.3, 2.8], [0, .22, 0]);
-    for (const x of [-1.42, 1.42]) {
-      for (const z of [-1.42, 1.42]) kit.box(group, trim, [.11, 1.42, .11], [x, .18, z]);
-      kit.box(group, ivory, [.12, .12, 2.94], [x, .92, 0]);
+    const profile = new THREE.Shape();
+    profile.moveTo(-1.4, -.38);
+    profile.lineTo(1.4, -.38);
+    profile.lineTo(1.4, .1);
+    profile.absellipse(0, .1, 1.4, .8, 0, Math.PI, false, 0);
+    profile.closePath();
+    const shell = new THREE.Mesh(resources.geometry(new THREE.ExtrudeGeometry(profile, {
+      depth: 2.8, bevelEnabled: false, curveSegments: 16,
+    })), glass);
+    shell.position.z = -1.4;
+    group.add(shell);
+    for (const z of [-1.42, 0, 1.42]) {
+      const points = Array.from({ length: 25 }, (_, i) => {
+        const angle = i / 24 * Math.PI;
+        return new THREE.Vector3(Math.cos(angle) * 1.4, .1 + Math.sin(angle) * .8, z);
+      });
+      const rib = new THREE.Mesh(resources.geometry(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 24, .035, 6, false)), ivory);
+      group.add(rib);
+      for (const x of [-1.4, 1.4]) kit.box(group, ivory, [.07, .48, .07], [x, -.14, z]);
     }
-    for (const z of [-1.42, 0, 1.42]) kit.box(group, ivory, [2.9, .12, .12], [0, .92, z]);
+    kit.box(group, trim, [.08, .08, 2.9], [0, .9, 0]);
     for (const x of [-.75, .75]) {
       kit.box(group, soil, [.8, .24, 2.3], [x, -.23, 0]);
       for (const z of [-.7, 0, .7]) {
@@ -107,14 +128,35 @@ export function createGroundShadow(resources: WorldResources, width: number, dep
 
 export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.Group {
   const terrain = new THREE.Group();
-  const dust = resources.material(new THREE.MeshStandardMaterial({ color: '#b96547', roughness: 1 }));
+  const dust = resources.material(new THREE.MeshStandardMaterial({ map: createDustTexture(resources), color: '#b8a797', roughness: 1 }));
   const desert = resources.material(new THREE.MeshStandardMaterial({ color: '#985039', roughness: 1 }));
-  const path = resources.material(new THREE.MeshStandardMaterial({ color: '#d79a6d', roughness: 1 }));
-  kit.box(terrain, desert, [180, .15, 180], [0, -.29, 0]);
+  const path = resources.material(new THREE.MeshStandardMaterial({ color: '#495351', roughness: .95 }));
+  const paint = resources.material(new THREE.MeshBasicMaterial({ color: '#e5cfaa', transparent: true, opacity: .65 }));
+  kit.flatBox(terrain, dust, [180, .15, 180], [0, -.29, 0]);
   // Matches the floor collider: the playable surface is perfectly flat at Y=0.
-  kit.box(terrain, dust, [40, .2, 40], [0, -.1, 0]);
+  kit.flatBox(terrain, dust, [40, .2, 40], [0, -.1, 0]);
   kit.box(terrain, path, [12, .008, 2.1], [0, .004, 0]);
   kit.box(terrain, path, [2.1, .008, 11.8], [0, .004, -.1]);
+  const padGeometry = resources.geometry(new THREE.CircleGeometry(2.45, 48));
+  const rimGeometry = resources.geometry(new THREE.RingGeometry(2.35, 2.4, 48));
+  const rimMaterial = resources.material(new THREE.MeshBasicMaterial({ color: '#b9c9bd' }));
+  for (const station of STATIONS) {
+    const pad = new THREE.Mesh(padGeometry, path);
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.set(station.position.x, .009, station.position.z);
+    const rim = new THREE.Mesh(rimGeometry, rimMaterial);
+    rim.rotation.x = -Math.PI / 2;
+    rim.position.set(station.position.x, .012, station.position.z);
+    terrain.add(pad, rim);
+  }
+  terrain.add(createSurfaceDetails(resources));
+  // Painted walkway guides stay flat and outside the station collision boxes.
+  for (const x of [-1.02, 1.02]) for (let z = -4.2; z <= 4; z += .7) {
+    kit.box(terrain, paint, [.045, .002, .3], [x, .01, z]);
+  }
+  for (const z of [-1.02, 1.02]) for (const x of [-3, -2.3, -1.6, 1.6, 2.3, 3]) {
+    kit.box(terrain, paint, [.3, .002, .045], [x, .01, z]);
+  }
   const ring = resources.geometry(new THREE.RingGeometry(1.25, 1.35, 40));
   const landing = new THREE.Mesh(ring, resources.material(new THREE.MeshBasicMaterial({ color: '#e9c794', side: THREE.DoubleSide })));
   landing.rotation.x = -Math.PI / 2;

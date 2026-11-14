@@ -36,21 +36,33 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.25;
+    renderer.toneMappingExposure = 1.05;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.autoUpdate = false;
     renderer.domElement.setAttribute('aria-hidden', 'true');
     container.appendChild(renderer.domElement);
     host.appendChild(container);
-    scene.background = new THREE.Color('#67413c');
-    scene.fog = new THREE.Fog('#67413c', 60, 140);
-    scene.add(new THREE.HemisphereLight('#f7dfbd', '#663e38', 2.6));
-    const sun = new THREE.DirectionalLight('#ffe3b3', 3.2);
-    sun.position.set(-12, 20, 10);
+    scene.background = new THREE.Color('#76635f');
+    scene.fog = new THREE.Fog('#76635f', 40, 95);
+    scene.add(new THREE.HemisphereLight('#d7e8ef', '#59423a', 1.8));
+    const sun = new THREE.DirectionalLight('#ffe1b9', 3);
+    sun.position.set(-10, 16, 8);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    Object.assign(sun.shadow.camera, { left: -25, right: 25, top: 25, bottom: -25, near: .5, far: 65 });
+    sun.shadow.normalBias = .035;
+    sun.shadow.bias = -.00015;
+    cleanups.push(() => sun.shadow.dispose());
     scene.add(sun);
     const kit = createModelKit(resources);
-    scene.add(createTerrain(kit, resources));
+    const terrain = createTerrain(kit, resources);
+    terrain.traverse(object => { if (object instanceof THREE.Mesh) object.receiveShadow = true; });
+    scene.add(terrain);
     const astronaut = createAstronaut(kit);
     astronaut.group.position.copy(playerPose);
     scene.add(astronaut.group);
+    astronaut.group.traverse(object => { if (object instanceof THREE.Mesh) object.castShadow = true; });
     const playerShadow = createGroundShadow(resources, .42, .32);
     playerShadow.name = 'astronaut-shadow';
     playerShadow.position.set(playerPose.x, .014, playerPose.z);
@@ -58,6 +70,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
     let reduceMotion = motionPreference.matches;
     let walkCycle = 0;
+    let gaitWasMoving = false;
     const motionChanged = () => {
       reduceMotion = motionPreference.matches;
       if (reduceMotion) applyAstronautGait(astronaut, 0, false);
@@ -109,6 +122,12 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     const stations = STATIONS.map(station => {
       const visual = createStation(station.id, kit, resources);
       visual.group.position.copy(station.position);
+      visual.group.traverse(object => {
+        if (object instanceof THREE.Mesh) {
+          object.castShadow = !object.material.transparent;
+          object.receiveShadow = true;
+        }
+      });
       visual.selection.position.copy(station.position);
       scene.add(visual.group, visual.selection);
       const shadow = createGroundShadow(resources, 1.8, 1.5);
@@ -202,6 +221,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       if (disposed) return;
       width = Math.max(1, host.clientWidth);
       height = Math.max(1, host.clientHeight);
+      container.style.setProperty('--ares-world-width', `${width}px`);
+      container.style.setProperty('--ares-world-height', `${height}px`);
       renderer!.setSize(width, height, false);
       cameraDirty = true;
     };
@@ -244,6 +265,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         const dz = pose.z - playerPose.z;
         const distance = Math.hypot(dx, dz);
         const moving = distance > .0001 && distance < 1 && lastState?.phase === 'running' && !reduceMotion;
+        const redrawShadow = distance > .0001 || pose.y !== playerPose.y || gaitWasMoving;
+        gaitWasMoving = moving;
         if (distance > .0001) astronaut.group.rotation.y = Math.atan2(dx, dz);
         if (moving) walkCycle = (walkCycle + distance * Math.PI * 2 / .9) % (Math.PI * 2);
         if (distance >= 1) walkCycle = 0; // A reset/teleport is not a walking stride.
@@ -252,6 +275,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         playerPose.copy(pose);
         astronaut.group.position.copy(pose);
         playerShadow.position.set(pose.x, .014, pose.z);
+        if (redrawShadow) renderer!.shadowMap.needsUpdate = true;
       },
       setState(state) {
         if (disposed || state === lastState) return;
@@ -278,6 +302,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         if (state.phase === 'ready') { selected = undefined; hovered = undefined; }
         updateHighlights();
         updateHint();
+        renderer!.shadowMap.needsUpdate = true;
         cameraDirty = true;
       },
       render() {

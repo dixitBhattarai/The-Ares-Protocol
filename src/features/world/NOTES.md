@@ -54,3 +54,42 @@ Original baseline: `710e015`. Continuation baseline: checked main `097f63f`, bro
 - Live browser checks passed the actual shelter/hazard sequence, three amber beacons, report text, keyboard isolation, next-shift clearing and replay clearing. Inspected 1280px and 360px captures; the expanded report stayed within the scene. All three canvas raycasts, Enter/Space/Escape, narrow map-edge resize, three remounts, repeated disposal and injected observer-initialization failure passed without page exceptions.
 - Changed files for this milestone: `index.ts`, `models.ts`, `status.ts`, `world.css`, `world.test.ts`, and this note, all inside the world folder. No new package or public adapter changes.
 - Rohit/Genius: the current supplied report describes "heavy radiation" and protection as a certainty. World displays it verbatim; game/content owners should make the authored educational simplification explicit when revising mission copy.
+
+## Milestone 5 — surface and module polish
+
+- Replaced the flat playable-floor color with a locally generated 128px dust texture, subtle flat crater weathering, walkway guide paint, habitat roof vents/safety accents and numbered module labels. Procedural assets remain authored scenery, not NASA imagery. No packages, network assets or extra render loops.
+- Kept solid geometry inside the existing envelopes; the envelope test caught and corrected a 5mm roof-detail overshoot before commit. Flat crater decals remain clear of central paths and add no raised obstacles. Their instances and texture use existing cleanup ownership.
+- Validation on published baseline `0ec33ae`: typecheck, 25 tests and production build passed. Browser passed three real canvas picks, Enter/Space/Escape, map-edge resize, repeated disposal/remount and observer-failure cleanup. Real controller movement, reduced-motion gait, event keyboard isolation, next-shift/replay clearing also passed without page exceptions. Inspected desktop and 360px screenshots.
+- Antigravity owns ongoing main integration. This task authors only world files and will publish its feature branch for that coordinator; it does not merge or push main. A combined six-feature release still needs validation after the other handoffs are integrated.
+
+## Milestone 6 — embedded report bounds
+
+- Event report width and scroll height now follow the actual world host, so a narrow embedded game panel cannot size its popup to the whole browser. Full supplied text remains available by scrolling; no truncation or simulation change.
+- Browser verified a long supplied report inside a 240x220 host on a 1280px browser: all bounds stayed within the host, scrolling worked and full text was retained. Typecheck, 25 tests and production build passed on the world continuation baseline.
+
+## Integrated follow-up — published main cd1b370
+
+- Updated this personal feature branch from Antigravity's published main, preserving the other owners' commits without editing their files. This supplies the new HUD/UI/grounded controller. The latest HUD uses watch <=40 (changed from its earlier <=45); world presentation and its boundary test now match that integrated threshold.
+- Combined browser passed station selection, pre-hazard warning, sheltered win, unprepared loss, pause/resume, both debrief screens and replay reserve/event reset. The new physics drives the astronaut gait/shadow correctly; idle/pause and reduced-motion checks passed. Desktop and 360px captures inspected; no horizontal overflow or page exceptions. Final typecheck, all 56 tests and production build passed after the threshold adjustment. The production preview also passed the full warning/hazard/win/loss/pause/replay flow at desktop and 360px with no page exceptions.
+- Current cross-owner blocker: Antigravity's merge log records the Genius mission merge stopped by `game.test.ts:78` expecting "imminent" while the mission supplies an active storm notice. Rohit owns that fix. The six-event NASA mission pack is not in this tested baseline; no claim that it has passed integration.
+- Rohit/UI layout request remains: the stacked desktop HUD, scene and decision panels require scrolling between reserves and choices at 1280x960. Consider a shared app grid to keep those visible together. World stays within its host and does not edit shell layout.
+
+## Milestone 7 — scene art direction
+
+- Reworked lighting/exposure and enabled one 1024px directional shadow map. Shadows refresh on pose/gait/state changes instead of recalculating on idle frames; shadow GPU targets are explicitly disposed. No extra animation loop, backend, package or downloaded asset.
+- Added softened module edges, an arched glazed greenhouse with ribs, deep-blue solar cells, circular equipment pads and darker connecting paths. Ground remains a flat box at Y=0; rounded geometry is limited to presentation objects. Existing station envelopes and public adapter are unchanged. Camera fits the base more closely while retaining tested map-edge safety.
+- Full typecheck, 56 tests and production build pass. Browser passed canvas picking for all three modules, keyboard selection, narrow map-edge resize, repeated remount/dispose and injected observer failure. Real walking, neutral/pause/reduced-motion gait and shadow alignment passed; an initial sampling-race failure was corrected in the temporary browser check by waiting for both movement and gait. No production test hook added.
+
+## Temporary shared-layout handoff — authorized by Himamshu, 14 Nov 2026
+
+- Himamshu explicitly approved: "Redesign the full page too; I'll coordinate with Rohit." This transfers the layout work in `src/App.vue` and `src/styles.css` for this milestone only. Rohit retains game/App engineering ownership afterwards. No HUD/UI/physics feature files, contracts, manifests or lockfiles are authored here.
+- The next separate commit contains the shared dashboard layout. Antigravity remains merge coordinator; no main checkout edits or pushes are performed by this task. Review both world and layout commits together before integration.
+
+## Milestone 8 — mission-control dashboard
+
+- Replaced the stacked desktop page with a full-height dashboard: compact reserve strip, large persistent surface view, independently scrolling decision desk, planet brand mark and clear header launch action. Below 1000px it stacks into a normal scrolling page; no fixed-height mobile scroll trap.
+- Changes outside world are limited to the explicitly authorized `src/App.vue` and `src/styles.css`. Layout-scoped overrides compose existing HUD/UI components; Rohit/UI owners should review those selectors if they rename component classes. Public props/emits, simulation rules, dependencies and the single animation loop are unchanged.
+- Each state transition returns the decision desk to its heading so the next shift's warning is visible. Focus inside the desk clears/pauses controller input and permits native keyboard scrolling; leaving it resumes input only while running. Key-up still reaches the controller so held keys can clear.
+- Final typecheck, all 56 tests and production build passed. Browser passed header launch, keyboard desk scrolling, transition scroll reset, world selection, pre-hazard warning, sheltered win, unprepared loss, pause/resume and both replay/debrief flows. Checked 360, 1024, 1280 and 1600px widths without horizontal overflow; desktop scene/desk stayed within the viewport. Production preview passed the mission flow. Forced WebGL failure retained an operable start and decision flow. Screenshots inspected; no page exceptions in normal gameplay.
+- Previous desktop layout request above is addressed by this authorized handoff. NASA mission integration blocker remains with Rohit/Genius/Antigravity. GPU performance was not benchmarked on a second laptop; existing Three/Rapier chunk-size warning remains.
+
