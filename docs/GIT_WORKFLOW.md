@@ -4,7 +4,7 @@ Git commits are ordered on a branch. Avoid unrelated work depending on another f
 
 ## Publish one baseline
 
-Himamshu coordinates publication of the verified scaffold commit before everyone starts; pushing still requires explicit authorization. A local commit is not published until pushed. Everyone starts from the same shared scaffold commit, never another person's feature branch.
+Himamshu coordinates publication of the verified scaffold commit before everyone starts. His 14 Nov instruction authorizes normal pushes of tested feature milestones and verified coordination/main work to this repository's `origin`; no repeated permission request is needed within that scope. A local commit is not published until pushed. Everyone starts from the same shared scaffold commit, never another person's feature branch.
 
 Separate computers: clone normally, run `git fetch origin`, then `git switch -c feat/<name>-<scope> origin/main` with your exact branch below. Run `npm ci` in that clone.
 
@@ -39,7 +39,20 @@ git commit -m "feat(hud): add readable resource warnings"
 
 Inspect the staged diff: no other owner's paths, secrets, dependencies or generated builds. Don't use `git add .`, `git add -A`, or `git commit -am`. Don't auto-stash/reset others' work. Fix owned failures, record unrelated failures with evidence and report blockers. Don't claim failed checks passed. Use fix commits after published milestones; no rewriting shared history or empty commits to meet a count.
 
-Rohit also stages explicit paths: game folder and individually listed engineering files. Never bundle another person's changes. Update your own `NOTES.md`; include completed behavior, actual checks, limits and API requests. **Every owner hands branch/hash/paths/checks to Himamshu for merging.** Engineering/API requests also go to Rohit. Feature-branch pushes require existing authorization; committing is required, publishing is separate. An owner on another computer must publish their authorized branch before Himamshu can fetch it; worktree folders themselves are not uploaded.
+Rohit also stages explicit paths: game folder and individually listed engineering files. Never bundle another person's changes. Update your own `NOTES.md`; include completed behavior, actual checks, limits and API requests. **Every owner hands branch/hash/paths/checks to Himamshu for merging.** Engineering/API requests also go to Rohit. Commit and push your tested feature milestone under the standing authorization above. An owner on another computer must publish their branch before Himamshu can fetch it; worktree folders themselves are not uploaded.
+
+After committing, publish only your named feature branch (example for Saurav):
+
+```powershell
+git fetch origin --prune
+git push -u origin feat/saurav-hud
+```
+
+Inspect any remote updates/divergence before pushing. Do not force a push or push all local branches indiscriminately. Fetch/check at task start, before each merge/push and periodically while working. A 30-minute follow-up has been requested through the hackathon deadline; its actual setup/status is recorded in `MERGE_LOG.md`.
+
+## Commit visibility and authorship
+
+Pushed commits appear in that branch's GitHub history. Merging with `--no-ff` preserves the individual feature commits and their author metadata in main's history. The merge commit is additional; it doesn't replace everyone else's commits. Don't squash/rebase/force-push teammates' published history. Profile attribution uses the commit author's configured email associated with their GitHub account; the person pushing or merging doesn't become the author of the original feature commits. See [GitHub's commit email documentation](https://docs.github.com/en/account-and-profile/how-tos/email-preferences/setting-your-commit-email-address).
 
 ## Himamshu merges serially
 

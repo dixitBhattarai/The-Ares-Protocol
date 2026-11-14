@@ -4,6 +4,8 @@ Publish the scaffold first. Give each person a separate clone or worktree as des
 
 **Himamshu now owns all merges into main.** Rohit owns app engineering, not the merge queue. Every feature agent hands a tested branch to Himamshu. For a separate merge task, use [MERGE_COORDINATOR_PROMPT.md](MERGE_COORDINATOR_PROMPT.md); it also contains a short correction to paste into chats already using the old prompts. No feature prompt below authorizes merging into main.
 
+Publication update, 14 Nov: commit each coherent tested milestone and push your own feature branch to origin. Himamshu has authorized those normal pushes; fetch/check remote updates first and stop on divergence. Nobody commits other owners' unfinished files or rewrites published author history. Main remains the coordinator's responsibility. See `GIT_WORKFLOW.md` for commands and commit attribution.
+
 ## Himamshu — world
 
 ```text

@@ -48,6 +48,12 @@ Every role starts from the same published scaffold commit on `main`, never a tea
 
 Feature ownership controls authored edits. A coordinator's Git merge can include all owners' already committed files; it does not authorize rewriting their features or changing Rohit's engineering files independently.
 
+### Regular commits, remote checks and publication
+
+Himamshu authorized regular commits, checks of teammates' published work and pushes on 14 November 2026. Commit each coherent tested change; don't wait until the end of the hackathon or create a commit for every keystroke. Feature owners push their tested feature branches to `origin` after milestones. Himamshu may push reviewed, already committed handoffs and verified coordination/main commits. This standing authorization covers normal pushes to this repository; it does not authorize force-pushes, changing remotes, impersonating authors, deployment or automatic merges.
+
+Fetch `origin` at task start, before integration/publication and periodically during active work; compare branch tips and inspect new changes instead of blindly pulling them into a feature branch. Scheduled checks are requested every 30 minutes through 15 Nov 2026, 11:59 pm Asia/Katmandu. An agent cannot see unpushed work on another computer. Never commit someone else's dirty files merely to publish them. Verify checks/ownership and preserve original commit authors. Only the coordinator publishes main; stop on divergence and report it instead of forcing a push.
+
 ## Definition of done
 
 1. Assigned acceptance criteria work through the documented API and within owned paths.
