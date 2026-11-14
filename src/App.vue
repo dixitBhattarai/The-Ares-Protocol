@@ -6,6 +6,8 @@ import { createInitialState, getCurrentEvent, reduceGame } from './features/game
 import { loadMission } from './features/missions';
 import HudOverlay from './features/hud/HudOverlay.vue';
 import MissionPanels from './features/ui/MissionPanels.vue';
+import SplashScreen from './features/ui/SplashScreen.vue';
+import LoginScreen from './features/ui/LoginScreen.vue';
 
 const mission = loadMission();
 const state = shallowRef(createInitialState(mission));
@@ -17,6 +19,16 @@ let physics: PhysicsAdapter | undefined;
 let frame = 0;
 let disposed = false;
 let accumulator = 0;
+const showSplash = ref(true);
+const showLogin = ref(false);
+function onSplashDone() {
+  showSplash.value = false;
+  showLogin.value = true;
+}
+function onLoginStart() {
+  showLogin.value = false;
+  dispatch({ type: 'START' });
+}
 function dispatch(action: GameAction) {
   state.value = reduceGame(state.value, action, mission);
   if (action.type === 'RESTART') {
@@ -71,11 +83,15 @@ onBeforeUnmount(() => {
 
 <template>
   <main>
-    <header><h1>The Ares Protocol</h1><p>Junior astronaut outpost lab · starter prototype</p></header>
-    <HudOverlay :state="state" :mission="mission" />
-    <div ref="host" class="viewport" role="img" aria-label="Mars outpost with a habitat, solar station, greenhouse and astronaut" />
-    <p class="scene-status" role="status">{{ graphicsError || stationMessage }}</p>
-    <MissionPanels :state="state" :mission="mission" :event="getCurrentEvent(mission, state)" @action="dispatch" />
+    <SplashScreen v-if="showSplash" @finished="onSplashDone" />
+    <LoginScreen v-else-if="showLogin" @start="onLoginStart" />
+    <template v-else>
+      <header><h1>The Ares Protocol</h1><p>Junior astronaut outpost lab · starter prototype</p></header>
+      <HudOverlay :state="state" :mission="mission" />
+      <div ref="host" class="viewport" role="img" aria-label="Mars outpost with a habitat, solar station, greenhouse and astronaut" />
+      <p class="scene-status" role="status">{{ graphicsError || stationMessage }}</p>
+      <MissionPanels :state="state" :mission="mission" :event="getCurrentEvent(mission, state)" @action="dispatch" />
+    </template>
   </main>
 </template>
 
