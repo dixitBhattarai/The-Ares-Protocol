@@ -17,12 +17,12 @@ Checks: `npm run typecheck`, `npm test`, `npm run build`. Inspect the production
 
 | Person | Task | Owned folder / instructions |
 | --- | --- | --- |
-| Himamshu | 3D world and presentation | [world](src/features/world/AGENTS.md) |
+| Himamshu | 3D world and separate merge coordination | [world](src/features/world/AGENTS.md) |
 | Saurav | In-game HUD and feedback | [hud](src/features/hud/AGENTS.md) |
 | Dixit | Onboarding, choices, results and sources | [ui](src/features/ui/AGENTS.md) |
 | Anshu | Physics and controls | [physics](src/features/physics/AGENTS.md) |
 | Genius | NASA evidence and mission content | [missions](src/features/missions/AGENTS.md) |
-| Rohit | Rules, integration and release | [game](src/features/game/AGENTS.md) |
+| Rohit | Rules, app wiring and release preparation | [game](src/features/game/AGENTS.md) |
 
 Give each AI its [copy-paste prompt](docs/PROMPTS.md) in its own clone/worktree. Start with [AGENTS.md](AGENTS.md), [tasks](docs/TASKS.md), [contracts](docs/CONTRACTS.md), and [branch/commit rules](docs/GIT_WORKFLOW.md).
 
@@ -38,10 +38,12 @@ src/
     physics/              # Anshu: Rapier controller, colliders, input
     missions/             # Genius: scenarios, evidence, local fixtures
     game/                 # Rohit: reducer, rules, integration tests
-docs/                     # Rohit: plan, APIs, prompts, release checklist
+docs/                     # Himamshu: coordination; Rohit: engineering guides
 ```
 
-Each feature has its own `AGENTS.md` and `NOTES.md`; add helpers/assets/tests inside it. Shared configuration and lockfile changes go through Rohit. Six independent branches start at the same scaffold commit; Rohit merges serially with checks. Commit coherent milestones using explicit owned paths. File boundaries reduce conflicts; integrated behavior still needs testing.
+Each feature has its own `AGENTS.md` and `NOTES.md`; add helpers/assets/tests inside it. Shared engineering configuration and lockfile changes go through Rohit. Six independent branches start at the same scaffold commit; **Himamshu merges serially with checks**, including Rohit's branch. Commit coherent milestones using explicit owned paths. File boundaries reduce conflicts; integrated behavior still needs testing.
+
+Himamshu's separate [merge-coordinator prompt](docs/MERGE_COORDINATOR_PROMPT.md) explains how to collect handoffs and merge in a clean main checkout. [MERGE_LOG.md](docs/MERGE_LOG.md) records actual merge results. The world feature worktree is not the merge workspace.
 
 ## Current limits and priorities
 

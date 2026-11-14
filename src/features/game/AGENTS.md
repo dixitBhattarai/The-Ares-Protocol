@@ -1,6 +1,6 @@
 # Rohit — Game Loop, Integration & Release Lead
 
-Read root `AGENTS.md` and all `docs/` coordination files. Own `src/features/game/**` and the shared integration files listed in the root ownership table. Branch: `feat/rohit-game` from the common scaffold; use a separate clean checkout for serial merges on main. Do not edit the other five feature folders on your branch.
+Read root `AGENTS.md` and all `docs/` coordination files. Own `src/features/game/**` and the engineering files listed in the root ownership table. Branch: `feat/rohit-game` in an isolated feature workspace from the common scaffold. Himamshu runs the merge queue in a separate main checkout. Do not merge team branches into main or edit the other five feature folders on your branch.
 
 ## Task
 
@@ -14,8 +14,8 @@ Build the deterministic resource/consequence loop and integrate all five feature
 - Preserve pure reducer functions. Test resource math, clamping/depletion, valid/invalid transitions, unknown choices, shelter effect, terminal behavior and full reset; simulate a winning and losing run.
 - Keep exactly one requestAnimationFrame loop. Physics is fixed-step, paused/hidden safely, capped after lag and independent from decision progression. Keep engine instances outside deep reactive state.
 - Coordinate reset/input hooks with Anshu: restart should reset resources, history, pose, input and timers. Handle async initialization/unmount and WebGL/WASM errors without breaking decision UI.
-- Only you change package manifests/lockfile, root CSS/entry, contracts, app shell, shared docs and deployment configuration. Honor other feature ownership, including their notes/guides.
-- Follow serial merge workflow and final demo checklist. No public deployment, push to main or account changes without existing authorization for that action.
+- You own package manifests/lockfile, root CSS/entry, contracts, app shell, engineering docs and deployment configuration as listed in root AGENTS.md. Himamshu owns coordination docs and merging. Honor other feature ownership, including notes/guides.
+- Hand completed branches and engineering fixes to Himamshu for serial merging; do not run merges into main yourself. Follow the final demo checklist for your app-wiring work. No public deployment, main push or account changes without authorization.
 
 ## Commit milestones
 
@@ -23,4 +23,4 @@ Build the deterministic resource/consequence loop and integrate all five feature
 2. Shell/contract composition: `feat(game): integrate team modules`.
 3. Verified release fixes/docs: `fix(game): stabilize release and demo`.
 
-Stage explicit paths, not the entire repo. Run typecheck/tests/build per milestone and after each merge. Delegate corrections to folder owners by handoff rather than rewriting their code. Update `game/NOTES.md`; report branch/hash/checks and remaining limits. Integrator role does not authorize losing someone else's changes.
+Stage explicit paths, not the entire repo. Run typecheck/tests/build per milestone. Coordinate corrections with folder owners rather than rewriting their code. Update `game/NOTES.md`; hand Himamshu branch/hash/paths/checks, limits and merge-order needs. App integration means wiring adapters in owned code; it does not mean merging branches. Do not operate Himamshu's main checkout.

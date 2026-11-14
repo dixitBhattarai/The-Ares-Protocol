@@ -1,11 +1,12 @@
 # Game and integration handoff — Rohit
 
-Status: Milestone 1 complete (`feat(game): implement consequences and debrief`); Milestone 2 & 3 in progress.
+Status: Tested milestones complete; ready for Himamshu's merge coordination.
 
 - Branch: `feat/rohit-game`
-- Owned paths: `src/features/game/**`, `src/contracts/**`, `src/App.vue`, root coordination files.
+- Owned paths: `src/features/game/**`, `src/contracts/**`, `src/App.vue`.
+- Handoff to Himamshu: branch `feat/rohit-game`, commit hashes, changed engineering paths, actual checks, app-integration details, and remaining limits. Rohit does not push or merge `main`.
 
-## Milestone 1: Consequences, Shelter Hazards & Debrief
+## Milestone 1: Consequences, Shelter Hazards & Debrief (`feat(game): implement consequences and debrief`)
 
 - Additive Contracts (`src/contracts/index.ts`):
   - `PhysicsAdapter`: added optional `reset?(pose?: Vec3): void`, `pauseInput?(): void`, `resumeInput?(): void` for coordinate/input lifecycle without breaking v1 adapters.
@@ -17,9 +18,14 @@ Status: Milestone 1 complete (`feat(game): implement consequences and debrief`);
   - Delayed consequences: supports light travel communication and food buffering across shifts.
   - Explanatory debriefs: provides constructive advice and lessons on depletion, insufficient science, and victory.
   - Pure reducer: strict immutability, clamping (0..100), terminal state guarding, and clean replay on restart.
-- Shell Integration (`src/App.vue`):
-  - Dispatches `physics?.reset?.()` on restart, and safely manages pause/resume input hooks.
-  - Fully playable button-based fallback when WebGL or WASM encounters errors.
+
+## Milestone 2: Shell & Contract Composition (`feat(game): integrate team modules`)
+
+- Shell (`src/App.vue`):
+  - Single fixed-step requestAnimationFrame loop (1/60s accumulator).
+  - Wired `world.setState`, `world.setPlayerPose`, `physics.step`, `physics.reset`, `physics.pauseInput`, and `physics.resumeInput`.
+  - Interactive station picking with educational subsystem feedback (Habitat, Solar Array, Greenhouse).
+  - Robust non-3D/WASM fallback keeping the decision UI 100% playable via HTML buttons.
 
 ## Validation
 

@@ -22,4 +22,4 @@ You own the status display, not the welcome/decision/pause/results screens (Dixi
 1. Accessible status layout: `feat(hud): add accessible reserve meters`.
 2. Change feedback/warnings: `feat(hud): explain changes and warnings`.
 
-Run typecheck/tests/build plus narrow-screen and keyboard checks. Stage only `src/features/hud`, inspect diff and commit each working milestone. Update notes; hand Rohit branch/hash/validation/limits. Ask via notes if another prop is needed; do not edit contracts/App/global CSS/packages or Dixit's UI.
+Run typecheck/tests/build plus narrow-screen and keyboard checks. Stage only `src/features/hud`, inspect diff and commit each working milestone. Update notes; hand Himamshu branch/hash/paths/validation/limits for merging. Send prop/API requests to Rohit. Do not edit contracts/App/global CSS/packages or Dixit's UI, and do not merge into main.
