@@ -157,6 +157,7 @@ export interface WorldAdapter {
   setObjective?(station: StationId | null): void;
   setActivityProgress?(progress: number): void;
   setFlightStage?(stage: FlightStage | null, progress: number): void;
+  setCabinSeatState?(state: CabinSeatState): void;
   setLaunchFlight?(snapshot: Readonly<LaunchFlightSnapshot> | null): void;
   setLandingFlight?(snapshot: Readonly<LandingFlightSnapshot> | null): void;
   setPlayerPose(pose: Vec3): void;
@@ -166,6 +167,9 @@ export interface WorldAdapter {
 }
 export type GravityBody = 'earth' | 'orbit' | 'mars';
 export type FlightStage = 'launch' | 'orbit-autopilot' | 'transfer' | 'landing' | 'touchdown';
+export type CabinSeatState = 'hidden' | 'available' | 'occupied';
+/** Position in the orbit cabin controller space, metres, Y up. */
+export const SPACECRAFT_SEAT: Readonly<Vec3> = Object.freeze({ x: 1.65, y: 0.8, z: 0.8 });
 export interface LaunchFlightSnapshot {
   altitude: number;
   verticalSpeed: number;

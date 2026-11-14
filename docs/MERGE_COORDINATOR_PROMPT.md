@@ -20,6 +20,10 @@ After each merge, run npm run typecheck, npm test, and npm run build. Record the
 
 Current local world handoff, recorded 14 Nov 2026: `feat/himamshu-world`, tip `95a03b3`, includes milestone `9fc1290`, based on `710e015`. Verify those refs when used; this is a handoff example, not an automatic instruction to merge it. The coordinator change does not merge the world feature.
 
+## Rocket cabin acceptance — 14 November
+
+When a tested branch includes the coordinated cabin handoff, verify the actual progression: launch and orbital insertion → three complete rocket-cabin minigames (no space-stage fast-forward or console-click bypass) → player reaches the marked seat → E or the accessible button buckles the player in → player remains seated and can watch the moving planetary window with idle engines → explicit transfer button → Mars landing. Confirm a nearby seat is required, no transfer starts merely from sitting, pause/hidden-tab and reduced-motion behavior freeze window drift, replay clears the state, the cabin has reduced-motion-safe zero-G visuals, and no second animation loop or mission-resource changes were introduced. Do not merge a handoff that is still untested or uncommitted.
+
 If teammates already started their AIs with an older prompt, send them:
 
 ```text

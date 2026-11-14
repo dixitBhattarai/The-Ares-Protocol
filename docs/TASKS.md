@@ -4,6 +4,10 @@ The latest user instruction supersedes the card-related acceptance below. Implem
 
 Himamshu: continuous interiors, markers and computer entry. Saurav: supplied reserve/hazard/progress feedback. Dixit: work orders, onboarding, pause and debrief. Anshu: movement/input lifecycle. Genius: NASA context/provenance, without representing authored timers as observations. Rohit: authoritative tasks/rewards/timers and shell integration. Antigravity: serial main integration.
 
+## Additive rocket flight-cabin handoff — 14 November
+
+The Earth launch → Mars flow now pauses after orbital insertion for three interactive Ares flight-cabin tasks: navigation beacon, Mars trajectory, and flight-plan communications. The player then glides to the marked pilot seat and presses E or the nearby-only seat button to buckle in. They can watch an animated panorama through the forward window with the engines idle, then explicitly choose “Begin Mars transfer” when ready; Mars landing controls remain after transfer. The space-task fast-forward path is hidden and cabin console clicks open the task deck without skipping a minigame. `SPACECRAFT_SEAT` and `WorldAdapter.setCabinSeatState` are additive. Zero-G avatar drift is a world-side visual cue; no physics movement redesign or mission-state/reward changes are part of this handoff. Validation is intentionally pending because the user asked to run it themselves.
+
 ---
 
 # Six owners, six task areas

@@ -52,7 +52,7 @@ function keyLabel(key: FlightControlKey): string {
     </template>
 
     <template v-else>
-      <p class="intro">{{ stage === 'transfer' ? 'The flight computer holds the planned course while the crew rests. This is a compressed story sequence, not real travel time.' : stage === 'orbit-autopilot' ? 'Guidance is completing orbital insertion. Watch the rocket climb; you will take over again for the Mars landing.' : 'Autopilot is lowering the lander for the final approach.' }}</p>
+      <p class="intro">{{ stage === 'transfer' ? 'The crew completed the rocket-cabin tasks and buckled into the flight seat. The flight computer holds the course. This is a compressed story sequence, not real travel time.' : stage === 'orbit-autopilot' ? 'Guidance is completing orbital insertion. Watch the rocket climb; next you will work in the flight cabin.' : 'Autopilot is lowering the lander for the final approach.' }}</p>
       <progress :value="percent" max="100" aria-label="Flight stage progress" />
       <button class="continue" type="button" :disabled="paused" @click="emit('continue')">{{ stage === 'orbit-autopilot' ? 'Continue to orbit checks' : stage === 'transfer' ? 'Begin Mars approach' : 'Finish touchdown' }}</button>
     </template>

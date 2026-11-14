@@ -45,3 +45,7 @@ These are starting links, not evidence already imported by the scaffold. Inspect
 2. Verified fixture/mapping/credits: `feat(missions): add archived NASA evidence`.
 
 Run typecheck/tests/build and content/provenance checks. Stage only `src/features/missions`, inspect staged diff and commit working milestones. Update notes; hand Himamshu branch/hash/paths/checks for merging and send requested rule changes to Rohit. Do not edit UI, game, contracts, root docs, manifests or lockfile, and do not merge into main.
+
+## Temporary rocket cabin handoff — 14 Nov
+
+This coordinated cabin presentation adds no mission-source records or NASA claims. The three cabin minigames and authored transfer timing remain game mechanics; Genius retains mission-content ownership after handoff.

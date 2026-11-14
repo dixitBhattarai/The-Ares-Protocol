@@ -35,3 +35,7 @@ Build the deterministic resource/consequence loop and integrate all five feature
 3. Verified release fixes/docs: `fix(game): stabilize release and demo`.
 
 Stage explicit paths, not the entire repo. Run typecheck/tests/build per milestone. Coordinate corrections with folder owners rather than rewriting their code. Update `game/NOTES.md`; hand Himamshu branch/hash/paths/checks, limits and merge-order needs. App integration means wiring adapters in owned code; it does not mean merging branches. Do not operate Himamshu's main checkout.
+
+## Temporary rocket cabin handoff — 14 Nov
+
+The user-authorized coordinated slice keeps the three interactive space preparation tasks mandatory, hides their fast-forward control, and gates compressed Mars transfer on the crew reaching and sitting in the flight seat. App owns proximity and the seat timer; contracts expose the additive seat position/state. This does not alter the Mars mission reducer or payouts. Rohit retains subsequent game/App/contracts ownership after handoff.

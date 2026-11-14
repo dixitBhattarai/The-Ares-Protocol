@@ -737,9 +737,13 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         if (id !== 'earth') earthOutside = false;
         if (id === 'space') expedition.interior(id);
         container.classList.toggle('ares-world--interior', Boolean(id || interior));
-        heading.childNodes[0].textContent = id === 'earth' ? 'EARTH / FLIGHT OPERATIONS' : id === 'space' ? 'ORBIT / TRANSFER CABIN' : 'ARES / OUTPOST 01';
-        subtitle.textContent = id ? 'Prepare the expedition. Complete the checks.' : 'A small base. Big decisions.';
-        hint.textContent = id ? 'WASD / arrows · walk to the numbered console screens' : 'Select a base module · WASD / arrows to walk';
+        heading.childNodes[0].textContent = id === 'earth' ? 'EARTH / FLIGHT OPERATIONS' : id === 'space' ? 'ARES / ROCKET FLIGHT CABIN' : 'ARES / OUTPOST 01';
+        subtitle.textContent = id === 'space' ? 'Zero-g crew cabin. Complete the flight tasks, then return to your seat.' : id ? 'Prepare the expedition. Complete the checks.' : 'A small base. Big decisions.';
+        hint.textContent = id === 'space' ? 'WASD / arrows · drift between the three flight stations' : id ? 'WASD / arrows · walk to the numbered console screens' : 'Select a base module · WASD / arrows to walk';
+      },
+      setCabinSeatState(state) {
+        if (disposed) return;
+        expedition.setCabinSeatState(state);
       },
       setActivityProgress(progress) {
         if (disposed) return;
