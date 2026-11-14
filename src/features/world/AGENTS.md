@@ -40,3 +40,9 @@ Keep `createWorld(host, onInteract): WorldAdapter` and all adapter methods. Use 
 2. Status/picking/polish and cleanup: `feat(world): show module status and selection`.
 
 Run typecheck/tests/build and relevant world checks. Stage only `src/features/world`, inspect staged diff, commit each working milestone. Update notes and hand off branch/hash/checks/limits. Do not edit App, contracts, manifests, global CSS or a teammate's folder.
+
+## Current world interaction contract — 14 November
+
+The latest user scope is world files plus necessary App composition. Jobs start from the five physical machines. Exported world-local WorkWorldAdapter extends the existing adapter with setInteractables(list), onInteract(handler) and setPrompt(text); App supplies proximity/phase eligibility and dispatches START_TASK. The original createWorld(host, stationCallback) remains compatible for station selection. Do not award reserves/science/protection or import game internals here. Do not reintroduce TaskBoard or a job list. The accessible fallback cycles one focused machine at a time.
+
+Keep machines on existing desk/planter collider footprints and read STATIONS. Keep hover and short press feedback, one nearest-object marker and one keyboard/touch/screen-reader prompt. Preserve pause/reduced-motion, single App-owned frame loop, GPU/listener teardown, Mixamo/NASA fallback and existing credits. Space Man by BrainMesh is a CC BY 4.0 static solar-station suit exhibit; do not silently replace the animated player with an unrigged mesh. shell.css is scoped App-composition styling colocated in world; do not change another owner's folder for visual polish.

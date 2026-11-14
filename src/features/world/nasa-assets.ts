@@ -15,6 +15,7 @@ export const NASA_ASSETS = {
   moon: new URL('./assets/moon.glb', import.meta.url).href,
   olympus: new URL('./assets/olympus-mons.glb', import.meta.url).href,
   warehouse: new URL('./assets/warehouse.glb', import.meta.url).href,
+  spaceMan: new URL('./assets/space-man.glb', import.meta.url).href,
 };
 
 export function createNasaLoader(resources: WorldResources) {

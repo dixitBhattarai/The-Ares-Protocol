@@ -68,3 +68,13 @@ Original team-supplied Downloads files:
 - moon.glb: d4775243b50c9d18faa34bfa7276b9f7947fb6662e5898d8589e67db0b3436ac
 - mars_-_olympus_mons.glb: 4997e01da55085c03b0f28e1e9d526f08b7f45ad2f9a45d49fa60f6311c15d66
 - warehouse_fbx_model_free.glb: 6df746483419b9f027c270bf36278e6cfb763f307083ae92f9857c1f9ab87241
+
+
+## BrainMesh Space Man suit exhibit — 14 Nov 2026
+
+“Space Man” by BrainMesh, generated with Sloyd, licensed under CC BY 4.0. Source: https://www.sloyd.ai/free-3d-models/model/space-man-wh63ab6b . License: https://creativecommons.org/licenses/by/4.0/ . Published 18 Aug 2025; source/license verified 14 Nov 2026. Team-supplied wh63ab6b.glb contains a static mesh, no skeleton or animation clips.
+
+Optimized in a separate Blender process: textures capped at 1024, JPEG quality 85; source 5,381,988 bytes, game asset 470,152 bytes. Model scaled to 1.55m and displayed in the solar station's existing equipment collider footprint. It is a fictional suit exhibit, not flight-certified equipment or a NASA-provided model. The animated player and Mixamo → NASA → authored fallback remain unchanged. Editable source saved locally in ignored output/playwright/space-man/space-man.blend; rendered preview inspected.
+
+- Source SHA-256: 2efcc2938d9fe8024d4651a368afbd0c08d0d7becc995842628f586b022bf31f
+- Output SHA-256: feed1392cdfec47fe7df8e07f4e16eeaa98012cc1ef5dae4d6f4e737cde7434c

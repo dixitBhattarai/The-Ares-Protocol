@@ -12,8 +12,10 @@ import { createExpeditionViews } from './expedition';
 import { createNasaLoader } from './nasa-assets';
 import { createFollowCamera } from './follow-camera';
 import { createEarthCampus } from './earth';
+import { createMarsAtmosphere } from './atmosphere';
+import { createWorkInteraction, createWorkPrompt, WORK_MACHINES, type WorkWorldAdapter, type MachineId } from './interactables';
 
-export function createWorld(host: HTMLElement, onInteract: (station: StationId) => void): WorldAdapter {
+export function createWorld(host: HTMLElement, onInteract: (station: StationId) => void): WorldAdapter & WorkWorldAdapter {
   const resources = new WorldResources();
   const container = document.createElement('div');
   container.className = 'ares-world';
@@ -49,10 +51,10 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     container.appendChild(renderer.domElement);
     host.appendChild(container);
     scene.background = new THREE.Color('#76635f');
-    scene.fog = new THREE.Fog('#76635f', 40, 95);
+    const atmosphere=createMarsAtmosphere(scene,resources);cleanups.push(()=>atmosphere.dispose());
     scene.add(new THREE.HemisphereLight('#d7e8ef', '#59423a', 1.8));
     const sun = new THREE.DirectionalLight('#ffe1b9', 3);
-    sun.position.set(-10, 16, 8);
+    sun.position.set(-18,10,-35);sun.shadow.radius=3;
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
     Object.assign(sun.shadow.camera, { left: -25, right: 25, top: 25, bottom: -25, near: .5, far: 65 });
@@ -156,6 +158,9 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     const dismissTask = () => { taskNoticeRemaining=0;taskToast.hidden=true; };
     dismissTaskToast.addEventListener('click',dismissTask); cleanups.push(()=>dismissTaskToast.removeEventListener('click',dismissTask));
     taskToast.append(taskToastText,dismissTaskToast);container.appendChild(taskToast);
+    const interaction=createWorkInteraction();cleanups.push(()=>interaction.dispose());
+    const workPrompt=createWorkPrompt(container,()=>{const item=interaction.list().find(item=>item.id===hoveredMachine)??interaction.list()[0];if(item)activateWork(item.id);});cleanups.push(()=>workPrompt.dispose());
+    let hoveredMachine:MachineId|undefined;
     const stations = STATIONS.map(station => {
       const visual = createStation(station.id, kit, resources);
       visual.group.position.copy(station.position);
@@ -201,14 +206,35 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       container.appendChild(label);
       return { ...station, visual, label, readout, taskBadge };
     });
+    const machineGroups=WORK_MACHINES.map(item=>scene.getObjectByName('work-'+item.id)!).filter(Boolean);
+    const markerMaterial=resources.material(new THREE.SpriteMaterial({color:'#fff0bd',transparent:true,depthTest:false,sizeAttenuation:false}));
+    const machineMarker=new THREE.Sprite(markerMaterial);machineMarker.name='nearest-work-hint';machineMarker.scale.set(.14,.035,1);machineMarker.visible=false;scene.add(machineMarker);
+    let markerId='';
+    const markerCanvas=document.createElement('canvas');markerCanvas.width=256;markerCanvas.height=64;
+    markerMaterial.map=resources.texture(new THREE.CanvasTexture(markerCanvas));markerMaterial.map.colorSpace=THREE.SRGBColorSpace;
+    function updateWorkVisuals(){
+      const valid=interaction.list();
+      for(const group of machineGroups){const id=group.userData.machineId as MachineId;group.userData.usable=valid.some(item=>item.id===id);const material=group.userData.highlightMaterial as THREE.MeshStandardMaterial;material.emissiveIntensity=group.userData.usable?(hoveredMachine===id?1.8:.9):.3;}
+      const nearest=valid.find(item=>item.id===hoveredMachine)??valid[0];machineMarker.visible=!!nearest&&cameraMode==='follow';workPrompt.setEnabled(!!nearest);
+      if(nearest){machineMarker.position.set(nearest.position.x,2.05,nearest.position.z);
+        if(markerId!==nearest.id){markerId=nearest.id;const c=markerCanvas.getContext('2d');if(c){c.fillStyle='#143340';c.fillRect(0,0,256,64);c.strokeStyle='#ffe3a0';c.lineWidth=3;c.strokeRect(2,2,252,60);c.fillStyle='#fff4d0';c.font='bold 26px sans-serif';c.textAlign='center';c.fillText('E · '+nearest.id.toUpperCase(),128,42);markerMaterial.map!.needsUpdate=true;}}
+      }
+    }
+    const suitExhibit=new THREE.Group();suitExhibit.name='space-man-suit-exhibit';suitExhibit.position.set(2,-1,.2);stations.find(s=>s.id==='solar')!.visual.group.add(suitExhibit);
+    void nasa.attach(suitExhibit,'spaceMan',1.55);
+    function activateWork(id:MachineId){
+      if(!interaction.activate(id))return false;
+      const group=machineGroups.find(group=>group.userData.machineId===id);if(group)group.userData.pressRemaining=.18;
+      workPrompt.setEnabled(false);return true;
+    }
     function updateHint(): void {
       hint.textContent = selected
         ? `${STATION_NAMES[selected]} selected · ${lastState ? getStationStatus(selected, lastState).description : 'Use the mission buttons to make decisions.'}`
-        : 'Select a base module · WASD / arrows to walk after starting';
+        : 'WASD to walk · Drag to look · E to use';
     }
     function updateHighlights(): void {
       stations.forEach(station => {
-        station.visual.selection.visible = station.id === selected || station.id === hovered || Boolean(eventNotice);
+        station.visual.selection.visible = station.id === selected || station.id === hovered;
         station.visual.selection.material.color.set(station.id === selected ? '#ffe0a2' : station.id === hovered ? '#e5f6ff' : '#efbd7d');
         station.label.setAttribute('aria-pressed', String(station.id === selected));
       });
@@ -236,8 +262,21 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       return pickStationAt(pointer, pickCamera(), stationGroups, raycaster);
     };
     const stationGroups = stations.map(station => station.visual.group);
+    const machineAt=(event:MouseEvent|PointerEvent):MachineId|undefined=>{
+      const rect=renderer!.domElement.getBoundingClientRect();pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
+      scene.updateMatrixWorld(true);raycaster.setFromCamera(pointer,pickCamera());
+      const hit=raycaster.intersectObjects(stationGroups,true).find(hit=>{let object:THREE.Object3D|null=hit.object;while(object){if(!object.visible)return false;object=object.parent;}return true;});
+      const id=hit?.object.userData.machineId as MachineId|undefined;
+      return interaction.list().some(item=>item.id===id)?id:undefined;
+    };
+    const workKey=(event:KeyboardEvent)=>{
+      if(event.code!=='KeyE'||event.repeat||event.defaultPrevented||(event.target as HTMLElement|null)?.closest('input,textarea,select,[contenteditable],.command-panel'))return;
+      const nearest=interaction.list().find(item=>item.id===hoveredMachine)??interaction.list()[0];if(nearest&&activateWork(nearest.id)){event.preventDefault();workPrompt.setEnabled(false);}
+    };
+    window.addEventListener('keydown',workKey);cleanups.push(()=>window.removeEventListener('keydown',workKey));
     const click = (event: MouseEvent) => {
       if (dragged) { dragged = false; return; }
+      if(interior&&!level){const id=machineAt(event);if(id){activateWork(id);}return;}
       if (interior || level) {
         const rect = renderer!.domElement.getBoundingClientRect();
         pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1);
@@ -254,6 +293,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       const id = stationAt(event); if (id) selectStation(id);
     };
     const move = (event: PointerEvent) => {
+      if(interior&&!level){hoveredMachine=machineAt(event);renderer!.domElement.style.cursor=hoveredMachine?'pointer':'';updateWorkVisuals();return;}
       if (interior || level) return;
       const id = stationAt(event);
       if (id === hovered) return;
@@ -261,7 +301,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       renderer!.domElement.style.cursor = id ? 'pointer' : '';
       updateHighlights();
     };
-    const leave = () => { hovered = undefined; renderer!.domElement.style.cursor = ''; updateHighlights(); };
+    const leave = () => { hoveredMachine=undefined;updateWorkVisuals();hovered = undefined; renderer!.domElement.style.cursor = ''; updateHighlights(); };
     const key = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { selected = undefined; hovered = undefined; updateHighlights(); updateHint(); }
     };
@@ -295,8 +335,11 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       [document.createElement('button'),'Zoom out',()=>follow.zoom(false)],
       [document.createElement('button'),'Reset camera',()=>follow.reset()],
     ];
+    const cameraMenu=document.createElement('details');const cameraSummary=document.createElement('summary');cameraSummary.textContent='Camera';cameraMenu.appendChild(cameraSummary);
+    const cameraKey=(event:KeyboardEvent)=>event.stopPropagation();cameraMenu.addEventListener('keydown',cameraKey);cleanups.push(()=>cameraMenu.removeEventListener('keydown',cameraKey));
+    const cameraOptions=document.createElement('div');cameraOptions.className='ares-world__camera-options';cameraMenu.appendChild(cameraOptions);cameraBar.appendChild(cameraMenu);
     for(const [button,label,action] of buttons) {
-      button.type='button';button.textContent=label;button.setAttribute('aria-label',label);button.addEventListener('click',action);cameraBar.appendChild(button);cleanups.push(()=>button.removeEventListener('click',action));
+      button.type='button';button.textContent=label;button.setAttribute('aria-label',label);button.addEventListener('click',action);cameraOptions.appendChild(button);cleanups.push(()=>button.removeEventListener('click',action));
     }
     container.appendChild(cameraBar);
     const resize = () => {
@@ -344,6 +387,9 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     updateCamera();
     let previousAnimationTime = performance.now();
     return {
+      setInteractables(list){if(disposed)return;interaction.setInteractables(list);updateWorkVisuals();},
+      onInteract(handler){if(!disposed)interaction.onInteract(handler);},
+      setPrompt(text){if(!disposed){const hover=interaction.list().find(item=>item.id===hoveredMachine);workPrompt.setPrompt(hover?'E · '+hover.label:text);}},
       setAvailableTasks(ids, offerId) {
         if (disposed) return;
         const key=ids.join(',');
@@ -357,7 +403,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
           });
         }
         if(ids.length && offerId!==taskOfferId) {
-          taskToastText.textContent=`New station jobs: ${ids.map(id=>STATION_NAMES[id]).join(', ')}. Look for ! markers.`;
+          taskToastText.textContent='Find a glowing machine. Press E to work.';
           taskNoticeRemaining=5;
         }
         taskOfferId=offerId;
@@ -461,7 +507,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         const delta = (now - previousAnimationTime) / 1000;
         previousAnimationTime = now;
         const active = !motionPaused && !document.hidden && lastState?.phase !== 'paused' && lastState?.phase !== 'won' && lastState?.phase !== 'lost';
-        container.classList.toggle('ares-world--paused',!active);
+        container.classList.toggle('ares-world--paused',!active);atmosphere.update(delta,active,reduceMotion);
+        machineGroups.forEach(group=>{let remaining=group.userData.pressRemaining??0;if(reduceMotion)remaining=0;else if(active)remaining=Math.max(0,remaining-Math.min(.05,delta));group.userData.pressRemaining=remaining;group.scale.setScalar(1-Math.sin(remaining/.18*Math.PI)*.025);});
         if(active)taskNoticeRemaining=Math.max(0,taskNoticeRemaining-Math.min(.1,delta));
         taskToast.hidden=taskNoticeRemaining<=0 || Boolean(level || interior) || journey!==null;
         follow.update(playerPose, width / height, level==='earth'?'earth':level==='space'?'room':'mars', cameraMode === 'follow' && journey === null);

@@ -1,0 +1,32 @@
+/* App composition: every gameplay surface is an overlay within the world viewport. */
+.ares-app{position:fixed;inset:0;max-width:none;padding:0;margin:0;overflow:hidden}
+.mission-layout{position:absolute;inset:0;height:100%;min-height:0;display:block}
+.world-panel{position:absolute;inset:0;border:0;border-radius:0;display:block;height:100%;box-shadow:none}
+.viewport{position:absolute;inset:0;width:100%;height:100%;min-height:0;overflow:hidden}
+.app-header{position:absolute;z-index:12;right:16px;top:14px;height:auto;min-height:0;padding:0;gap:0;pointer-events:none}
+.app-header .brand,.prototype-label{display:none}
+.header-controls{width:auto;gap:6px;pointer-events:auto}
+.header-controls button{min-height:44px;max-width:160px;background:#142b38d9;border:1px solid #b6d9e65c;backdrop-filter:blur(12px)}
+.hud-container{position:absolute;inset:0;pointer-events:none}
+.surface-header{position:absolute;right:16px;top:70px;padding:0;border:0;z-index:12}
+.surface-header>span,.surface-actions>span,.surface-footer,.scene-status{display:none}
+.scene-status.graphics-error{display:block;position:absolute;top:120px;left:16px;right:16px;z-index:8;padding:12px;border-radius:12px;background:#173442ed;color:#fff1cf}
+.deck-toggle-btn{min-height:44px;padding:9px 14px;background:#142b38d9;backdrop-filter:blur(12px)}
+.task-warning{position:absolute;right:16px;bottom:88px;width:260px;max-width:calc(100% - 32px);z-index:7;box-sizing:border-box;border:1px solid #eed1a566;border-radius:14px;background:#182d39d4;backdrop-filter:blur(12px);padding:10px 14px;font-size:12px}
+.task-warning p:nth-child(2){display:none}
+.task-warning button{min-height:40px;background:#a7e6d6;color:#123440}
+.world-panel>:deep(.door-panel){position:absolute;right:16px;bottom:220px;width:270px;max-width:calc(100% - 32px);z-index:7;box-sizing:border-box;border:1px solid #a8dce66b;border-radius:14px;background:#18323edb;backdrop-filter:blur(12px);padding:10px 14px}
+.world-panel>:deep(.door-panel .tip){display:none}
+.in-viewport-deck{position:absolute;top:128px;right:16px;bottom:24px;width:390px;max-width:calc(100% - 32px);max-height:none;margin:0;z-index:15;background:linear-gradient(135deg,#183b47ed,#142632f2);border:1px solid #b5dfe96b;border-radius:18px;backdrop-filter:blur(18px);box-shadow:0 18px 70px #05121e6b}
+.command-heading{background:#193641e8;padding:12px 16px;min-height:32px}
+.command-heading button{min-width:44px;min-height:44px}
+.exploration-info{padding:18px;color:#e4f6f1;font-size:14px;line-height:1.6}
+.exploration-info h2{font-size:22px}
+.exploration-info button{min-height:44px;margin:5px;padding:10px;background:#b6f0d9;color:#183c43;border-radius:10px}
+.arrival-overlay{top:30%;left:15%;right:15%;background:#16303ad9;border-radius:18px;backdrop-filter:blur(12px);z-index:8}
+@media(max-width:600px){
+ .app-header{right:10px;top:10px}.header-controls button{font-size:10px;padding:7px 9px;max-width:135px}.surface-header{right:10px;top:112px}.surface-actions{gap:0}
+ .task-warning{right:10px;bottom:78px;width:174px;padding:8px 10px;font-size:10px;line-height:1.4}.task-warning button{font-size:10px;min-height:36px;padding:6px 8px}
+ .world-panel>:deep(.door-panel){right:10px;bottom:246px;width:174px;font-size:10px;padding:8px;gap:3px}.world-panel>:deep(.door-panel strong){font-size:11px}.world-panel>:deep(.door-panel p){font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.world-panel>:deep(.door-panel button){min-height:40px;font-size:10px;padding:6px}.world-panel>:deep(.door-panel details){width:100%}
+ .in-viewport-deck{inset:auto 8px 8px;top:25%;width:auto;max-width:none;max-height:none}.arrival-overlay{left:8px;right:8px;top:28%;padding:14px}
+}

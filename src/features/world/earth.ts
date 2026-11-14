@@ -15,7 +15,7 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   kit.flatBox(scene, path, [15,.025,2], [0,.005,3]);
   kit.flatBox(scene, path, [2,.025,12], [0,.005,-1]);
   const stations = STATIONS.map(station => {
-    const visual = createStation(station.id,kit,resources); visual.group.position.copy(station.position); scene.add(visual.group); return {...station,visual};
+    const visual = createStation(station.id,kit,resources,false); visual.group.position.copy(station.position); scene.add(visual.group); return {...station,visual};
   });
   const lab = stations.find(station=>station.id==='habitat')!;
   lab.visual.door.setOpen(true); lab.visual.door.update(0,true);

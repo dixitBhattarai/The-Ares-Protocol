@@ -27,7 +27,7 @@ export function createFollowCamera(canvas: HTMLCanvasElement) {
       target.set(pose.x, pose.y + .45, pose.z);
       if (context !== nextContext) {
         context = nextContext;
-        camera.position.copy(target).add(new THREE.Vector3(0, nextContext === 'room' ? 3.5 : 4.2, nextContext === 'room' ? 5 : 7));
+        camera.position.copy(target).add(new THREE.Vector3(0, nextContext === 'room' ? 3.5 : 2.5, nextContext === 'room' ? 5 : 8));
         controls.target.copy(target);
         controls.maxDistance = nextContext === 'room' ? 9 : 18;
       } else {
