@@ -14,7 +14,7 @@ import SplashScreen from './features/ui/SplashScreen.vue';
 import LoginScreen from './features/ui/LoginScreen.vue';
 import ActivityPanel from './features/world/ActivityPanel.vue';
 import { advanceActivity, type Activity } from './features/game/activities';
-import PreparationPanel from './features/world/PreparationPanel.vue';
+import VisualPreflightMinigame from './features/game/VisualPreflightMinigame.vue';
 import AssetCredits from './features/world/AssetCredits.vue';
 import DoorPanel from './features/world/DoorPanel.vue';
 import { doorApproach, doorwayOccupied, insideStation, nearbyDoor } from './features/world/doors';
@@ -207,6 +207,20 @@ function operatePreparation(control: string) {
     preparation.value = null; physics?.exitInterior?.(); world?.setLevel?.(null); world?.setActivityProgress?.(0);
     if (level === 'earth') beginLaunchSequence();
     else beginMarsTransfer();
+  }
+}
+
+function handleVisualMinigameControl(control: string) {
+  remoteConsole = true;
+  operatePreparation(control);
+}
+
+function skipPreparation() {
+  if (!preparation.value) return;
+  const level = preparation.value;
+  remoteConsole = true;
+  for (let i = preparationProgress.value; i < PREPARATION[level].steps.length; i++) {
+    operatePreparation(PREPARATION[level].steps[i]);
   }
 }
 
@@ -728,7 +742,15 @@ onBeforeUnmount(() => {
           <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
             {{ state.upcomingHazardNotice }}
           </p>
-          <PreparationPanel v-if="preparation" :level="preparation" :outdoors="earthOutside" :progress="preparationProgress" :feedback="preparationFeedback" :near-console="nearConsole" :paused="preparationPaused" @enter-lab="enterEarthLab()" @outside="leaveEarthLab" @control="operatePreparation" @remote="remoteConsole = true; preparationFeedback = 'Remote console enabled.'" @pause="togglePreparationPause" />
+          <VisualPreflightMinigame
+            v-if="preparation"
+            :level="preparation"
+            :progress="preparationProgress"
+            :paused="preparationPaused"
+            @control="handleVisualMinigameControl"
+            @pause="togglePreparationPause"
+            @skip="skipPreparation"
+          />
           <SpaceflightPanel v-else-if="flightStage" :stage="flightStage" :progress="flightProgress ?? 0" :step="flightControlProgress" :feedback="flightFeedback" :telemetry="flightTelemetry" :paused="preparationPaused" :controls="flightStage === 'landing' ? FLIGHT_CONTROL_STEPS.landing : FLIGHT_CONTROL_STEPS.launch" @control="operateFlightControl" @pause="togglePreparationPause" @continue="finishArrival" />
           <section v-else-if="state.phase==='running'" class="exploration-info" aria-label="Exploration information">
             <h2>Find a glowing machine</h2><p>Walk inside a station. Press E near a machine or click it to work.</p><p>{{ state.turn }} / {{ mission.maxTurns }} jobs finished. Watch the hazard forecast.</p>
