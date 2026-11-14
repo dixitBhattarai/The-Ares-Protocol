@@ -121,6 +121,9 @@ export type GameAction =
   | { type: 'RESTART' }
   | { type: 'CHOOSE'; choiceId: string };
 export interface WorldAdapter {
+  setDoorState?(station: StationId, open: boolean): void;
+  isDoorOpen?(station: StationId): boolean;
+  setMotionPaused?(paused: boolean): void;
   setLevel?(level: 'earth' | 'space' | null): void;
   setConsoleHandler?(handler: ((index: number) => void) | null): void;
   setInterior?(station: StationId | null): void;

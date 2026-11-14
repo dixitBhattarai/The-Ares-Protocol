@@ -43,6 +43,14 @@ Metres, Y up, ground top Y=0. Surface X/Z -20..20; astronaut clamped to -18..18.
 - `solar`: `(5, 1, 0)`
 - `greenhouse`: `(0, 1, -6)`
 
-## Scientific Evidence & Provenance
+## Additive world door/playback hooks — 14 Nov
+
+Himamshu's user-requested door slice adds optional `setDoorState(station, open)`, `isDoorOpen(station)` and `setMotionPaused(paused)` methods to WorldAdapter. Shell owns each door's intent; world renders it and reports fully-open readiness after its 0.4-second slide (instant for reduced motion). Closed or still-opening doors cannot trigger entry. Pausing freezes door and character animations, including Earth/orbit preparation. No second loop is introduced.
+
+Existing `setInterior`, `setLevel`, `setJourney`, `setConsoleHandler`, `setObjective`, `setActivityProgress` and physics `enterInterior`/`exitInterior` remain compatible. This implementation uses cutaway room portals, not seamless building collision geometry. Exterior doors face +Z. Approach/return is station `(x, .8, z + 2.65)`; the entry trigger is within .48m of door center X and relative Z 1.75..2.02, before the unchanged station collider face + capsule radius. Indoor exit is centered X within .55m and Z >= 2.4. Return uses the safe approach point to prevent immediate re-entry. No task or resource cost is required to explore a room. Closing a door changes navigation only; it does not invent shelter/radiation simulation effects.
+
+Rohit retains engineering ownership after this explicitly authorized handoff. Task-first job rewards/card/loot migration is separately assigned and not implemented by these hooks.
+
+## Scientific evidence record requirements
 
 `SourceRecord` requires ID, title, original URL, retrieval date, archived/live mode, usage notes and observation-to-game mapping; include observation date/units when relevant. Real observations retain provenance in `src/features/missions/data/`. `dataMode` is `archived` for bundled snapshots.

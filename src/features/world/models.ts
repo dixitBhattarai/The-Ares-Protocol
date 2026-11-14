@@ -2,8 +2,10 @@ import * as THREE from 'three';
 import { STATIONS, type StationId } from '../../contracts';
 import { WorldResources, type ModelKit } from './resources';
 import { createDustTexture, createSurfaceDetails } from './landscape';
+import { createSlidingDoor } from './doors';
 
 export interface StationVisual {
+  door: ReturnType<typeof createSlidingDoor>;
   group: THREE.Group;
   windows: THREE.MeshStandardMaterial;
   indicator: THREE.MeshStandardMaterial;
@@ -34,7 +36,9 @@ export function createStation(id: StationId, kit: ModelKit, resources: WorldReso
   // All solid geometry remains within local X/Z +/-1.5, Y +/-1.
   kit.box(group, trim, [2.98, .16, 2.98], [0, -.91, 0]);
   if (id === 'habitat') {
-    kit.box(group, ivory, [2.8, 1.5, 2.8], [0, -.08, 0]);
+    for (const x of [-1.32, 1.32]) kit.box(group, ivory, [.16, 1.5, 2.8], [x, -.08, 0]);
+    kit.box(group, ivory, [2.8, 1.5, .16], [0, -.08, -1.32]);
+    for (const x of [-1.04, 1.04]) kit.box(group, ivory, [.72, 1.5, .16], [x, -.08, 1.32]);
     kit.box(group, trim, [2.88, .18, 2.88], [0, .73, 0]);
     kit.box(group, ivory, [2.6, .12, 2.6], [0, .88, 0]);
     for (const x of [-.75, .75]) {
@@ -42,8 +46,6 @@ export function createStation(id: StationId, kit: ModelKit, resources: WorldReso
       for (let z = -.6; z <= -.1; z += .16) kit.box(group, ivory, [.36, .02, .05], [x, .99, z]);
     }
     for (const x of [-1.35, 1.35]) kit.box(group, orange, [.08, 1.25, .045], [x, -.12, 1.44]);
-    kit.box(group, orange, [.78, 1.3, .08], [0, -.16, 1.43]);
-    kit.box(group, dark, [.56, 1.08, .04], [0, -.22, 1.48]);
     for (const x of [-.91, .91]) {
       kit.box(group, trim, [.63, .67, .06], [x, .04, 1.43]);
       kit.box(group, windows, [.49, .5, .025], [x, .07, 1.475]);
@@ -113,7 +115,8 @@ export function createStation(id: StationId, kit: ModelKit, resources: WorldReso
   const selection = new THREE.LineSegments(outline, resources.material(new THREE.LineBasicMaterial({ color: '#ffe0a2' })));
   selection.visible = false;
   // Selection is a non-solid annotation, not part of the collision/pick group.
-  return { group, windows, indicator, beacon, shelterPanels, selection };
+  const door = createSlidingDoor(kit, id); door.group.position.set(0, -.08, 1.44); door.group.scale.set(.95, .95, .6); group.add(door.group);
+  return { group, windows, indicator, beacon, shelterPanels, selection, door };
 }
 
 export function createGroundShadow(resources: WorldResources, width: number, depth: number): THREE.Mesh {
