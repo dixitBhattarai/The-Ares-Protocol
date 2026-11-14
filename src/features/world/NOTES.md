@@ -233,6 +233,13 @@ Local editable suit and preview: [space-man.blend](<C:/Users/bhomk/OneDrive/Docu
 - No contract or App changes were required; this uses the existing additive flight-stage hook. No external asset or package was added. Normal first/third-person exploration remains unchanged.
 - Validation: `npm run typecheck` and `npm run build` pass. `npm test` reports 118 passed and one unrelated existing jump-test failure (`window` is undefined in Vitest's Node environment). Live browser verification remains unavailable because the Windows browser tool stopped before navigation when it could not enforce URL policy. Limits: authored visual cues are illustrative, not a physically scaled launch or landing view; no cockpit-specific browser inspection was possible.
 
+## Earth launch-vehicle collision handoff — 14 Nov 2026
+
+- User reported that the astronaut can walk through the Earth rocket and requested a solid blocker like the station walls. The current Earth pad is centered at `(12, 0, -14)`; physics had station and furniture colliders but no collider for the rocket/gantry.
+- Added a Rapier cuboid envelope at `(12, 6.1, -14)` with half-extents `(2.6, 6, 1.5)`, matching the fallback rocket and service gantry. It is enabled only for Earth gravity and disabled on Mars/orbit so it does not create an invisible outpost obstacle.
+- Temporary coordinated edit: `src/features/physics/index.ts` (Anshu-owned). Anshu retains subsequent physics ownership; keep any future replacement rocket model within this envelope or coordinate a matching collider update.
+- No contract or rendered world geometry changed. No tests, typecheck, build or browser check were run for this small fix. Git fetch was blocked by `.git/FETCH_HEAD` permission denial, and the current checkout is `main`; no commit was created.
+
 Backup integration handoff: see docs/MERGE_LOG.md (14 November verified backup spaceflight integration) for conflict decisions, branch, checks and limits. Current machine workflow, credits and camera framing preserved; first-person and cockpit flight recovered.
 
 ### Hands-on minigames and camera direction — 14 November
