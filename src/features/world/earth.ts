@@ -16,18 +16,15 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   // =========================================================================
   // 1. SKY, SUNLIGHT & ATMOSPHERE
   // =========================================================================
-  // Crisp blue atmospheric fog that softly blends mountains with the sky
   scene.fog = new THREE.Fog('#bfe1f0', 45, 175);
   scene.background = new THREE.Color('#98d1ea');
 
-  // Gradient Skydome (using DataTexture for 100% SSR & Node/Vitest compatibility)
   const skyRadius = 190;
   const skyGeo = resources.geometry(new THREE.SphereGeometry(skyRadius, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.5));
   const skyHeight = 128;
   const skyData = new Uint8Array(4 * skyHeight);
   for (let i = 0; i < skyHeight; i++) {
-    const t = i / (skyHeight - 1); // 0 at zenith, 1 at horizon
-    // Lerp from deep azure (#155d99) through crisp blue (#3b92d4) to warm horizon (#d8eef8)
+    const t = i / (skyHeight - 1);
     const r = t < 0.5 ? Math.round(21 + t * 2 * (59 - 21)) : Math.round(59 + (t - 0.5) * 2 * (216 - 59));
     const g = t < 0.5 ? Math.round(93 + t * 2 * (146 - 93)) : Math.round(146 + (t - 0.5) * 2 * (238 - 146));
     const b = t < 0.5 ? Math.round(153 + t * 2 * (212 - 153)) : Math.round(212 + (t - 0.5) * 2 * (248 - 212));
@@ -46,7 +43,6 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   skyDome.position.y = -10;
   scene.add(skyDome);
 
-  // Sunlight: warm golden directional light casting natural shadows
   const sun = new THREE.DirectionalLight('#fff6de', 3.2);
   sun.position.set(-28, 48, 22);
   sun.castShadow = true;
@@ -58,7 +54,6 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   sun.shadow.normalBias = 0.035;
   scene.add(sun);
 
-  // Global ambient hemisphere light: sky illumination + ground meadow bounce
   const hemiLight = new THREE.HemisphereLight('#ccebff', '#4d692e', 1.9);
   scene.add(hemiLight);
 
@@ -73,15 +68,9 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   const posAttr = terrainGeo.attributes.position as THREE.BufferAttribute;
   const colors: number[] = [];
 
-  // Elevation formula:
-  // - Campus basin (r < 22): perfectly level at y = 0
-  // - Meadow transition (22 < r < 60): gentle rolling hills (y: 0.5 to 5m)
-  // - Mountain perimeter (r > 65): soaring alpine peaks and rocky crags (y: 12 to 46m)
-  // - River and lake depression (east / southeast)
   function getElevation(x: number, z: number): number {
     const dist = Math.hypot(x, z);
 
-    // Lake & River Channel carving
     const isRiverPath = x > 18 && x < 42 && z > -25 && z < 25;
     const isLake = x > 20 && x < 65 && z > 20 && z < 70;
     let waterDepression = 0;
@@ -102,7 +91,6 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
       return -waterDepression * 0.7;
     }
 
-    // Rolling gentle hills
     const hillFactor = Math.sin(x * 0.055) * Math.cos(z * 0.055) * 2.8 + Math.sin(x * 0.1 + z * 0.08) * 1.4;
 
     if (dist < 60) {
@@ -110,7 +98,6 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
       return Math.max(-1.8, t * t * hillFactor - waterDepression);
     }
 
-    // Mountain perimeter
     const mountainT = (dist - 60) / 65;
     const mountainNoise =
       Math.sin(x * 0.04) * Math.cos(z * 0.04) * 18 +
@@ -121,7 +108,6 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
     return Math.max(0, baseElevation - waterDepression);
   }
 
-  // Deform vertices and compute natural vertex colors
   const colorGrassLush = new THREE.Color('#4c802b');
   const colorGrassMeadow = new THREE.Color('#629b35');
   const colorDirtShore = new THREE.Color('#a89a74');
@@ -135,18 +121,14 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
     const y = getElevation(x, z);
     posAttr.setY(i, y);
 
-    // Height & slope based coloring
     if (y < -0.2) {
       tempColor.copy(colorDirtShore);
     } else if (y > 32) {
-      // Snow caps
       const snowMix = Math.min(1, (y - 32) / 10);
       tempColor.copy(colorRockCliff).lerp(colorSnow, snowMix);
     } else if (y > 14) {
-      // Rocky mountain cliffs
       tempColor.copy(colorGrassMeadow).lerp(colorRockCliff, Math.min(1, (y - 14) / 12));
     } else {
-      // Lush grassy valleys and meadows
       const noiseMix = 0.5 + Math.sin(x * 0.2) * Math.cos(z * 0.2) * 0.5;
       tempColor.copy(colorGrassLush).lerp(colorGrassMeadow, noiseMix);
     }
@@ -190,7 +172,6 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   lakeMesh.scale.set(1.15, 1, 1);
   waterGroup.add(lakeMesh);
 
-  // River water strip
   const riverGeo = resources.geometry(new THREE.PlaneGeometry(12, 54, 8, 24));
   riverGeo.rotateX(-Math.PI / 2);
   const riverMesh = new THREE.Mesh(riverGeo, waterMat);
@@ -198,7 +179,6 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   riverMesh.rotation.y = -0.15;
   waterGroup.add(riverMesh);
 
-  // Wooden Footbridge crossing the river
   const bridge = new THREE.Group();
   bridge.position.set(27.5, 0.08, 0);
   bridge.rotation.y = -0.15;
@@ -207,14 +187,11 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   const bridgeWoodMat = resources.material(new THREE.MeshStandardMaterial({ color: '#7c5333', roughness: 0.8 }));
   const bridgeRailingMat = resources.material(new THREE.MeshStandardMaterial({ color: '#573820', roughness: 0.7 }));
 
-  // Bridge deck planks
   kit.flatBox(bridge, bridgeWoodMat, [4.2, 0.15, 12], [0, 0, 0]);
-  // Railing posts
   for (const z of [-5.5, -2.5, 0.5, 3.5, 5.5]) {
     kit.cylinder(bridge, bridgeRailingMat, [0.08, 1.1, 0.08], [-2.0, 0.55, z]);
     kit.cylinder(bridge, bridgeRailingMat, [0.08, 1.1, 0.08], [2.0, 0.55, z]);
   }
-  // Handrails
   kit.flatBox(bridge, bridgeRailingMat, [0.12, 0.1, 11.8], [-2.0, 1.05, 0]);
   kit.flatBox(bridge, bridgeRailingMat, [0.12, 0.1, 11.8], [2.0, 1.05, 0]);
 
@@ -224,18 +201,14 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   const pathMat = resources.material(new THREE.MeshStandardMaterial({ color: '#c4baa2', roughness: 0.95 }));
   const stoneBorderMat = resources.material(new THREE.MeshStandardMaterial({ color: '#7a766c', roughness: 0.9 }));
 
-  // Main campus walkway arteries
   kit.flatBox(scene, pathMat, [18, 0.03, 2.8], [0, 0.015, 2]);
   kit.flatBox(scene, pathMat, [2.8, 0.03, 16], [-3, 0.015, -4]);
   kit.flatBox(scene, pathMat, [14, 0.03, 2.4], [9, 0.015, -10]);
-  // Trail to river bridge
   kit.flatBox(scene, pathMat, [16, 0.03, 2.2], [18, 0.015, 0]);
 
-  // Campus stone borders
   kit.flatBox(scene, stoneBorderMat, [18.2, 0.06, 0.25], [0, 0.02, 3.45]);
   kit.flatBox(scene, stoneBorderMat, [18.2, 0.06, 0.25], [0, 0.02, 0.55]);
 
-  // Scenic Lake Overlook Bench
   const benchGroup = new THREE.Group();
   benchGroup.position.set(38, 0.1, 24);
   benchGroup.rotation.y = -Math.PI / 4;
@@ -260,124 +233,278 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   lab.visual.door.update(0, true);
 
   // =========================================================================
-  // 6. DENSE MULTI-SPECIES FORESTS (Evergreen Pines, Broadleaf Oaks, Birches)
+  // 6. REALISTIC MULTI-SPECIES FORESTS (Procedural Textures + Organic Geometry)
   // =========================================================================
-  // Using InstancedMesh for 60fps performance on ordinary laptops
-  const treeTrunkMat = resources.material(new THREE.MeshStandardMaterial({ color: '#4a3222', roughness: 0.9 }));
-  const birchTrunkMat = resources.material(new THREE.MeshStandardMaterial({ color: '#dfdfd5', roughness: 0.75 }));
-  const pineNeedleMat1 = resources.material(new THREE.MeshStandardMaterial({ color: '#1d4221', roughness: 0.85 }));
-  const pineNeedleMat2 = resources.material(new THREE.MeshStandardMaterial({ color: '#25522b', roughness: 0.8 }));
-  const oakFoliageMat1 = resources.material(new THREE.MeshStandardMaterial({ color: '#437c26', roughness: 0.8 }));
-  const oakFoliageMat2 = resources.material(new THREE.MeshStandardMaterial({ color: '#569632', roughness: 0.75 }));
+  function createBarkTexture(baseHex: string, streakHex: string, isBirch = false): THREE.DataTexture {
+    const w = 64;
+    const h = 128;
+    const data = new Uint8Array(w * h * 4);
+    const cBase = new THREE.Color(baseHex);
+    const cStreak = new THREE.Color(streakHex);
+    const tmp = new THREE.Color();
 
-  const pineTrunkGeo = resources.geometry(new THREE.CylinderGeometry(0.22, 0.38, 2.6, 8));
-  const pineConeGeo = resources.geometry(new THREE.ConeGeometry(1.6, 2.2, 8));
-  const oakTrunkGeo = resources.geometry(new THREE.CylinderGeometry(0.35, 0.55, 3.0, 8));
-  const oakCanopyGeo = resources.geometry(new THREE.DodecahedronGeometry(1.8, 1));
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let n = 0;
+        if (isBirch) {
+          const band = Math.sin(y * 0.9 + Math.sin(x * 0.25) * 2.0);
+          const dash = Math.sin(x * 0.45 + y * 1.7);
+          n = band > 0.78 && dash > 0.2 ? 0.85 : Math.abs(Math.sin(x * 0.3 + y * 0.1)) * 0.12;
+        } else {
+          const ridge = Math.sin(x * 0.65 + Math.sin(y * 0.12) * 1.8) * 0.5 + 0.5;
+          const grain = Math.sin(x * 1.9 + y * 0.4) * 0.25 + 0.25;
+          n = ridge * 0.7 + grain * 0.3;
+        }
+        tmp.copy(cBase).lerp(cStreak, n);
+        const idx = (y * w + x) * 4;
+        data[idx] = Math.round(tmp.r * 255);
+        data[idx + 1] = Math.round(tmp.g * 255);
+        data[idx + 2] = Math.round(tmp.b * 255);
+        data[idx + 3] = 255;
+      }
+    }
+    const tex = resources.texture(new THREE.DataTexture(data, w, h, THREE.RGBAFormat));
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(2, 3);
+    tex.needsUpdate = true;
+    return tex;
+  }
 
-  // Determine tree locations:
-  // - Outer forest perimeter surrounding the campus
-  // - Scenic groves near the lake and meadows
-  // - Leaving paths and stations clear
-  const treePositions: { x: number; z: number; type: 'pine' | 'oak' | 'birch'; scale: number }[] = [];
+  function createFoliageTexture(darkHex: string, lightHex: string): THREE.DataTexture {
+    const size = 64;
+    const data = new Uint8Array(size * size * 4);
+    const cDark = new THREE.Color(darkHex);
+    const cLight = new THREE.Color(lightHex);
+    const tmp = new THREE.Color();
 
-  // Dense perimeter forest (180 trees)
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const leafCluster =
+          Math.sin(x * 0.55) * Math.cos(y * 0.55) * 0.35 +
+          Math.sin((x + y) * 0.9) * 0.25 +
+          0.5;
+        tmp.copy(cDark).lerp(cLight, Math.max(0, Math.min(1, leafCluster)));
+        const idx = (y * size + x) * 4;
+        data[idx] = Math.round(tmp.r * 255);
+        data[idx + 1] = Math.round(tmp.g * 255);
+        data[idx + 2] = Math.round(tmp.b * 255);
+        data[idx + 3] = 255;
+      }
+    }
+    const tex = resources.texture(new THREE.DataTexture(data, size, size, THREE.RGBAFormat));
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(3, 3);
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  function organicDisplace(geo: THREE.BufferGeometry, amp: number, freq: number): THREE.BufferGeometry {
+    const pos = geo.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) {
+      const vx = pos.getX(i);
+      const vy = pos.getY(i);
+      const vz = pos.getZ(i);
+      const disp =
+        1 +
+        amp *
+          (Math.sin(vx * freq + vy * freq * 0.8) * 0.5 +
+            Math.cos(vz * freq * 1.1 - vy * freq * 0.7) * 0.5);
+      pos.setXYZ(i, vx * disp, vy * disp, vz * disp);
+    }
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  function createFlaredTrunkGeo(topR: number, botR: number, height: number): THREE.BufferGeometry {
+    const geo = new THREE.CylinderGeometry(topR, botR, height, 10, 6);
+    const pos = geo.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) {
+      const vx = pos.getX(i);
+      const vy = pos.getY(i);
+      const vz = pos.getZ(i);
+      const t = (vy + height * 0.5) / height;
+      const angle = Math.atan2(vz, vx);
+      const rootFlare = Math.pow(1 - t, 3) * (0.35 + 0.25 * Math.sin(angle * 5));
+      const bendX = Math.sin(t * Math.PI) * 0.08;
+      pos.setXYZ(i, vx * (1 + rootFlare) + bendX, vy, vz * (1 + rootFlare));
+    }
+    geo.computeVertexNormals();
+    return resources.geometry(geo);
+  }
+
+  const oakBarkTex = createBarkTexture('#4e3624', '#2b1c11', false);
+  const pineBarkTex = createBarkTexture('#583726', '#331d13', false);
+  const birchBarkTex = createBarkTexture('#ecebe4', '#2c2c28', true);
+
+  const treeTrunkMat = resources.material(
+    new THREE.MeshStandardMaterial({ map: oakBarkTex, roughness: 0.92, bumpMap: oakBarkTex, bumpScale: 0.04 })
+  );
+  const pineTrunkMat = resources.material(
+    new THREE.MeshStandardMaterial({ map: pineBarkTex, roughness: 0.94, bumpMap: pineBarkTex, bumpScale: 0.05 })
+  );
+  const birchTrunkMat = resources.material(
+    new THREE.MeshStandardMaterial({ map: birchBarkTex, roughness: 0.78, bumpMap: birchBarkTex, bumpScale: 0.02 })
+  );
+
+  const pineNeedleTex = createFoliageTexture('#16381b', '#2b5e32');
+  const oakLeafTex = createFoliageTexture('#33661d', '#5d9e38');
+  const birchLeafTex = createFoliageTexture('#4c8527', '#86bd42');
+
+  const pineNeedleMat1 = resources.material(new THREE.MeshStandardMaterial({ map: pineNeedleTex, roughness: 0.85 }));
+  const pineNeedleMat2 = resources.material(
+    new THREE.MeshStandardMaterial({ map: pineNeedleTex, color: '#a8d5a2', roughness: 0.82 })
+  );
+  const oakFoliageMat1 = resources.material(new THREE.MeshStandardMaterial({ map: oakLeafTex, roughness: 0.78 }));
+  const oakFoliageMat2 = resources.material(
+    new THREE.MeshStandardMaterial({ map: oakLeafTex, color: '#d8e89e', roughness: 0.75 })
+  );
+  const birchFoliageMat = resources.material(new THREE.MeshStandardMaterial({ map: birchLeafTex, roughness: 0.74 }));
+
+  const pineTrunkGeo = createFlaredTrunkGeo(0.14, 0.36, 3.2);
+  const pineBoughGeo = resources.geometry(organicDisplace(new THREE.ConeGeometry(1.65, 2.1, 10, 3), 0.16, 2.4));
+  const oakTrunkGeo = createFlaredTrunkGeo(0.26, 0.52, 3.1);
+  const branchGeo = resources.geometry(new THREE.CylinderGeometry(0.08, 0.16, 1.5, 6));
+  const foliageLobeGeo = resources.geometry(organicDisplace(new THREE.IcosahedronGeometry(1.25, 2), 0.18, 2.1));
+
+  const treePositions: { x: number; z: number; type: 'pine' | 'oak' | 'birch'; scale: number; rotY: number }[] = [];
+
   for (let i = 0; i < 160; i++) {
     const angle = (i / 160) * Math.PI * 2 + Math.sin(i * 1.5) * 0.15;
     const rad = 34 + (i % 7) * 7.5 + Math.sin(i * 3) * 4;
     const x = Math.sin(angle) * rad;
     const z = Math.cos(angle) * rad;
 
-    // Avoid lake center and campus center
     if (Math.hypot(x, z) > 24 && !(x > 30 && x < 55 && z > 30 && z < 60)) {
       const type = i % 3 === 0 ? 'oak' : i % 3 === 1 ? 'pine' : 'birch';
-      const scale = 0.85 + (i % 5) * 0.14;
-      treePositions.push({ x, z, type, scale });
+      const scale = 0.85 + (i % 5) * 0.15;
+      treePositions.push({ x, z, type, scale, rotY: (i * 2.399) % (Math.PI * 2) });
     }
   }
 
-  // Meadow specimen groves (40 trees)
   for (let i = 0; i < 40; i++) {
     const angle = (i / 40) * Math.PI * 2;
     const rad = 23 + (i % 4) * 3.5;
     const x = Math.sin(angle) * rad;
     const z = Math.cos(angle) * rad;
-    // Keep launch pad (12, -14) and stations clear
     if (Math.hypot(x - 12, z - -14) > 8 && Math.hypot(x - -8, z - -4) > 6 && Math.hypot(x, z - 8) > 6) {
       const type = i % 2 === 0 ? 'oak' : 'birch';
-      treePositions.push({ x, z, type, scale: 0.9 + (i % 3) * 0.15 });
+      treePositions.push({ x, z, type, scale: 0.9 + (i % 3) * 0.16, rotY: (i * 1.7) % (Math.PI * 2) });
     }
   }
 
-  // Build tree models and add them
   const forestGroup = new THREE.Group();
   forestGroup.name = 'earth-forest';
   scene.add(forestGroup);
 
-  const dummy = new THREE.Object3D();
+  const treeCanopies: { group: THREE.Group; phase: number }[] = [];
 
-  for (const t of treePositions) {
+  for (let idx = 0; idx < treePositions.length; idx++) {
+    const t = treePositions[idx];
     const treeGroup = new THREE.Group();
     const groundY = getElevation(t.x, t.z);
-    treeGroup.position.set(t.x, groundY, t.z);
+    treeGroup.position.set(t.x, groundY - 0.08, t.z);
+    treeGroup.rotation.y = t.rotY;
     treeGroup.scale.setScalar(t.scale);
 
+    const crownGroup = new THREE.Group();
+    treeGroup.add(crownGroup);
+    treeCanopies.push({ group: crownGroup, phase: idx * 0.7 });
+
     if (t.type === 'pine') {
-      // Pine tree: trunk + 3 cone tiers
-      const trunk = new THREE.Mesh(pineTrunkGeo, treeTrunkMat);
-      trunk.position.y = 1.3;
+      const trunk = new THREE.Mesh(pineTrunkGeo, pineTrunkMat);
+      trunk.position.y = 1.6;
       trunk.castShadow = true;
       trunk.receiveShadow = true;
       treeGroup.add(trunk);
 
-      const t1 = new THREE.Mesh(pineConeGeo, pineNeedleMat1);
-      t1.position.y = 2.8;
-      t1.scale.set(1.4, 1.2, 1.4);
-      t1.castShadow = true;
-      treeGroup.add(t1);
-
-      const t2 = new THREE.Mesh(pineConeGeo, pineNeedleMat2);
-      t2.position.y = 4.2;
-      t2.scale.set(1.1, 1.0, 1.1);
-      t2.castShadow = true;
-      treeGroup.add(t2);
-
-      const t3 = new THREE.Mesh(pineConeGeo, pineNeedleMat1);
-      t3.position.y = 5.4;
-      t3.scale.set(0.75, 0.85, 0.75);
-      t3.castShadow = true;
-      treeGroup.add(t3);
+      const tiers = [
+        { y: 2.3, sx: 1.35, sy: 0.95, mat: pineNeedleMat1, ry: 0.2 },
+        { y: 3.3, sx: 1.15, sy: 0.95, mat: pineNeedleMat2, ry: 1.1 },
+        { y: 4.25, sx: 0.92, sy: 0.9, mat: pineNeedleMat1, ry: 2.3 },
+        { y: 5.1, sx: 0.68, sy: 0.85, mat: pineNeedleMat2, ry: 0.7 },
+        { y: 5.85, sx: 0.42, sy: 0.8, mat: pineNeedleMat1, ry: 1.9 },
+      ];
+      for (const tier of tiers) {
+        const bough = new THREE.Mesh(pineBoughGeo, tier.mat);
+        bough.position.y = tier.y;
+        bough.rotation.y = tier.ry;
+        bough.scale.set(tier.sx, tier.sy, tier.sx);
+        bough.castShadow = true;
+        bough.receiveShadow = true;
+        crownGroup.add(bough);
+      }
     } else {
-      // Broadleaf Oak or Birch
       const isBirch = t.type === 'birch';
-      const trunk = new THREE.Mesh(oakTrunkGeo, isBirch ? birchTrunkMat : treeTrunkMat);
-      trunk.position.y = 1.5;
+      const barkMat = isBirch ? birchTrunkMat : treeTrunkMat;
+      const trunk = new THREE.Mesh(oakTrunkGeo, barkMat);
+      trunk.position.y = 1.55;
       trunk.castShadow = true;
       trunk.receiveShadow = true;
       treeGroup.add(trunk);
 
-      const canopy = new THREE.Mesh(oakCanopyGeo, isBirch ? oakFoliageMat2 : oakFoliageMat1);
-      canopy.position.set(0, 3.8, 0);
-      canopy.scale.set(isBirch ? 1.0 : 1.35, isBirch ? 1.4 : 1.2, isBirch ? 1.0 : 1.35);
-      canopy.castShadow = true;
-      treeGroup.add(canopy);
+      const limbs = isBirch
+        ? [
+            { pos: [0.22, 2.8, 0.12], rot: [0.15, 0, -0.35], scale: 0.85 },
+            { pos: [-0.2, 2.9, -0.15], rot: [-0.18, 0, 0.32], scale: 0.8 },
+          ]
+        : [
+            { pos: [0.42, 2.75, 0.2], rot: [0.25, 0.3, -0.58], scale: 1.0 },
+            { pos: [-0.45, 2.65, 0.15], rot: [0.2, -0.2, 0.62], scale: 0.95 },
+            { pos: [0.05, 2.85, -0.42], rot: [-0.55, 0.1, -0.12], scale: 0.9 },
+          ];
+
+      for (const l of limbs) {
+        const branch = new THREE.Mesh(branchGeo, barkMat);
+        branch.position.set(l.pos[0], l.pos[1], l.pos[2]);
+        branch.rotation.set(l.rot[0], l.rot[1], l.rot[2]);
+        branch.scale.setScalar(l.scale);
+        branch.castShadow = true;
+        treeGroup.add(branch);
+      }
+
+      const lobes = isBirch
+        ? [
+            { pos: [0, 4.4, 0], scale: [1.05, 1.35, 1.05], mat: birchFoliageMat },
+            { pos: [0.65, 3.7, 0.35], scale: [0.85, 1.0, 0.85], mat: birchFoliageMat },
+            { pos: [-0.6, 3.85, -0.3], scale: [0.8, 1.05, 0.8], mat: birchFoliageMat },
+            { pos: [0.1, 5.1, -0.15], scale: [0.72, 0.9, 0.72], mat: birchFoliageMat },
+          ]
+        : [
+            { pos: [0, 4.25, 0], scale: [1.35, 1.15, 1.35], mat: oakFoliageMat1 },
+            { pos: [1.05, 3.65, 0.45], scale: [1.05, 0.92, 1.0], mat: oakFoliageMat2 },
+            { pos: [-1.0, 3.55, 0.35], scale: [1.0, 0.9, 1.05], mat: oakFoliageMat1 },
+            { pos: [0.15, 3.75, -0.95], scale: [1.05, 0.95, 0.95], mat: oakFoliageMat2 },
+            { pos: [-0.2, 4.75, 0.2], scale: [0.95, 0.85, 0.95], mat: oakFoliageMat2 },
+          ];
+
+      for (const lobe of lobes) {
+        const mesh = new THREE.Mesh(foliageLobeGeo, lobe.mat);
+        mesh.position.set(lobe.pos[0], lobe.pos[1], lobe.pos[2]);
+        mesh.scale.set(lobe.scale[0], lobe.scale[1], lobe.scale[2]);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        crownGroup.add(mesh);
+      }
     }
 
     forestGroup.add(treeGroup);
   }
 
   // =========================================================================
-  // 7. BUSHES, WILDFLOWER MEADOWS & MOSS ROCKS
+  // 7. LAYERED SHRUBS, BOTANICAL WILDFLOWERS & WEATHERED MOSS ROCKS
   // =========================================================================
   const floraGroup = new THREE.Group();
   floraGroup.name = 'earth-flora-and-rocks';
   scene.add(floraGroup);
 
-  const bushMat1 = resources.material(new THREE.MeshStandardMaterial({ color: '#386f21', roughness: 0.85 }));
-  const bushMat2 = resources.material(new THREE.MeshStandardMaterial({ color: '#4a892d', roughness: 0.8 }));
-  const bushGeo = resources.geometry(new THREE.DodecahedronGeometry(0.85, 1));
+  const bushMat1 = resources.material(new THREE.MeshStandardMaterial({ map: oakLeafTex, roughness: 0.85 }));
+  const bushMat2 = resources.material(
+    new THREE.MeshStandardMaterial({ map: birchLeafTex, color: '#9ed17b', roughness: 0.8 })
+  );
+  const bushLobeGeo = resources.geometry(organicDisplace(new THREE.IcosahedronGeometry(0.65, 2), 0.2, 2.6));
 
-  // Bushes clustered near campus & path edges (35 bushes)
   for (let i = 0; i < 35; i++) {
     const angle = (i / 35) * Math.PI * 2;
     const rad = 14 + (i % 5) * 2.2;
@@ -385,40 +512,142 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
     const z = Math.cos(angle) * rad;
     const groundY = getElevation(x, z);
 
-    const bush = new THREE.Mesh(bushGeo, i % 2 === 0 ? bushMat1 : bushMat2);
-    bush.position.set(x, groundY + 0.45, z);
-    bush.scale.set(1 + (i % 3) * 0.2, 0.8 + (i % 2) * 0.2, 1 + (i % 3) * 0.2);
-    bush.castShadow = true;
-    floraGroup.add(bush);
+    const shrub = new THREE.Group();
+    shrub.position.set(x, groundY, z);
+    shrub.rotation.y = i * 1.1;
+
+    const mainMat = i % 2 === 0 ? bushMat1 : bushMat2;
+    const mainLobe = new THREE.Mesh(bushLobeGeo, mainMat);
+    mainLobe.position.y = 0.42;
+    mainLobe.scale.set(1.15, 0.85, 1.05);
+    mainLobe.castShadow = true;
+    mainLobe.receiveShadow = true;
+    shrub.add(mainLobe);
+
+    const sideLobe1 = new THREE.Mesh(bushLobeGeo, bushMat2);
+    sideLobe1.position.set(0.45, 0.32, 0.25);
+    sideLobe1.scale.set(0.75, 0.65, 0.75);
+    sideLobe1.castShadow = true;
+    shrub.add(sideLobe1);
+
+    const sideLobe2 = new THREE.Mesh(bushLobeGeo, bushMat1);
+    sideLobe2.position.set(-0.4, 0.3, -0.2);
+    sideLobe2.scale.set(0.7, 0.6, 0.7);
+    sideLobe2.castShadow = true;
+    shrub.add(sideLobe2);
+
+    floraGroup.add(shrub);
   }
 
-  // Wildflower Patches (Yellow, Purple, White, Red Blossoms)
-  const flowerColors = ['#facc15', '#a855f7', '#ffffff', '#ef4444'];
-  const flowerPetalGeo = resources.geometry(new THREE.CylinderGeometry(0.18, 0.05, 0.35, 6));
+  const stemGeo = resources.geometry(new THREE.CylinderGeometry(0.012, 0.018, 0.42, 5));
+  stemGeo.translate(0, 0.21, 0);
 
-  for (let patch = 0; patch < 18; patch++) {
-    const patchX = Math.sin(patch * 2.2) * 19;
-    const patchZ = Math.cos(patch * 1.8) * 17;
-    const flowerMat = resources.material(
-      new THREE.MeshStandardMaterial({
-        color: flowerColors[patch % flowerColors.length],
-        roughness: 0.6,
-      })
-    );
+  const leafBladeGeo = resources.geometry(new THREE.ConeGeometry(0.055, 0.22, 4));
+  leafBladeGeo.scale(1, 1, 0.22);
+  leafBladeGeo.rotateX(0.65);
+  leafBladeGeo.translate(0, 0.08, 0.06);
 
-    for (let f = 0; f < 6; f++) {
-      const fx = patchX + (Math.sin(f * 1.7) * 1.4);
-      const fz = patchZ + (Math.cos(f * 1.7) * 1.4);
+  const blossomGeo = resources.geometry(new THREE.CylinderGeometry(0.13, 0.03, 0.07, 7, 1, true));
+  blossomGeo.translate(0, 0.42, 0);
+
+  const stamenGeo = resources.geometry(new THREE.SphereGeometry(0.035, 6, 5));
+  stamenGeo.translate(0, 0.425, 0);
+
+  const stemMat = resources.material(new THREE.MeshStandardMaterial({ color: '#3b7322', roughness: 0.75 }));
+  const stamenMat = resources.material(
+    new THREE.MeshStandardMaterial({ color: '#f59e0b', roughness: 0.5, emissive: '#78350f', emissiveIntensity: 0.15 })
+  );
+
+  const flowerPalette = [
+    new THREE.Color('#facc15'),
+    new THREE.Color('#c084fc'),
+    new THREE.Color('#f8fafc'),
+    new THREE.Color('#f43f5e'),
+    new THREE.Color('#60a5fa'),
+  ];
+
+  const blossomMat = resources.material(
+    new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.45,
+      side: THREE.DoubleSide,
+    })
+  );
+
+  const flowerInstances: { x: number; y: number; z: number; scale: number; rotY: number; tilt: number; color: THREE.Color }[] = [];
+
+  for (let patch = 0; patch < 28; patch++) {
+    const angle = (patch / 28) * Math.PI * 2 + 0.3;
+    const rad = 11 + (patch % 5) * 3.2;
+    const patchX = Math.sin(angle) * rad;
+    const patchZ = Math.cos(angle) * rad;
+
+    if (Math.hypot(patchX - 12, patchZ - -14) < 7) continue;
+    if (Math.abs(patchZ - 2) < 2.2 && Math.abs(patchX) < 10) continue;
+
+    const primaryColor = flowerPalette[patch % flowerPalette.length];
+    const secondaryColor = flowerPalette[(patch + 2) % flowerPalette.length];
+
+    for (let f = 0; f < 14; f++) {
+      const rOffset = 0.25 + ((f * 0.37) % 1.8);
+      const theta = f * 2.39996;
+      const fx = patchX + Math.cos(theta) * rOffset;
+      const fz = patchZ + Math.sin(theta) * rOffset;
       const fy = getElevation(fx, fz);
-      const petal = new THREE.Mesh(flowerPetalGeo, flowerMat);
-      petal.position.set(fx, fy + 0.18, fz);
-      floraGroup.add(petal);
+
+      if (fy < -0.05) continue;
+
+      flowerInstances.push({
+        x: fx,
+        y: fy,
+        z: fz,
+        scale: 0.75 + ((patch + f) % 5) * 0.14,
+        rotY: theta,
+        tilt: 0.08 + (f % 3) * 0.06,
+        color: f % 4 === 0 ? secondaryColor : primaryColor,
+      });
     }
   }
 
-  // Natural Boulders & Field Rocks (Granite & Mossy Stones)
+  const dummy = new THREE.Object3D();
+  const totalFlowers = flowerInstances.length;
+  if (totalFlowers > 0) {
+    const stemInst = new THREE.InstancedMesh(stemGeo, stemMat, totalFlowers);
+    const leafInstA = new THREE.InstancedMesh(leafBladeGeo, stemMat, totalFlowers);
+    const leafInstB = new THREE.InstancedMesh(leafBladeGeo, stemMat, totalFlowers);
+    const blossomInst = new THREE.InstancedMesh(blossomGeo, blossomMat, totalFlowers);
+    const stamenInst = new THREE.InstancedMesh(stamenGeo, stamenMat, totalFlowers);
+
+    for (let i = 0; i < totalFlowers; i++) {
+      const fl = flowerInstances[i];
+      dummy.position.set(fl.x, fl.y, fl.z);
+      dummy.rotation.set(Math.sin(fl.rotY) * fl.tilt, fl.rotY, Math.cos(fl.rotY) * fl.tilt);
+      dummy.scale.setScalar(fl.scale);
+      dummy.updateMatrix();
+
+      stemInst.setMatrixAt(i, dummy.matrix);
+      leafInstA.setMatrixAt(i, dummy.matrix);
+      blossomInst.setMatrixAt(i, dummy.matrix);
+      blossomInst.setColorAt(i, fl.color);
+      stamenInst.setMatrixAt(i, dummy.matrix);
+
+      dummy.rotateY(2.45);
+      dummy.updateMatrix();
+      leafInstB.setMatrixAt(i, dummy.matrix);
+    }
+
+    stemInst.instanceMatrix.needsUpdate = true;
+    leafInstA.instanceMatrix.needsUpdate = true;
+    leafInstB.instanceMatrix.needsUpdate = true;
+    blossomInst.instanceMatrix.needsUpdate = true;
+    if (blossomInst.instanceColor) blossomInst.instanceColor.needsUpdate = true;
+    stamenInst.instanceMatrix.needsUpdate = true;
+
+    floraGroup.add(stemInst, leafInstA, leafInstB, blossomInst, stamenInst);
+  }
+
   const rockMat = resources.material(new THREE.MeshStandardMaterial({ color: '#687278', roughness: 0.95 }));
-  const rockGeo = resources.geometry(new THREE.DodecahedronGeometry(1.2, 0));
+  const rockGeo = resources.geometry(organicDisplace(new THREE.DodecahedronGeometry(1.15, 1), 0.18, 2.2));
 
   for (let r = 0; r < 24; r++) {
     const rx = Math.sin(r * 2.7) * (26 + (r % 4) * 8);
@@ -427,8 +656,8 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
 
     const rock = new THREE.Mesh(rockGeo, rockMat);
     const rScale = 0.6 + (r % 5) * 0.3;
-    rock.position.set(rx, ry + rScale * 0.5, rz);
-    rock.scale.set(rScale * 1.3, rScale * 0.8, rScale);
+    rock.position.set(rx, ry + rScale * 0.42, rz);
+    rock.scale.set(rScale * 1.3, rScale * 0.78, rScale);
     rock.rotation.set((r * 0.5) % 3, (r * 0.7) % 3, (r * 0.3) % 3);
     rock.castShadow = true;
     rock.receiveShadow = true;
@@ -457,12 +686,11 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
 
   for (let c = 0; c < 12; c++) {
     const cloud = new THREE.Group();
-    const cx = ((c % 4) - 1.5) * 60 + (Math.sin(c) * 15);
-    const cz = (Math.floor(c / 4) - 1) * 60 + (Math.cos(c) * 15);
+    const cx = ((c % 4) - 1.5) * 60 + Math.sin(c) * 15;
+    const cz = (Math.floor(c / 4) - 1) * 60 + Math.cos(c) * 15;
     const cy = 48 + (c % 3) * 6;
     cloud.position.set(cx, cy, cz);
 
-    // Form cloud cluster with 5 soft overlapping spheres
     for (let s = 0; s < 5; s++) {
       const blob = new THREE.Mesh(cloudSphereGeo, cloudMat);
       blob.position.set((s - 2) * 3.2, Math.sin(s * 1.5) * 1.2, Math.cos(s * 2) * 2.5);
@@ -498,7 +726,6 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   fallback.name = 'ARES_ROCKET_PROCEDURAL_FALLBACK';
   modelSlot.add(fallback);
 
-  // Detailed procedural launch vehicle
   kit.cylinder(fallback, kit.materials.ivory, [1.3, 12, 1.3], [0, 6, 0]);
   kit.cylinder(fallback, kit.materials.blue, [1.31, 3.3, 1.31], [0, 3.2, 0]);
   kit.sphere(fallback, kit.materials.orange, [1.3, 2, 1.3], [0, 12, 0]);
@@ -513,12 +740,10 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   kit.cylinder(exhaust, kit.materials.orange, [0.9, 4, 0.9], [0, -2, 0]);
   kit.sphere(exhaust, kit.materials.ivory, [0.52, 2.7, 0.52], [0, -3.1, 0]);
 
-  // Service gantry tower
   for (const x of [-2.2, 2.2]) kit.cylinder(launchPad, kit.materials.trim, [0.16, 10, 0.16], [x, 5, 0]);
   kit.flatBox(launchPad, kit.materials.trim, [4.6, 0.22, 0.3], [-0.2, 7.3, 0]);
   kit.flatBox(launchPad, kit.materials.trim, [0.22, 5, 0.3], [-2.25, 4.8, 0]);
 
-  // Perimeter security fence
   for (const x of [-13, 13]) {
     for (let z = -15; z <= 15; z += 4) {
       kit.cylinder(scene, kit.materials.trim, [0.07, 2, 0.07], [x, 1, z]);
@@ -538,16 +763,22 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
     launchCamera.updateProjectionMatrix();
   }
 
-  // Animation hook: clouds drifting & subtle water shimmer
+  let elapsed = 0;
   function update(delta: number, reduceMotion = false) {
     if (reduceMotion) return;
     const d = Math.min(0.1, delta);
+    elapsed += d;
+
     for (const c of clouds) {
       c.group.position.x += c.speedX * d;
       c.group.position.z += c.speedZ * d;
-      // Wrap clouds around sky boundary
       if (c.group.position.x > 120) c.group.position.x = -120;
       if (c.group.position.z > 120) c.group.position.z = -120;
+    }
+
+    for (const canopy of treeCanopies) {
+      canopy.group.rotation.z = Math.sin(elapsed * 1.3 + canopy.phase) * 0.018;
+      canopy.group.rotation.x = Math.cos(elapsed * 1.1 + canopy.phase) * 0.014;
     }
   }
 
