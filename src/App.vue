@@ -10,7 +10,7 @@ import HudOverlay from './features/hud/HudOverlay.vue';
 import MissionPanels from './features/ui/MissionPanels.vue';
 import ActivityPanel from './features/world/ActivityPanel.vue';
 import { getActivity, advanceActivity, type Activity } from './features/game/activities';
-import PreparationPanel from './features/world/PreparationPanel.vue';
+import VisualPreflightMinigame from './features/game/VisualPreflightMinigame.vue';
 import AssetCredits from './features/world/AssetCredits.vue';
 import { advancePreparation, PREPARATION, type PreparationLevel } from './features/world/preflight';
 import { createMusic } from './features/world/music';
@@ -60,6 +60,20 @@ function operatePreparation(control: string) {
     if (level === 'space') orbitComplete = true;
     music?.select('space'); flightProgress.value = 0;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) finishArrival();
+  }
+}
+
+function handleVisualMinigameControl(control: string) {
+  remoteConsole = true;
+  operatePreparation(control);
+}
+
+function skipPreparation() {
+  if (!preparation.value) return;
+  const level = preparation.value;
+  remoteConsole = true;
+  for (let i = preparationProgress.value; i < PREPARATION[level].steps.length; i++) {
+    operatePreparation(PREPARATION[level].steps[i]);
   }
 }
 
@@ -467,7 +481,15 @@ onBeforeUnmount(() => {
           <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
             {{ state.upcomingHazardNotice }}
           </p>
-          <PreparationPanel v-if="preparation" :level="preparation" :progress="preparationProgress" :feedback="preparationFeedback" :near-console="nearConsole" :paused="preparationPaused" @control="operatePreparation" @remote="remoteConsole = true; preparationFeedback = 'Remote console enabled.'" @pause="togglePreparationPause" />
+          <VisualPreflightMinigame
+            v-if="preparation"
+            :level="preparation"
+            :progress="preparationProgress"
+            :paused="preparationPaused"
+            @control="handleVisualMinigameControl"
+            @pause="togglePreparationPause"
+            @skip="skipPreparation"
+          />
           <ActivityPanel v-else-if="activeActivity" :station="activeActivity.station" :title="activeActivity.title" :steps="activeActivity.steps" :impact="activeActivity.impact" :progress="activityProgress" :inside="interior === activeActivity.station" :feedback="activityFeedback" :paused="state.phase === 'paused'" @control="operateControl" @travel="travelToTask" @enter="enterModule()" @exit="leaveModule" @cancel="cancelActivity" @pause="dispatch({ type: state.phase === 'paused' ? 'RESUME' : 'PAUSE' })" />
           <section v-else-if="flightProgress !== null" style="padding:18px" aria-label="In transit"><h2>{{ orbitComplete ? 'Mars transfer' : 'Earth departure' }}</h2><p>Flight systems are carrying the expedition to the next playable stage.</p></section>
           <MissionPanels v-else

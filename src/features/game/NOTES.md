@@ -82,8 +82,28 @@ Status: Tested milestones complete; audio synthesis, station proximity, star rat
   - Added `getChoicePresentation(choice, event)` helper in `src/features/game/index.ts` supplying default child-friendly icons, badges, and summaries.
   - Styled `.choice-card` with roguelike draft aesthetics: tactile hover lift, glowing gradient borders, and distinct multi-channel impact pills.
 
+## Milestone 6: Visual Earth Launch & Space Station Minigames (`feat(game): visual earth launch and orbital space station minigames`)
+
+- Visual Minigame Architecture (`src/features/game/VisualPreflightMinigame.vue`):
+  - Completely removed boring walls of instructional text, procedural numbering, and text-only buttons for junior explorers aged 7–12.
+  - Earth Launch Pad:
+    - Stage 0: Interactive tactile oxygen plunger pump with astronaut helmet visor clearing from foggy to crystal-clear, radial SVG pressure gauge, and automatic seal stamp at >= 80%.
+    - Stage 1: Tactile rocket cargo bay dock; kids directly tap glowing battery (⚡), food rations (🍎), and repair tool (🛠️) crates to snap them into matching rocket slots.
+    - Stage 2: Fighter-jet style flip-up hazard cover (yellow/black safety stripes) revealing a pulsing, glowing 3D arcade launch button that ignites rocket engines with animated exhaust plumes.
+  - Orbit / Space Station:
+    - Stage 0: Deep space orbital radar dish with directional steering thrusters (◀ / ▶) and direct lock (🎯), dynamic radio beam bridging Earth to the satellite, and 5-bar signal strength readout.
+    - Stage 1: Dual-channel cockpit oscilloscope; kids match visual sine wave shape tiles (slow wave, mild wave, matching harmonic sine wave, and tight wave) without confusing kHz jargon.
+    - Stage 2: Deep space laser corridor with animated high-speed photon packets beaming the flight plan to Earth with telemetry chirps.
+- Integration & Seamless Access (`src/App.vue`):
+  - Replaced text-only preparation panel with `VisualPreflightMinigame`.
+  - Added `handleVisualMinigameControl(control)` which sets `remoteConsole = true` so kids interacting on-screen are not blocked by character walking distance.
+  - Added `skipPreparation()` for immediate fast-forward testing.
+  - 100% backward compatible with `advancePreparation`, 3D console screen handlers in `src/features/world`, and preflight step contracts.
+- Testing (`src/features/game/minigame.test.ts`):
+  - 8 new tests verifying SSR rendering of all Earth and Space stages, visual icon presence, lack of instructional walls of text, and pause/skip controls.
+
 ## Validation
 
 - `npm run typecheck`: passed with zero type errors.
-- `npm test`: 75 tests passing cleanly across all 10 test suites (16 game tests, 4 activities tests, 8 missions tests, 20 physics tests, 13 UI tests, 14 world tests).
-- `npm run build`: production build passed cleanly in 704ms.
+- `npm test`: 83 tests passing cleanly across all 11 test suites (16 game tests, 8 minigame tests, 4 activities tests, 8 missions tests, 20 physics tests, 13 UI tests, 14 world tests).
+- `npm run build`: production build passed cleanly in 583ms.
