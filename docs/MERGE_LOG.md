@@ -12,6 +12,7 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 | `feat/anshu-physics` | `9a4e770` | `src/features/physics/**` | Grounded astronaut controller, reset and pause merged by `dfe1d24`; WASD movement on focused buttons merged by `3e854a1`; Earth rocket/gantry collider fix merged by `2df59b1`; checks passed |
 | `feat/dixit-ui` | `fc25d14` | `src/features/ui/**`, `src/App.vue`, `src/assets/**` | Initial onboarding, decisions, pause, debrief replay & sources `55799b3`; cinematic splash screen, Mars observatory menu, and 3D Earth view merged by `b4549b4`; audio volume/mute synthesizer controls and command deck mission info toggle controls merged by `c36bd06`; in-game pause audio, celebration badge, task board UI, and minigames merged by `dfeaaaa`; individual contributor roles in mission credits merged by `072302c`; arrival guidance and deferred hazard timer merged by `44883e3`; checks passed |
 | `feat/genius-missions` | `87c2189` | `src/features/missions/**` | Six teaching decisions & NASA CME evidence `a8d9a39`; alert wording reconciled by `500c830`; refreshable DONKI snapshot and raw NASA datasets `e4abf24`; observation details and NASA API documentation merged by `15ea38e`; checks passed |
+| `feat/ares-rocket-cabin` | `158c145` | `src/features/world/**`, `src/features/ui/**`, `src/features/game/**`, `src/App.vue`, `src/contracts/**`, docs | Ares flight-cabin interior, seat marker, panoramic window scenery, cabin seating sequence, flight deck transfer controls merged by `b44019a`; checks passed |
 
 Verify refs, scope and checks before a merge; this table is not authorization to merge. Anshu and Dixit have no published branch recorded at this review.
 
@@ -427,3 +428,18 @@ Merged codex/doorway-surface-fix (f58fb7e). Open exterior door leaves were nearl
    - Scope: `src/features/physics/index.ts`, `src/features/world/NOTES.md`.
    - Changes: Solid Rapier cuboid collision envelope at `(12, 6.1, -14)` with half-extents `(2.6, 6, 1.5)` around the Earth launch vehicle and service gantry matching `createEarthCampus`'s launch pad, preventing player clipping through the rocket on Earth while remaining disabled in Mars/orbit gravity modes; recorded coordination handoff in world notes.
    - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (27 test files, 158 tests passed); `npm run build` passed cleanly in 1.41s with all client assets bundled.
+
+### 14 Nov 2026 — Anshu (physics/team) Ares flight cabin, seat marker, and planetary window scenery integration
+
+1. **`feat/ares-rocket-cabin` (tip `158c145`)**:
+   - Merged as `b44019a`, preserving Anshu's commits `672d710`, `6f52b46`, `e238743`, and `158c145`.
+   - Scope: `src/features/world/**`, `src/features/ui/**`, `src/features/game/**`, `src/App.vue`, `src/contracts/**`, `docs/CONTRACTS.md`, team instruction docs.
+   - Changes:
+     - Authored zero-gravity Ares rocket flight-cabin interior after orbital insertion with capsule ribs, lockers, three labeled NAV / TRAJ / COMMS console stations, pilot seat, harness, and amber seat marker (`interiors.ts`, `expedition.ts`).
+     - Wide forward panoramic cabin window with locally rendered starfield and moving planetary scenery (Earth, Moon, Sun, Mars, Venus, Jupiter) with slow drift while seated or active with engines idle, respecting pause and reduced motion.
+     - Floating astronaut visual cue in the zero-g cabin.
+     - UI `CabinSeatPanel.vue` and cabin seat prompt requiring the astronaut to reach and sit in the marked flight seat before starting the compressed Mars transfer.
+     - Seating does not auto-advance; separate "Begin Mars transfer" action allows enjoying the window view.
+     - Game: updated orbital preflight minigame title and step labels for Ares rocket flight cabin.
+     - Additive contracts: `SPACECRAFT_SEAT`, `CabinSeatState`, `WorldAdapter.setCabinSeatState`.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (27 test files, 158 tests passed); `npm run build` passed cleanly in 1.31s with all client assets bundled.
