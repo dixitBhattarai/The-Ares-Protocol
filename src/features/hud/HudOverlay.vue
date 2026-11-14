@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import type { GameState, MissionData, ResourceId } from '../../contracts';
+import type { FlightStage, GameState, MissionData, ResourceId } from '../../contracts';
 
-type JourneyStage = 'earth' | 'space' | 'transit';
+type JourneyStage = FlightStage | 'earth' | 'space' | 'transit';
 const props = defineProps<{
   state: Readonly<GameState>;
   mission: MissionData;
@@ -82,11 +82,29 @@ const stagePercent = computed(() => {
   const { value = 0, max = 0 } = props.stageProgress ?? {};
   return max > 0 ? Math.min(100, Math.max(0, value / max * 100)) : 0;
 });
+const hasStageProgress = computed(() => (props.stageProgress?.max ?? 0) > 0);
 const stageCopy = computed(() => {
+  if (props.stage === 'launch') return { label: 'EARTH · LAUNCH PAD', title: 'Rocket launch', detail: 'Ignition · thrust · steer · center' };
+  if (props.stage === 'orbit-autopilot') return { label: 'EARTH ORBIT · GUIDANCE', title: 'Orbital guidance', detail: 'The flight computer is lining up your Mars route' };
+  if (props.stage === 'transfer') return { label: 'SPACE · MARS TRANSFER', title: 'Journey to Mars', detail: 'Cruising through space toward the red planet' };
+  if (props.stage === 'landing') return { label: 'MARS · APPROACH', title: 'Mars landing', detail: 'Line up · parachute · steer · brake · ease · legs' };
+  if (props.stage === 'touchdown') return { label: 'MARS · ARRIVAL', title: 'Touchdown', detail: 'Welcome to the outpost' };
   if (props.stage === 'earth') return { label: 'EARTH · LAUNCH LAB', title: 'Launch prep', detail: 'Suit check · cargo check · launch approval' };
   if (props.stage === 'space') return { label: 'ORBIT · COMMS CABIN', title: 'Orbit checks', detail: 'Beacon · antenna · flight plan' };
   if (props.stage === 'transit') return { label: 'EXPEDITION · IN TRANSIT', title: 'Journey to Mars', detail: 'Your crew is travelling to the next mission stage' };
   return null;
+});
+const taskLabels: Record<string, { title: string; icon: string; kind: string }> = {
+  air: { title: 'Air system', icon: '💨', kind: 'air' },
+  shelter: { title: 'Storm shelter', icon: '🛡️', kind: 'shelter' },
+  power: { title: 'Solar power', icon: '⚡', kind: 'power' },
+  plants: { title: 'Greenhouse', icon: '🌱', kind: 'plants' },
+  survey: { title: 'Science survey', icon: '🔭', kind: 'survey' },
+};
+const activeTask = computed(() => {
+  const id = props.state.taskRun?.activeTaskId;
+  if (!id) return null;
+  return taskLabels[id] ?? { title: id.replace(/[-_]/g, ' '), icon: '🛰️', kind: 'other' };
 });
 const sciencePercent = computed(() => props.mission.scienceTarget > 0
   ? Math.min(100, Math.max(0, props.state.science / props.mission.scienceTarget * 100))
@@ -104,6 +122,7 @@ const delayedEffects = computed(() => [...(props.state.pendingDelayedEffects ?? 
 
 const feedback = ref('');
 const feedbackTone = ref('');
+const feedbackHeading = ref('SHIFT UPDATE');
 const hazardToast = ref<HazardToast | null>(null);
 let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
 let reserveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -167,27 +186,37 @@ watch(
     if (phase === 'ready' && turn === 0 && logLength === 0) {
       feedback.value = 'Mission reset. Your reserves are ready for a new plan.';
       feedbackTone.value = '';
+      feedbackHeading.value = 'MISSION READY';
     } else if (logLength > previous[7]) {
       const changes: string[] = [];
-      const resourcesChanged: number[] = [];
+      let hasPositiveChange = false;
+      let hasNegativeChange = false;
       for (const [id, now, before] of reserveChanges) {
         const difference = now - before;
         if (difference !== 0) {
-          resourcesChanged.push(difference);
+          hasPositiveChange ||= difference > 0;
+          hasNegativeChange ||= difference < 0;
           changes.push(`${resourceInfo[id].label} ${difference > 0 ? '+' : '−'}${Math.abs(difference)} game units`);
         }
       }
       if (shielding !== previous[5]) {
+        hasPositiveChange ||= shielding > previous[5];
+        hasNegativeChange ||= shielding < previous[5];
         changes.push(`Shelter ${shielding > previous[5] ? '+' : '−'}${Math.abs(shielding - previous[5])} game units`);
       }
       if (science !== previous[6]) {
+        hasPositiveChange ||= science > previous[6];
+        hasNegativeChange ||= science < previous[6];
         changes.push(`Science ${science > previous[6] ? '+' : '−'}${Math.abs(science - previous[6])} points`);
       }
+      const latestRecord = props.state.history?.at(-1);
+      const taskPayout = latestRecord?.eventId === 'station-work';
       const explanation = props.state.history?.at(-1)?.explanation;
       feedback.value = changes.length
         ? `${changes.join(' · ')}.${explanation ? ` ${explanation}` : ''}`
         : explanation ?? props.state.log.at(-1) ?? '';
-      feedbackTone.value = resourcesChanged.some(value => value < 0) ? 'cost' : resourcesChanged.length ? 'gain' : '';
+      feedbackHeading.value = taskPayout ? 'JOB PAYOUT' : 'SHIFT UPDATE';
+      feedbackTone.value = hasNegativeChange ? 'cost' : hasPositiveChange ? 'gain' : '';
     }
     if (feedbackTimer) clearTimeout(feedbackTimer);
     feedbackTimer = setTimeout(() => { feedbackTone.value = ''; }, 1400);
@@ -339,13 +368,14 @@ function toggleStat(id: ProgressStat): void {
 
 <template>
   <Teleport :to="hudTarget">
-  <section v-if="state.phase === 'running' || stageCopy" class="hud" :class="{ 'journey-hud': stageCopy }" :aria-label="stageCopy ? `${stageCopy.title} status` : 'Outpost status'">
+  <section v-if="(state.phase === 'running' || state.phase === 'ready') && (state.phase === 'running' || stageCopy)" class="hud" :class="{ 'journey-hud': stageCopy }" :aria-label="stageCopy ? `${stageCopy.title} status` : 'Outpost status'">
     <header class="hud-header">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true">{{ stage === 'earth' ? '🌍' : stage === 'space' ? '🛰️' : stage === 'transit' ? '🚀' : '✦' }}</span>
+        <span class="brand-mark" aria-hidden="true">{{ ['earth', 'launch'].includes(stage ?? '') ? '🚀' : ['space', 'orbit-autopilot'].includes(stage ?? '') ? '🛰️' : ['transit', 'transfer'].includes(stage ?? '') ? '🪐' : stage === 'landing' ? '🛬' : stage === 'touchdown' ? '🌟' : '✦' }}</span>
         <div class="mission-heading">
           <span class="eyebrow">{{ stageCopy?.label ?? 'ARES · OUTPOST 01' }}</span>
           <strong v-if="stageCopy">{{ stageCopy.title }}</strong>
+          <strong v-else-if="state.taskRun">JOB {{ Math.min(state.turn + 1, mission.maxTurns) }} <span>OF {{ mission.maxTurns }}</span></strong>
           <strong v-else>SHIFT {{ shift }} <span>OF {{ mission.maxTurns }}</span></strong>
         </div>
       </div>
@@ -355,17 +385,23 @@ function toggleStat(id: ProgressStat): void {
     <div v-if="!stageCopy"
       class="shift-track"
       role="progressbar"
-      aria-label="Mission shifts completed"
+      :aria-label="state.taskRun ? 'Station jobs completed' : 'Mission shifts completed'"
       :aria-valuemin="0"
       :aria-valuemax="mission.maxTurns"
       :aria-valuenow="Math.min(state.turn, mission.maxTurns)"
-      :aria-valuetext="`${Math.min(state.turn, mission.maxTurns)} of ${mission.maxTurns} shifts completed`"
+      :aria-valuetext="`${Math.min(state.turn, mission.maxTurns)} of ${mission.maxTurns} ${state.taskRun ? 'jobs' : 'shifts'} completed`"
     >
       <span :style="{ width: `${shiftPercent}%` }" />
     </div>
-    <div v-else class="stage-progress" :class="`stage-${stage}`">
-      <div class="stage-progress-copy"><span>{{ stageCopy.detail }}</span><strong v-if="stage !== 'transit'">{{ stageProgress?.value ?? 0 }}<i>/{{ stageProgress?.max ?? 3 }}</i></strong><strong v-else>{{ Math.round(stagePercent) }}<i>%</i></strong></div>
-      <div class="stage-track" role="progressbar" :aria-label="stage === 'transit' ? 'Journey progress' : `${stageCopy.title} progress`" :aria-valuemin="0" :aria-valuemax="stage === 'transit' ? 100 : (stageProgress?.max ?? 3)" :aria-valuenow="stage === 'transit' ? Math.round(stagePercent) : (stageProgress?.value ?? 0)" :aria-valuetext="stage === 'transit' ? `${Math.round(stagePercent)} percent complete` : `${stageProgress?.value ?? 0} of ${stageProgress?.max ?? 3} checks complete`"><span :style="{ width: `${stagePercent}%` }" /></div>
+
+    <aside v-if="!stageCopy && activeTask" class="active-task-cue" :class="`task-${activeTask.kind}`" aria-label="Current station job">
+      <span class="task-cue-icon" aria-hidden="true">{{ activeTask.icon }}</span>
+      <span class="task-cue-copy"><strong>{{ activeTask.title }}</strong><span>WORK IN PROGRESS · {{ Math.floor(state.taskRun?.elapsed ?? 0) }}s mission time</span></span>
+      <span class="task-cue-spark" aria-hidden="true">✦</span>
+    </aside>
+    <div v-if="stageCopy" class="stage-progress" :class="`stage-${stage}`">
+      <div class="stage-progress-copy"><span>{{ stageCopy.detail }}</span><strong v-if="hasStageProgress && stage !== 'transit' && stage !== 'transfer'">{{ stageProgress?.value ?? 0 }}<i>/{{ stageProgress?.max }}</i></strong><strong v-else-if="hasStageProgress">{{ Math.round(stagePercent) }}<i>%</i></strong></div>
+      <div v-if="hasStageProgress" class="stage-track" role="progressbar" :aria-label="stage === 'transit' || stage === 'transfer' ? 'Journey progress' : `${stageCopy.title} progress`" :aria-valuemin="0" :aria-valuemax="stage === 'transit' || stage === 'transfer' ? 100 : stageProgress?.max" :aria-valuenow="stage === 'transit' || stage === 'transfer' ? Math.round(stagePercent) : (stageProgress?.value ?? 0)" :aria-valuetext="stage === 'transit' || stage === 'transfer' ? `${Math.round(stagePercent)} percent complete` : `${stageProgress?.value ?? 0} of ${stageProgress?.max} controls complete`"><span :style="{ width: `${stagePercent}%` }" /></div>
     </div>
 
     <div class="reserve-grid" aria-label="Outpost reserves">
@@ -469,7 +505,7 @@ function toggleStat(id: ProgressStat): void {
 
         <p v-if="!stageCopy && feedback" class="feedback" :class="feedbackTone" aria-live="polite" aria-atomic="true">
       <span class="feedback-mark" aria-hidden="true">{{ feedbackTone === 'cost' ? '−' : feedbackTone === 'gain' ? '+' : '↻' }}</span>
-          <span class="feedback-copy"><strong>SHIFT UPDATE</strong><span>{{ feedback }}</span></span>
+          <span class="feedback-copy"><strong>{{ feedbackHeading }}</strong><span>{{ feedback }}</span></span>
     </p>
 
     <p class="units-note">Simplified game units · not real spacecraft readings</p>
@@ -540,6 +576,17 @@ function toggleStat(id: ProgressStat): void {
 .stage-space .stage-track > span { background: linear-gradient(90deg, #a77aff, #f0a1ff 58%, #fff0ff); box-shadow: 0 0 9px rgb(208 126 255 / 72%); }
 .stage-transit .stage-track > span { background: linear-gradient(90deg, #ff9b54, #ffcf6c 58%, #fff4bc); box-shadow: 0 0 9px rgb(255 188 93 / 78%); }
 .journey-hud .reserve-card { filter: saturate(.96); }
+.active-task-cue { box-sizing: border-box; position: absolute; top: 121px; left: 14px; display: grid; grid-template-columns: 2rem minmax(0, 1fr) .7rem; align-items: center; gap: .48rem; width: min(242px, calc(100% - 28px)); min-height: 47px; padding: .38rem .55rem; border: 1px solid rgb(125 219 255 / 58%); border-radius: 11px; background: linear-gradient(110deg, rgb(10 35 50 / 92%), rgb(15 28 48 / 90%)); box-shadow: 0 5px 18px rgb(0 0 0 / 28%), inset 0 1px 0 rgb(255 255 255 / 14%); animation: task-cue-in 300ms cubic-bezier(.2,.8,.25,1.15) both; }
+.task-cue-icon { display: grid; place-items: center; width: 1.9rem; height: 1.9rem; border: 1px solid rgb(150 224 250 / 58%); border-radius: 9px; background: rgb(109 194 225 / 18%); font-size: 1.05rem; }
+.task-cue-copy { display: grid; min-width: 0; gap: .08rem; }
+.task-cue-copy > strong { overflow: hidden; color: #fff8e9; font-size: .74rem; font-weight: 950; text-overflow: ellipsis; white-space: nowrap; }
+.task-cue-copy > span { color: #bcd8e7; font-size: .49rem; font-weight: 850; letter-spacing: .035em; }
+.task-cue-spark { color: #ffe28d; font-size: .85rem; text-shadow: 0 0 9px rgb(255 224 141 / 62%); animation: task-spark 1.8s ease-in-out infinite; }
+.task-air { border-color: rgb(91 213 255 / 66%); }
+.task-shelter { border-color: rgb(123 186 255 / 68%); }
+.task-power { border-color: rgb(255 194 83 / 68%); }
+.task-plants { border-color: rgb(135 235 130 / 65%); }
+.task-survey { border-color: rgb(204 151 255 / 68%); }
 .reserve-grid { box-sizing: border-box; position: absolute; left: 14px; bottom: 42px; display: grid; grid-template-columns: minmax(0, 1fr); gap: .42rem; width: min(248px, calc(100% - 28px)); padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
 .reserve-grid { translate: var(--hud-reserves-x, 0px) var(--hud-reserves-y, 0px); }
 .reserve-card { --reserve-color: #ffd36f; display: grid; grid-template-columns: 31px minmax(0, 1fr) 32px; align-items: center; gap: 0; min-width: 0; min-height: 34px; padding: .12rem .38rem; border: 1px solid color-mix(in srgb, var(--reserve-color), transparent 52%); border-radius: 10px; background: linear-gradient(180deg, color-mix(in srgb, var(--reserve-color), transparent 88%), color-mix(in srgb, var(--reserve-color), transparent 95%)); box-shadow: 0 3px 10px rgb(0 0 0 / 23%), inset 0 1px 0 rgb(255 255 255 / 12%); transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease; }
@@ -645,6 +692,8 @@ function toggleStat(id: ProgressStat): void {
 @keyframes reserve-critical-pulse { 0%, 100% { box-shadow: inset 0 1px 2px rgb(0 0 0 / 20%); } 50% { box-shadow: 0 0 7px color-mix(in srgb, var(--reserve-color), transparent 52%), inset 0 1px 2px rgb(0 0 0 / 20%); } }
 @keyframes toast-in { 0% { opacity: 0; transform: translate(-50%, -18px) scale(.72); } 68% { opacity: 1; transform: translate(-50%, 4px) scale(1.035); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
 @keyframes stage-arrive { from { opacity: 0; transform: translateY(-7px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes task-cue-in { from { opacity: 0; transform: translateY(-5px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes task-spark { 50% { transform: rotate(25deg) scale(1.15); opacity: .68; } }
 @keyframes toast-pulse { 0%, 100% { box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 24px rgb(244 196 104 / 25%), inset 0 1px 0 rgb(255 248 220 / 22%); } 50% { box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 35px rgb(255 215 133 / 58%), inset 0 1px 0 rgb(255 248 220 / 35%); } }
 @keyframes toast-out { to { opacity: 0; transform: translate(-50%, -9px) scale(.96); } }
 @keyframes spark-spin { 50% { transform: rotate(40deg) scale(1.25); } }
@@ -652,6 +701,7 @@ function toggleStat(id: ProgressStat): void {
   .hud-header { top: 50px; left: 10px; width: min(224px, calc(100% - 20px)); }
   .shift-track { top: 100px; left: 10px; width: 160px; }
   .stage-progress { top: 100px; left: 10px; width: min(220px, calc(100% - 20px)); }
+  .active-task-cue { top: 116px; left: 10px; width: min(220px, calc(100% - 20px)); }
   .reserve-grid { left: 10px; bottom: 38px; width: min(215px, calc(100% - 20px)); padding: .48rem .5rem; }
   .secondary-grid { top: 32px; right: 10px; bottom: auto; gap: .26rem; }
   .feedback, .delayed-effects { left: 10px; width: min(222px, calc(100% - 20px)); }
@@ -670,8 +720,8 @@ function toggleStat(id: ProgressStat): void {
 }
 @media (prefers-reduced-motion: reduce) {
   .shift-track > span, .reserve-fill, .science-track > span, .icon-tooltip, .stat-widget, .stat-detail, .stat-icon-button { transition: none; }
-  .hud-header, .shift-track, .stage-progress, .reserve-grid, .science-widget, .shelter-widget, .feedback, .delayed-effects, .achievement-toast { translate: none !important; }
+  .hud-header, .shift-track, .stage-progress, .active-task-cue, .reserve-grid, .science-widget, .shelter-widget, .feedback, .delayed-effects, .achievement-toast { translate: none !important; }
   .progress-pop { translate: 0 -50% !important; }
-  .stage-progress, .motion-up, .motion-down, .reserve-icon-wrap:hover, .reserve-icon:focus-visible, .reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap, .stat-icon-button:hover > span, .stat-icon-button:focus-visible > span, .progress-pop, .count-old, .count-new, .progress-denominator, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
+  .stage-progress, .active-task-cue, .task-cue-spark, .motion-up, .motion-down, .reserve-icon-wrap:hover, .reserve-icon:focus-visible, .reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap, .stat-icon-button:hover > span, .stat-icon-button:focus-visible > span, .progress-pop, .count-old, .count-new, .progress-denominator, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
 }
 </style>
