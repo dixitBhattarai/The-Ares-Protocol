@@ -117,6 +117,8 @@ describe('multiple winning strategies and victory debrief', () => {
     expect(state.resources.supplies).toBeGreaterThan(0);
     expect(state.debrief?.verdict).toBe('won');
     expect(state.debrief?.title).toContain('Accomplished');
+    expect(state.debrief?.stars).toBeGreaterThanOrEqual(2);
+    expect(state.debrief?.score).toBeGreaterThan(150);
   });
 
   it('wins with Fortified Base strategy (Shield -> Oxygen -> Shield -> Research x3)', () => {
@@ -135,6 +137,8 @@ describe('multiple winning strategies and victory debrief', () => {
     expect(state.resources.oxygen).toBeGreaterThan(0);
     expect(state.resources.supplies).toBeGreaterThan(0);
     expect(state.debrief?.verdict).toBe('won');
+    expect(state.debrief?.stars).toBeGreaterThanOrEqual(1);
+    expect(state.debrief?.score).toBeGreaterThan(100);
   });
 });
 
@@ -217,5 +221,21 @@ describe('losing conditions, explanations and clamping', () => {
     expect(restarted.phase).toBe('ready');
     expect(restarted.history).toEqual([]);
     expect(restarted.debrief).toBeUndefined();
+  });
+});
+
+describe('SoundFX synthesizer', () => {
+  it('instantiates, toggles, and handles audio safely', async () => {
+    const { soundFX, SoundFX } = await import('./audio');
+    expect(soundFX.enabled).toBe(true);
+    soundFX.enabled = false;
+    expect(soundFX.enabled).toBe(false);
+    expect(() => soundFX.playDecision()).not.toThrow();
+    expect(() => soundFX.playHazard()).not.toThrow();
+    expect(() => soundFX.playVictory()).not.toThrow();
+    expect(() => soundFX.playDepleted()).not.toThrow();
+    soundFX.enabled = true;
+    const custom = new SoundFX();
+    expect(custom.enabled).toBe(true);
   });
 });

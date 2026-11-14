@@ -67,6 +67,8 @@ export interface DebriefDetails {
   primaryCause?: string;
   recommendations: readonly string[];
   lessons: readonly string[];
+  stars?: number;
+  score?: number;
 }
 
 export interface TurnRecord {

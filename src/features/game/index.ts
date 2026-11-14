@@ -112,6 +112,7 @@ export function reduceGame(state: Readonly<GameState>, action: GameAction, missi
   if (isDepleted) {
     phase = 'lost';
     const primary = depletedKeys[0];
+    const score = Math.round((science * 15) + Math.max(0, Math.min(resources.power, resources.oxygen, resources.supplies)));
     debrief = {
       verdict: 'depleted',
       title: 'Mission Terminated: Reserves Depleted',
@@ -129,10 +130,19 @@ export function reduceGame(state: Readonly<GameState>, action: GameAction, missi
         'All life-support subsystems are interconnected; a failure in any reserve ends the mission.',
         'Greedy research strategies without infrastructure preparation are unsustainable.',
       ],
+      stars: 0,
+      score,
     };
   } else if (nextTurn >= mission.maxTurns) {
     if (science >= mission.scienceTarget) {
       phase = 'won';
+      const score = Math.round(resources.power + resources.oxygen + resources.supplies + (science * 25) + (shielding * 0.5));
+      let stars = 1;
+      if (score >= 230 && science >= 4 && shielding >= 15) {
+        stars = 3;
+      } else if (score >= 160) {
+        stars = 2;
+      }
       debrief = {
         verdict: 'won',
         title: 'Outpost Mission Accomplished!',
@@ -145,9 +155,12 @@ export function reduceGame(state: Readonly<GameState>, action: GameAction, missi
           'Mars exploration requires constant balance between keeping systems online and gathering scientific knowledge.',
           'Proactive hazard shielding protects critical solar arrays and atmosphere scrubbers.',
         ],
+        stars,
+        score,
       };
     } else {
       phase = 'lost';
+      const score = Math.round((science * 15) + Math.max(0, Math.min(resources.power, resources.oxygen, resources.supplies)));
       debrief = {
         verdict: 'low_science',
         title: 'Reserves Survived, But Science Goals Incomplete',
@@ -161,6 +174,8 @@ export function reduceGame(state: Readonly<GameState>, action: GameAction, missi
           'Surviving is necessary, but the ultimate purpose of planetary exploration is scientific discovery.',
           'Calculated risks with healthy safety buffers enable mission success.',
         ],
+        stars: 0,
+        score,
       };
     }
   } else {
