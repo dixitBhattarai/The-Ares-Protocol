@@ -44,7 +44,7 @@ export function applyStationStatus(visual: StationVisual, status: StationStatus,
   visual.beacon.color.set(beaconColor);
   visual.beacon.emissive.set(beaconColor);
   visual.beacon.emissiveIntensity = .1 + displayReserve(power) / 100 * .5;
-  visual.shelterPanels.forEach(panel => { panel.scale.y = .01 + .57 * displayReserve(shielding) / 100; });
+  visual.shelterPanels.forEach(panel => { panel.visible=displayReserve(shielding)>0;panel.scale.y = .01 + .57 * displayReserve(shielding) / 100; });
 }
 
 /** Show only the supplied current outcome, with no inferred or predicted hazard. */

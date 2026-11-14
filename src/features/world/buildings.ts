@@ -59,11 +59,11 @@ export function createBuilding(id:StationId,kit:ModelKit,resources:WorldResource
   const shelterPanels:THREE.Mesh[]=[];
   for(const x of [-2,2]) {
     kit.box(room,windows,[1.45,.65,.04],[x,1.6,h+.01]);
-    const panel=kit.box(room,kit.materials.blue,[1.5,.7,.03],[x,1.6,h+.04]);panel.scale.y=.01;shelterPanels.push(panel);
+    const panel=kit.box(room,kit.materials.blue,[1.5,.7,.03],[x,1.6,h+.04]);panel.scale.y=.01;panel.visible=false;shelterPanels.push(panel);
   }
-  kit.box(room,indicator,[.5,.09,.04],[0,2.55,h+.04]);
+  kit.box(room,indicator,[.5,.09,.04],[0,2.77,h+.08]);
   kit.sphere(room,beacon,[.1,.1,.1],[h-.3,2.9,h-.3]);
-  const door=createSlidingDoor(kit,id,false);door.group.position.set(0,1.12,h-.03);door.group.scale.set(1.15,1.2,1);room.add(door.group);
+  const door=createSlidingDoor(kit,id,false,.10);door.group.position.set(0,1.12,h-.03);door.group.scale.set(1.15,1.2,1);room.add(door.group);
   const envelope=resources.geometry(new THREE.BoxGeometry(6.7,3.3,6.7));
   const selection=new THREE.LineSegments(resources.geometry(new THREE.EdgesGeometry(envelope)),resources.material(new THREE.LineBasicMaterial({color:'#ffe0a2'})));selection.position.y=.5;selection.visible=false;
   return {group,windows,indicator,beacon,shelterPanels,selection,door,screens,roof,walls};
