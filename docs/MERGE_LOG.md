@@ -7,7 +7,7 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 | Branch | Reported tip | Scope | State |
 | --- | --- | --- | --- |
 | `feat/himamshu-world` | `95a03b3` | `src/features/world/**` | Integrated locally by `c235948`; verified with game/HUD |
-| `feat/rohit-game` | `7489d9d` | Game reducer/tests/notes, contracts, app shell | Integrated locally by `c1a6f25`; checks passed |
+| `feat/rohit-game` | `2911ae0` | Game reducer/tests/audio/notes, contracts, app shell | First integrated by `c1a6f25`; follow-up by `932f930`; checks passed |
 | `feat/saurav-hud` | `999a70f` | HUD component and notes | Integrated locally by `3f1419b`; checks passed |
 
 Verify refs, scope and checks before a merge; this table is not authorization to merge. Anshu, Dixit and Genius have no published handoff recorded at this review.
@@ -29,6 +29,7 @@ Verify refs, scope and checks before a merge; this table is not authorization to
 - World merge: `c235948`, preserving `9fc1290` and `95a03b3`. Game merge: `c1a6f25`, preserving Rohit's `9c975de`, `2c02d15`, `7489d9d`. HUD merge: `3f1419b`, preserving Saurav's `999a70f`. All merges were conflict-free and original author metadata remains intact.
 - Game integration: Vue/TypeScript check and production build passed; 18 unique reducer/world tests passed. Browser checked station callbacks, sheltered win, unshielded research-only loss, pause/resume and resource replay with no page exceptions.
 - HUD integration: production build and the same 18 unique tests passed. Browser additionally checked ARIA reserve values, reset feedback, depletion warnings and desktop/360px layouts. No horizontal overflow or page exceptions; inspected screenshots.
+- Rohit published follow-up `2911ae0` during integration. Reviewed its owned paths and merged it as `932f930`: browser-native sound/mute, keyboard shortcuts, proximity descriptions and additional score fields. Build/typecheck and 19 unique tests passed; repeated the integrated browser mission flow with no page exceptions. Audio quality itself was not subjectively evaluated.
 - Standard `npm test` passed 30 tests because it also discovers 12 tests in the ignored local world worktree. To verify the actual main suite once, ran `node node_modules/vitest/vitest.mjs run --exclude '**/.worktrees/**'`: 18 passed. Rohit should exclude worktree paths in test configuration.
 - No Anshu, Dixit or Genius branch was available at this review. NASA evidence, varied mission content, full controller reset and final debrief UI remain with their owners. Publication is performed after the checks above; final published tip is reported in the task handoff.
 
