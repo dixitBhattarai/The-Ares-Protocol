@@ -17,8 +17,8 @@ export function getStationStatus(id: StationId, state: Readonly<GameState>): Sta
   const source = { habitat: 'oxygen', solar: 'power', greenhouse: 'supplies' } as const;
   const names = { habitat: 'Air', solar: 'Power', greenhouse: 'Supplies' };
   const reserve = displayReserve(state.resources[source[id]]);
-  // Match the HUD's display bands: empty, low (<=20), watch (<=45), ready.
-  const level: ReserveLevel = reserve <= 20 ? 'critical' : reserve <= 45 ? 'low' : 'normal';
+  // Match the integrated HUD: empty, low (<=20), watch (<=40), ready.
+  const level: ReserveLevel = reserve <= 20 ? 'critical' : reserve <= 40 ? 'low' : 'normal';
   const warning = level === 'normal' ? '' : level === 'low' ? 'watch' : reserve === 0 ? 'empty' : 'low';
   const shelter = id === 'habitat' ? ` · Shelter ${displayReserve(state.shielding)}` : '';
   return {
@@ -35,7 +35,11 @@ export function applyStationStatus(visual: StationVisual, status: StationStatus,
   visual.indicator.emissive.set(light);
   visual.indicator.emissiveIntensity = .15 + displayReserve(power) / 100 * .4;
   visual.windows.emissiveIntensity = displayReserve(power) / 100 * .4;
-  visual.windows.color.set(displayReserve(power) <= 20 ? '#516576' : '#93d8db');
+  const solar = visual.group.name === 'solar';
+  visual.windows.color.set(solar
+    ? displayReserve(power) <= 20 ? '#19354b' : '#28587b'
+    : displayReserve(power) <= 20 ? '#516576' : '#93d8db');
+  if (solar) visual.windows.emissiveIntensity *= .15;
   const beaconColor = hasEvent ? '#ffd087' : light;
   visual.beacon.color.set(beaconColor);
   visual.beacon.emissive.set(beaconColor);
