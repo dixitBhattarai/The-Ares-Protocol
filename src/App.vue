@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// Integration shell: Rohit owns this file. Feature agents edit their own folders.
-import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
+// Integration shell: Rohit owns this file. Himamshu's layout handoff is recorded in world/NOTES.md.
+import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
 import { STATIONS } from './contracts';
 import type { GameAction, PhysicsAdapter, Vec3, WorldAdapter } from './contracts';
 import { createInitialState, getCurrentEvent, reduceGame } from './features/game';
@@ -12,6 +12,7 @@ import MissionPanels from './features/ui/MissionPanels.vue';
 const mission = loadMission();
 const state = shallowRef(createInitialState(mission));
 const host = ref<HTMLElement>();
+const commandPanel = ref<HTMLElement>();
 const graphicsError = ref('');
 const stationMessage = ref('Click a base module to inspect systems, or use WASD / Arrow keys to walk.');
 const soundEnabled = ref(true);
@@ -36,7 +37,11 @@ function toggleSound() {
 }
 
 function dispatch(action: GameAction) {
+  const previousState = state.value;
   state.value = reduceGame(state.value, action, mission);
+  if (state.value !== previousState) {
+    void nextTick(() => { if (commandPanel.value) commandPanel.value.scrollTop = 0; });
+  }
 
   if (action.type === 'CHOOSE') {
     if (state.value.phase === 'won') {
@@ -177,13 +182,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main>
+  <main class="ares-app">
     <header class="app-header">
-      <div>
-        <h1>The Ares Protocol</h1>
-        <p>Junior Astronaut Outpost Lab · Mars Decision Simulation</p>
+      <div class="brand">
+        <span class="brand-planet" aria-hidden="true" />
+        <div>
+          <p class="brand-kicker">MISSION CONTROL / MARS</p>
+          <h1>The Ares Protocol</h1>
+        </div>
       </div>
       <div class="header-controls">
+        <span class="prototype-label">Junior explorer program</span>
+        <button v-if="state.phase === 'ready'" class="launch-btn" @click="dispatch({ type: 'START' })">Begin expedition <span aria-hidden="true">↗</span></button>
         <button
           type="button"
           class="sound-btn"
@@ -195,36 +205,104 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </header>
-    <div class="hud-container">
-      <HudOverlay :state="state" :mission="mission" />
+    <div class="mission-layout">
+      <div class="hud-container">
+        <HudOverlay :state="state" :mission="mission" />
+      </div>
+      <section class="world-panel" aria-label="Mars surface exploration">
+        <div class="surface-header"><span><span class="live-dot" aria-hidden="true" /> OUTPOST ARES / SURFACE VIEW</span><span>SECTOR 01</span></div>
+        <div
+          ref="host"
+          class="viewport"
+          role="region"
+          aria-label="Interactive 3D Mars Outpost Viewport"
+        />
+        <p class="scene-status" role="status">{{ graphicsError || stationMessage }}</p>
+        <div class="surface-footer"><span>STYLIZED MARS OUTPOST</span><span>WASD / ARROWS <span aria-hidden="true">·</span> SELECT A MODULE</span></div>
+      </section>
+      <aside ref="commandPanel" class="command-panel" aria-label="Mission command panel" tabindex="0" @keydown.stop @focusin="physics?.pauseInput?.()" @focusout="state.phase === 'running' && physics?.resumeInput?.()">
+        <div class="command-heading"><span>YOUR NEXT MOVE</span><span>{{ state.phase === 'ready' ? 'BRIEFING' : state.phase === 'running' ? 'DECISION DESK' : 'MISSION DESK' }}</span></div>
+        <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
+          {{ state.upcomingHazardNotice }}
+        </p>
+        <MissionPanels
+          :state="state"
+          :mission="mission"
+          :event="getCurrentEvent(mission, state)"
+          @action="dispatch"
+        />
+      </aside>
     </div>
-    <div
-      ref="host"
-      class="viewport"
-      role="region"
-      aria-label="Interactive 3D Mars Outpost Viewport"
-    />
-    <p class="scene-status" role="status">{{ graphicsError || stationMessage }}</p>
-    <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
-      {{ state.upcomingHazardNotice }}
-    </p>
-    <MissionPanels
-      :state="state"
-      :mission="mission"
-      :event="getCurrentEvent(mission, state)"
-      @action="dispatch"
-    />
   </main>
 </template>
 
 <style scoped>
-.app-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem 0.5rem; flex-wrap: wrap; gap: 0.5rem; }
-h1 { margin: 0; font-size: 1.8rem; letter-spacing: -0.02em; }
-.app-header p { margin: 0.25rem 0 0; color: #a3b8cc; font-size: 0.95rem; }
-.hud-container { display: flex; justify-content: center; padding: 0 1rem; }
-.sound-btn { padding: 0.4rem 0.8rem; font-size: 0.85rem; border-radius: 6px; background: #1c2b3c; border: 1px solid #4a627d; }
-.sound-btn:hover { background: #2b3e54; }
-.viewport { height: min(42vh, 440px); min-height: 220px; overflow: hidden; background: #160f16; }
-.scene-status { margin: 0.5rem 1.25rem; font-size: 0.88rem; color: #cad4df; line-height: 1.4; }
-.hazard-advisory { margin: 0.5rem 1.25rem; padding: 0.6rem 0.85rem; border-radius: 8px; background: #3b2219; border-left: 4px solid #f68e56; color: #fed7aa; font-size: 0.88rem; font-weight: 500; }
+.ares-app { max-width: 1800px; margin: auto; padding: 0 22px 20px; }
+.app-header { height: 88px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 13px; }
+.brand-planet { width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%; background: radial-gradient(circle at 32% 28%, #ffc28c, #cb684a 55%, #733e3e); box-shadow: inset -8px -5px 0 #37252f50, 0 0 30px #ec9c6330; }
+.brand-kicker { margin: 0 0 4px; font-size: 9px; font-weight: 750; letter-spacing: .2em; color: #b2bfc6; }
+h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
+.header-controls { display: flex; align-items: center; gap: 16px; }
+.prototype-label { color: #a0b3bd; font-size: 11px; }
+.sound-btn { font-size: 11px; padding: 9px 12px; background: #15232c; border-color: #34434d; border-radius: 7px; }
+.launch-btn { display: flex; gap: 18px; align-items: center; background: #e9b97d; color: #1d2830; border-color: #f2c796; border-radius: 7px; font-size: 12px; font-weight: 750; padding: 11px 15px; }
+.launch-btn:hover { background: #f5ce9e; }
+.mission-layout { display: grid; grid-template-columns: minmax(0, 1fr) 370px; grid-template-rows: auto minmax(0, 1fr); gap: 14px; height: calc(100dvh - 108px); min-height: 620px; }
+.hud-container { grid-column: 1 / -1; min-width: 0; }
+.world-panel { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; margin: 0; overflow: hidden; border: 1px solid #3e4c50; border-radius: 14px; background: #142028; box-shadow: 0 16px 55px #0003; }
+.surface-header, .surface-footer, .command-heading { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; color: #a6bbc2; font-size: 9px; font-weight: 650; letter-spacing: .1em; }
+.surface-header { border-bottom: 1px solid #34434a; color: #e2e6d9; }
+.surface-footer { border-top: 1px solid #34434a; font-size: 8px; }
+.live-dot { display: inline-block; width: 5px; height: 5px; margin-right: 7px; border-radius: 50%; background: #9ac5b5; box-shadow: 0 0 0 3px #9ac5b514; }
+.viewport { min-height: 0; overflow: hidden; background: #765040; }
+.scene-status { margin: 0; padding: 11px 16px; color: #becbd0; font-size: 11px; line-height: 1.5; }
+.command-panel { min-width: 0; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: #49606a transparent; border: 1px solid #34434c; border-radius: 14px; background: linear-gradient(145deg, #182731, #111d26); }
+.command-heading { position: sticky; top: 0; z-index: 3; background: #1b2c35; border-bottom: 1px solid #34434c; font-size: 8px; }
+.command-panel :deep(.mission-panels-root) { padding: 16px; gap: 18px; }
+.command-panel :deep(.choices-container), .command-panel :deep(.briefing-grid) { grid-template-columns: minmax(0, 1fr); }
+.command-panel :deep(.choice-card) { min-height: 0; padding: 13px; background: #1c303a; border-color: #3a505a; border-radius: 9px; }
+.command-panel :deep(.choice-card:hover) { background: #29434d; border-color: #d7b481; }
+.command-panel :deep(.choice-label), .command-panel :deep(h2) { font-size: 18px; }
+.command-panel :deep(.choice-explanation), .command-panel :deep(.event-desc) { font-size: 12px; line-height: 1.6; }
+.command-panel :deep(.tagline) { font-size: 13px; }
+.command-panel :deep(.impacts) { margin-top: 12px; }
+.command-panel :deep(.impact-pill) { font-size: 10px; }
+.command-panel :deep(.role-badge), .command-panel :deep(.shift-badge) { font-size: 9px; background: #264149; border-color: #527580; color: #b4d4d7; }
+.command-panel :deep(.card) { padding: 13px; background: #172a34; }
+.command-panel :deep(.card h3) { font-size: 13px; }
+.command-panel :deep(.card li) { font-size: 12px; line-height: 1.65; }
+.command-panel :deep(.hazard-banner), .command-panel :deep(.feedback-box) { font-size: 11px; }
+.hazard-advisory { margin: 12px 16px 0; padding: 11px; border-radius: 8px; background: #3b291d; border-left: 3px solid #eab575; color: #f8d5a6; font-size: 12px; line-height: 1.6; }
+@media (min-width: 1000px) {
+  .hud-container :deep(.hud) { width: 100%; display: grid; grid-template-columns: 155px minmax(0, 1fr) 250px; gap: 8px 18px; padding: 12px 16px; background: #15242d; border: 1px solid #364851; border-radius: 12px; }
+  .hud-container :deep(.hud-header) { grid-column: 1; grid-row: 1; flex-wrap: wrap; gap: 6px; margin: 0; }
+  .hud-container :deep(.shift-track) { grid-column: 1; grid-row: 2; align-self: end; margin: 0; }
+  .hud-container :deep(.reserve-grid) { grid-column: 2; grid-row: 1 / 3; margin: 0; }
+  .hud-container :deep(.secondary-grid) { grid-column: 3; grid-row: 1 / 3; margin: 0; }
+  .hud-container :deep(.secondary-card), .hud-container :deep(.reserve-card) { padding: 9px; background: #1c303a; }
+  .hud-container :deep(.reserve-name), .hud-container :deep(.secondary-label) { font-size: 10px; }
+  .hud-container :deep(.secondary-heading) { gap: 4px; flex-wrap: wrap; }
+  .hud-container :deep(.units-note) { grid-column: 1 / -1; margin: 0; font-size: 9px; }
+  .hud-container :deep(.hazard-notice), .hud-container :deep(.feedback), .hud-container :deep(.delayed-effects) { grid-column: 2 / -1; margin: 0; padding: 8px 12px; font-size: 10px; }
+}
+@media (max-width: 999px) {
+  .ares-app { padding: 0 12px 16px; }
+  .app-header { height: auto; min-height: 80px; flex-wrap: wrap; padding: 14px 0; }
+  .prototype-label { display: none; }
+  .mission-layout { height: auto; min-height: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; }
+  .hud-container :deep(.hud) { width: 100%; }
+  .world-panel { height: 560px; }
+  .command-panel { overflow: visible; }
+  .command-heading { position: static; }
+}
+@media (max-width: 480px) {
+  .brand-planet { width: 28px; height: 28px; }
+  h1 { font-size: 19px; }
+  .brand-kicker { font-size: 7px; }
+  .header-controls { width: 100%; justify-content: space-between; }
+  .world-panel { height: 440px; }
+  .surface-header, .surface-footer { font-size: 7px; padding: 12px; }
+  .surface-footer span:last-child { max-width: 130px; text-align: right; }
+}
 </style>
