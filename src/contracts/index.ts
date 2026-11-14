@@ -102,6 +102,7 @@ export interface GameState {
   debrief?: DebriefDetails;
   pendingDelayedEffects?: readonly PendingDelayedEffect[];
   lastHazardNotice?: string;
+  upcomingHazardNotice?: string;
 }
 export type GameAction =
   | { type: 'START' }
