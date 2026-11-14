@@ -1,13 +1,19 @@
 <script setup lang="ts">
 import { PREPARATION, type PreparationLevel } from './preflight';
-defineProps<{ level: PreparationLevel; progress: number; feedback: string; nearConsole: boolean; paused: boolean }>();
-defineEmits<{ control: [step: string]; remote: []; pause: [] }>();
+defineProps<{ level: PreparationLevel; outdoors?: boolean; progress: number; feedback: string; nearConsole: boolean; paused: boolean }>();
+defineEmits<{ control: [step: string]; remote: []; pause: []; enterLab: []; outside: [] }>();
 </script>
 <template>
   <section class="preparation" aria-label="Expedition preparation level">
     <p class="eyebrow">{{ level === 'earth' ? '01 / EARTH' : '02 / ORBIT' }} · PLAYABLE PREPARATION</p>
     <h2>{{ PREPARATION[level].title }}</h2><p>{{ PREPARATION[level].description }}</p>
-    <p>WASD / arrows to move. Return focus to the 3D view to walk. Click the numbered 3D console screens in order, or use the buttons below.</p>
+    <p>Drag to look around; scroll or pinch to zoom. WASD / arrows move relative to the camera. Use Overview to see the whole area.</p>
+    <template v-if="level === 'earth'">
+      <p v-if="outdoors">Explore the Earth training campus. Walk through the striped lab door to do the launch checks. E opens or closes the lab door.</p>
+      <button v-if="outdoors" :disabled="paused" @click="$emit('enterLab')">Accessible travel into training lab</button>
+      <button v-else :disabled="paused" @click="$emit('outside')">Explore Earth outdoors</button>
+    </template>
+    <p>Click the numbered 3D console screens in order, or use the buttons below.</p>
     <ol><li v-for="(step, i) in PREPARATION[level].steps" :key="step">{{ i < progress ? '✓ ' : '' }}{{ step }}</li></ol>
     <p role="status">{{ feedback || (nearConsole ? 'Console within reach.' : 'Move closer to the back-wall console.') }}</p>
     <div class="controls"><button v-for="step in [...PREPARATION[level].steps].reverse()" :key="step" :disabled="paused" @click="$emit('control', step)">{{ step }}</button></div>

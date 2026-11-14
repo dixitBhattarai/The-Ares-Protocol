@@ -32,8 +32,8 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
   room.add(new THREE.HemisphereLight('#d7f4ed', '#314149', 3));
   const roomSun = new THREE.DirectionalLight('#fff5d7', 2); roomSun.position.set(3, 8, 5); room.add(roomSun);
   kit.flatBox(room, kit.materials.trim, [6, .2, 6], [0, -.1, 0]);
-  kit.box(room, kit.materials.ivory, [6, 2.3, .15], [0, 1.15, -3]);
-  kit.box(room, kit.materials.ivory, [.15, 2.3, 6], [-3, 1.15, 0]);
+  const backWall = kit.box(room, kit.materials.ivory, [6, 2.3, .15], [0, 1.15, -3]);
+  const leftWall = kit.box(room, kit.materials.ivory, [.15, 2.3, 6], [-3, 1.15, 0]);
   const { steel } = dressRoom(room, kit, resources);
   const door = createSlidingDoor(kit, 'interior', false); door.group.position.set(0, .92, 2.88); room.add(door.group);
   const observationWindow = new THREE.Group(); room.add(observationWindow);
@@ -64,9 +64,10 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
     setDoor(open: boolean, instant = false) { door.setOpen(open); if (instant) door.update(0, true); },
     isDoorOpen() { return door.isOpen(); },
     animate(seconds: number, active: boolean, reduced: boolean) { updateAstronautAnimation(astronaut, seconds, active, reduced); door.update(active ? seconds : 0, reduced); },
-    pickControl(pointer: THREE.Vector2) {
-      room.updateMatrixWorld(true); camera.updateMatrixWorld();
-      const ray = new THREE.Raycaster(); ray.setFromCamera(pointer, camera);
+    cutaway(view: THREE.Camera) { backWall.visible = view.position.z > -2.8; leftWall.visible = view.position.x > -2.8; },
+    pickControl(pointer: THREE.Vector2, view: THREE.Camera = camera) {
+      room.updateMatrixWorld(true); view.updateMatrixWorld();
+      const ray = new THREE.Raycaster(); ray.setFromCamera(pointer, view);
       const hit = ray.intersectObjects(equipment.children, true).find(item => Number.isInteger(item.object.userData.controlIndex));
       return hit?.object.userData.controlIndex as number | undefined;
     },

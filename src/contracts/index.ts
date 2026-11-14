@@ -121,6 +121,8 @@ export type GameAction =
   | { type: 'RESTART' }
   | { type: 'CHOOSE'; choiceId: string };
 export interface WorldAdapter {
+  setEarthOutside?(outside: boolean): void;
+  getCameraYaw?(): number;
   setDoorState?(station: StationId, open: boolean): void;
   isDoorOpen?(station: StationId): boolean;
   setMotionPaused?(paused: boolean): void;
@@ -136,6 +138,7 @@ export interface WorldAdapter {
   dispose(): void;
 }
 export interface PhysicsAdapter {
+  setCameraYaw?(yaw: number): void;
   enterInterior?(): void;
   exitInterior?(): void;
   step(seconds: number): void;
