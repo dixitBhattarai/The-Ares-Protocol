@@ -99,12 +99,12 @@ describe('world spatial and ownership contracts', () => {
   it('maps only the relevant reserve to each station and never alters the snapshot', () => {
     const state = snapshot(20, 75);
     state.resources.oxygen = 40;
-    state.resources.supplies = 46;
+    state.resources.supplies = 41;
     const before = JSON.stringify(state);
     expect(getStationStatus('solar', state)).toMatchObject({ reserve: 20, level: 'critical' });
     expect(getStationStatus('habitat', state)).toMatchObject({ reserve: 40, level: 'low' });
-    expect(getStationStatus('greenhouse', state)).toMatchObject({ reserve: 46, level: 'normal' });
-    expect(getStationStatus('greenhouse', { ...state, resources: { ...state.resources, supplies: 45 } }).level).toBe('low');
+    expect(getStationStatus('greenhouse', state)).toMatchObject({ reserve: 41, level: 'normal' });
+    expect(getStationStatus('greenhouse', { ...state, resources: { ...state.resources, supplies: 40 } }).level).toBe('low');
     expect(JSON.stringify(state)).toBe(before);
   });
 

@@ -66,3 +66,11 @@ Original baseline: `710e015`. Continuation baseline: checked main `097f63f`, bro
 
 - Event report width and scroll height now follow the actual world host, so a narrow embedded game panel cannot size its popup to the whole browser. Full supplied text remains available by scrolling; no truncation or simulation change.
 - Browser verified a long supplied report inside a 240x220 host on a 1280px browser: all bounds stayed within the host, scrolling worked and full text was retained. Typecheck, 25 tests and production build passed on the world continuation baseline.
+
+## Integrated follow-up — published main cd1b370
+
+- Updated this personal feature branch from Antigravity's published main, preserving the other owners' commits without editing their files. This supplies the new HUD/UI/grounded controller. The latest HUD uses watch <=40 (changed from its earlier <=45); world presentation and its boundary test now match that integrated threshold.
+- Combined browser passed station selection, pre-hazard warning, sheltered win, unprepared loss, pause/resume, both debrief screens and replay reserve/event reset. The new physics drives the astronaut gait/shadow correctly; idle/pause and reduced-motion checks passed. Desktop and 360px captures inspected; no horizontal overflow or page exceptions. Final typecheck, all 56 tests and production build passed after the threshold adjustment. The production preview also passed the full warning/hazard/win/loss/pause/replay flow at desktop and 360px with no page exceptions.
+- Current cross-owner blocker: Antigravity's merge log records the Genius mission merge stopped by `game.test.ts:78` expecting "imminent" while the mission supplies an active storm notice. Rohit owns that fix. The six-event NASA mission pack is not in this tested baseline; no claim that it has passed integration.
+- Rohit/UI layout request remains: the stacked desktop HUD, scene and decision panels require scrolling between reserves and choices at 1280x960. Consider a shared app grid to keep those visible together. World stays within its host and does not edit shell layout.
+

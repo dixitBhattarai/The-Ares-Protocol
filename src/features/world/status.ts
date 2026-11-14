@@ -17,8 +17,8 @@ export function getStationStatus(id: StationId, state: Readonly<GameState>): Sta
   const source = { habitat: 'oxygen', solar: 'power', greenhouse: 'supplies' } as const;
   const names = { habitat: 'Air', solar: 'Power', greenhouse: 'Supplies' };
   const reserve = displayReserve(state.resources[source[id]]);
-  // Match the HUD's display bands: empty, low (<=20), watch (<=45), ready.
-  const level: ReserveLevel = reserve <= 20 ? 'critical' : reserve <= 45 ? 'low' : 'normal';
+  // Match the integrated HUD: empty, low (<=20), watch (<=40), ready.
+  const level: ReserveLevel = reserve <= 20 ? 'critical' : reserve <= 40 ? 'low' : 'normal';
   const warning = level === 'normal' ? '' : level === 'low' ? 'watch' : reserve === 0 ? 'empty' : 'low';
   const shelter = id === 'habitat' ? ` · Shelter ${displayReserve(state.shielding)}` : '';
   return {
