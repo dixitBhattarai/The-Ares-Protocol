@@ -1,19 +1,40 @@
 # Game and integration handoff — Rohit
 
-Status: starter only; final mission/integration work remains.
+Status: Milestone 1 complete (`feat(game): implement consequences and debrief`); Milestone 2 & 3 in progress.
 
-- Existing: pure turn reducer, phases, costs, clamping/depletion, science completion; shell with one fixed-step loop and non-3D decision fallback.
-- Limits: one event repeats; research-only wins; shelter has no benefit; restart resets resources/log but not pose/input. No NASA fixture or deployment configured.
-- Next: coordinate richer consequences with Genius, reset/input hooks with Anshu, integrate all owners serially and run the final checklist.
-- Validation: starter verification is recorded below by the scaffold producer; future owners append actual milestone checks.
-- Handoff: provide branch, commit hashes, integrated checks, public demo status and remaining limits.
+- Branch: `feat/rohit-game`
+- Owned paths: `src/features/game/**`, `src/contracts/**`, `src/App.vue`, root coordination files.
 
-## Scaffold verification — 14 November 2026
+## Milestone 1: Consequences, Shelter Hazards & Debrief
 
-- `npm run build`: passed, including Vue/TypeScript checking. TypeScript is pinned to 5.9.3 because the latest compiler's package exports were incompatible with vue-tsc during verification.
-- `npm test`: six reducer tests passed (phase guards, cost/immutability, final-turn depletion, win/terminal guard, clamping/restart, invalid choice).
-- `npm ls --depth=0`: expected pinned dependencies installed.
-- Production preview in headless Chrome: start, research choice, pause/resume, six-choice win, oxygen-choice depletion loss, and resource restart passed. Canvas initialized successfully; no page exceptions during the flow.
-- Inspected desktop and 360px screenshots. Layout fits the narrow viewport; final interaction/collision/keyboard/accessibility and deployed-host checks remain assigned to owners.
-- Three/Rapier are lazy-loaded so the decision UI can appear first. The Rapier compatibility chunk remains large (about 4.3 MB uncompressed); account for first-load time on the demo connection.
-- No real NASA data, deployed URL, full pose reset or final hazard mechanics are claimed by these checks.
+- Additive Contracts (`src/contracts/index.ts`):
+  - `PhysicsAdapter`: added optional `reset?(pose?: Vec3): void`, `pauseInput?(): void`, `resumeInput?(): void` for coordinate/input lifecycle without breaking v1 adapters.
+  - `GameState`: added optional `debrief?: DebriefDetails`, `history?: readonly TurnRecord[]`, `pendingDelayedEffects?: readonly PendingDelayedEffect[]`, `lastHazardNotice?: string`.
+  - `Choice` & `MissionEvent`: added optional `delayedEffect` and `hazard?: HazardEffect`.
+- Reducer Architecture (`src/features/game/index.ts`):
+  - Fixed starter's research-only dominant strategy: greedy research without shelter preparation now triggers depletion and defeat.
+  - Useful shelter protection: shielding score (>= 15) mitigates severe solar radiation hazard on Shift 3.
+  - Delayed consequences: supports light travel communication and food buffering across shifts.
+  - Explanatory debriefs: provides constructive advice and lessons on depletion, insufficient science, and victory.
+  - Pure reducer: strict immutability, clamping (0..100), terminal state guarding, and clean replay on restart.
+- Shell Integration (`src/App.vue`):
+  - Dispatches `physics?.reset?.()` on restart, and safely manages pause/resume input hooks.
+  - Fully playable button-based fallback when WebGL or WASM encounters errors.
+
+## Validation
+
+- `npm run typecheck`: passed with zero type errors.
+- `npm test`: 12 comprehensive unit tests passed:
+  - Phase guards and pause/resume transitions.
+  - Immutability and unknown choice rejection.
+  - Terminal state guards (won/lost states ignore subsequent choices).
+  - Shelter hazard mitigation on Shift 3 (shielding >= 15).
+  - Unshielded hazard penalty on Shift 3 (shielding < 15).
+  - Defeat of research-only strategy via power depletion.
+  - Shelter-First Explorer winning strategy.
+  - Fortified Base winning strategy.
+  - Insufficient science defeat when science < 3 after 6 shifts.
+  - Upper and lower reserve clamping (0 to 100).
+  - Delayed effect scheduling and execution across turns.
+  - Clean RESTART reset.
+- `npm run build`: production build passed cleanly.

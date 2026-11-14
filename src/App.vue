@@ -20,8 +20,12 @@ let accumulator = 0;
 function dispatch(action: GameAction) {
   state.value = reduceGame(state.value, action, mission);
   if (action.type === 'RESTART') {
-    // PhysicsAdapter v1 has no reset API. Rohit and Anshu should add it together.
-    stationMessage.value = 'New resource plan. Astronaut position stays where you left it in this starter.';
+    physics?.reset?.();
+    stationMessage.value = 'Outpost and astronaut reset. Plan your next shifts carefully.';
+  } else if (action.type === 'PAUSE') {
+    physics?.pauseInput?.();
+  } else if (action.type === 'RESUME') {
+    physics?.resumeInput?.();
   }
 }
 function pauseWhenHidden() {

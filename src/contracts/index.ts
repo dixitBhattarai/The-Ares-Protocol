@@ -9,11 +9,24 @@ export interface Effect {
   shielding?: number;
   science?: number;
 }
+export interface DelayedEffectDef {
+  delayTurns: number;
+  description: string;
+  effect: Effect;
+}
 export interface Choice {
   id: string;
   label: string;
   explanation: string;
   effect: Effect;
+  delayedEffect?: DelayedEffectDef;
+}
+export interface HazardEffect {
+  minShielding: number;
+  mitigatedLoss: Partial<Resources>;
+  unmitigatedLoss: Partial<Resources>;
+  mitigatedNotice: string;
+  unmitigatedNotice: string;
 }
 export interface MissionEvent {
   id: string;
@@ -21,6 +34,7 @@ export interface MissionEvent {
   description: string;
   choices: readonly Choice[];
   sourceIds: readonly string[];
+  hazard?: HazardEffect;
 }
 export interface SourceRecord {
   id: string;
@@ -43,6 +57,38 @@ export interface MissionData {
   sources: readonly SourceRecord[];
   dataMode: 'authored-demo' | 'archived' | 'live';
 }
+
+export type DebriefVerdict = 'won' | 'depleted' | 'low_science';
+
+export interface DebriefDetails {
+  verdict: DebriefVerdict;
+  title: string;
+  summary: string;
+  primaryCause?: string;
+  recommendations: readonly string[];
+  lessons: readonly string[];
+}
+
+export interface TurnRecord {
+  turn: number;
+  shift: number;
+  eventId: string;
+  eventTitle: string;
+  choiceId: string;
+  choiceLabel: string;
+  explanation: string;
+  hazardNotice?: string;
+  resources: Resources;
+  science: number;
+  shielding: number;
+}
+
+export interface PendingDelayedEffect {
+  dueTurn: number;
+  description: string;
+  effect: Effect;
+}
+
 export interface GameState {
   phase: Phase;
   turn: number;
@@ -50,6 +96,10 @@ export interface GameState {
   shielding: number;
   science: number;
   log: readonly string[];
+  history?: readonly TurnRecord[];
+  debrief?: DebriefDetails;
+  pendingDelayedEffects?: readonly PendingDelayedEffect[];
+  lastHazardNotice?: string;
 }
 export type GameAction =
   | { type: 'START' }
@@ -67,6 +117,9 @@ export interface PhysicsAdapter {
   step(seconds: number): void;
   getPlayerPose(): Vec3;
   dispose(): void;
+  reset?(pose?: Vec3): void;
+  pauseInput?(): void;
+  resumeInput?(): void;
 }
 // Units: metres, Y up, ground at Y=0. Keep rendering and collision layouts identical.
 export const STATIONS: ReadonlyArray<{ id: StationId; position: Vec3 }> = [
