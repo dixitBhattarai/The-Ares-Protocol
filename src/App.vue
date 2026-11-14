@@ -1,6 +1,8 @@
 <script setup lang="ts">
 // Integration shell: Rohit owns this file. Himamshu's layout handoff is recorded in world/NOTES.md.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
+import { atSuitRack, inAirlock, freshHabitatAccess } from './contracts/habitat';
+import { changeSuit, cycleAirlock, stepAirlock } from './features/game/airlock';
 import { SPACECRAFT_SEAT, STATIONS } from './contracts';
 import type { LandingFlightSnapshot, LaunchFlightSnapshot, FlightStage, GravityBody, GameAction, PhysicsAdapter, Vec3, WorldAdapter, StationId, MissionData } from './contracts';
 import { createInitialState, getCurrentEvent, reduceGame, STATION_TASKS, taskCompletionId } from './features/game';
@@ -42,6 +44,12 @@ const deckVisible = ref(true);
 const activeActivity = shallowRef<(Activity & { taskId: string; completionId: string; impact: string }) | null>(null);
 const activityProgress = ref(0);
 const activityFeedback = ref('');
+const habitatAccess=ref(freshHabitatAccess());
+const nearSuitRack=ref(false);
+const airlockOccupied=ref(false);
+const airlockNotice=ref('');
+function equipSuit(){if(state.value.phase!=='running'||activeActivity.value)return;habitatAccess.value=changeSuit(habitatAccess.value,physics?.getPlayerPose()??{x:1.5,y:.8,z:9});}
+function useAirlock(){if(state.value.phase!=='running'||activeActivity.value)return;const next=cycleAirlock(habitatAccess.value,physics?.getPlayerPose()??{x:0,y:.8,z:12.5});airlockNotice.value=next===habitatAccess.value?'Suit up at the rack first.':'';habitatAccess.value=next;}
 const interior = ref<StationId | null>(null);
 const nearby = ref<StationId | null>(null);
 const doorsOpen = ref<Record<StationId, boolean>>({ habitat: false, solar: false, greenhouse: false });
@@ -444,7 +452,7 @@ function dispatch(action: GameAction) {
     activityProgress.value=0;activityFeedback.value='Finish the station minigame to earn this reward.';
     world?.setObjective?.(task.station);physics?.pauseInput?.();deckVisible.value=false;return;
   }
-  if (action.type === 'RESTART') { missionTimerActive.value=false;arrivalGuide.value=false;clearLandingFlight();clearLaunchFlight();missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; preparationProgress.value=0;nearCabinSeat.value=false;cabinSeated.value=false;world?.setCabinSeatState?.('hidden');arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
+  if (action.type === 'RESTART') { habitatAccess.value=freshHabitatAccess();airlockNotice.value='';missionTimerActive.value=false;arrivalGuide.value=false;clearLandingFlight();clearLaunchFlight();missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; preparationProgress.value=0;nearCabinSeat.value=false;cabinSeated.value=false;world?.setCabinSeatState?.('hidden');arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
   if (action.type === 'PAUSE' && state.value.phase === 'running') music?.setPaused(true);
   if (action.type === 'RESUME' && state.value.phase === 'paused') music?.setPaused(false);
   const previousState = state.value;
@@ -539,6 +547,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
     if(event.code==='Space'&&!(event.target as HTMLElement|null)?.closest('button')){event.preventDefault();if(!event.repeat)igniteLaunch();return;}
   }
   if ((event.target as HTMLElement | null)?.closest('button, input, textarea, select, [contenteditable]')) return;
+  if(state.value.phase==='running'&&!activeActivity.value&&event.code==='KeyE'&&(nearSuitRack.value||airlockOccupied.value)){event.preventDefault();if(!event.repeat){if(airlockOccupied.value)useAirlock();else equipSuit();}return;}
   if ((preparation.value || flightStage.value) && event.code === 'KeyP') { event.preventDefault(); togglePreparationPause(); return; }
   if (flightStage.value) {
     if (event.code === 'Space' || event.code === 'Enter') {
@@ -688,6 +697,9 @@ onMounted(async () => {
         accumulator = 0;
       }
       advanceMissionTime(elapsed);
+      if(state.value.phase==='running'&&!activeActivity.value&&!document.hidden)habitatAccess.value=stepAirlock(habitatAccess.value,elapsed);
+      physics!.setHabitatAccess?.(habitatAccess.value);world!.setHabitatAccess?.(habitatAccess.value);
+      nearSuitRack.value=atSuitRack(physics!.getPlayerPose());airlockOccupied.value=inAirlock(physics!.getPlayerPose());
       let pose = physics!.getPlayerPose();
       if (preparation.value === 'earth') {
         const outside=insideStation(pose)!=='habitat';
@@ -826,6 +838,12 @@ onBeforeUnmount(() => {
         <DoorPanel v-if="!activeActivity && arrivalComplete && state.phase === 'running' && !preparation && flightProgress === null"
           :station="interior ?? nearby" :inside="!!interior" :open="!!doorsOpen[interior ?? nearby ?? 'habitat']"
           :ready="doorReady" :paused="false" @toggle="toggleDoor" @enter="enterModule()" @exit="leaveModule" @travel="travelToDoor" />
+        <section v-if="arrivalComplete && state.phase==='running' && !activeActivity && (nearSuitRack || airlockOccupied)" class="airlock-panel" aria-label="Habitat airlock">
+          <strong>{{ airlockOccupied ? 'AIRLOCK' : 'EVA SUIT' }}</strong>
+          <p role="status">{{ airlockNotice || (habitatAccess.remaining>0 ? 'Doors sealed · changing pressure…' : airlockOccupied ? habitatAccess.phase==='outside'?'Mars door open':'Base door open' : habitatAccess.suited?'Helmet sealed · air pack ready':'Suit up to explore Mars') }}</p>
+          <button v-if="nearSuitRack && !airlockOccupied" @click="equipSuit">{{ habitatAccess.suited?'E · Stow suit':'E · Equip suit' }}</button>
+          <button v-else :disabled="habitatAccess.remaining>0 || !habitatAccess.suited" @click="useAirlock">{{ habitatAccess.phase==='inside'?'E · Cycle to Mars':'E · Cycle to base' }}</button>
+        </section>
         <LaunchControls v-if="launchFlight" :flight="launchFlight" :paused="preparationPaused" @ignite="igniteLaunch" @hold="holdLaunch" @nudge="nudgeLaunch" @throttle="setLaunchThrottle" @pause="togglePreparationPause" @reset="beginLaunchSequence" />
         <LandingControls v-if="landingFlight" :flight="landingFlight" :guidance="landingGuidance(landingFlight)" :paused="preparationPaused" @hold="holdLanding" @nudge="nudgeLanding" @throttle="setLandingThrottle" @legs="deployLandingLegs" @assist="toggleLandingAssist" @pause="togglePreparationPause" @retry="retryMarsLanding" @continue="finishArrival" />
         <div v-if="flightStage && !launchFlight && !landingFlight" class="arrival-overlay" role="status">

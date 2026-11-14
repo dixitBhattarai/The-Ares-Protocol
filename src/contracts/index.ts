@@ -144,6 +144,7 @@ export type GameAction =
   | { type: 'RESTART' }
   | { type: 'CHOOSE'; choiceId: string };
 export interface WorldAdapter {
+  setHabitatAccess?(access: import('./habitat').HabitatAccess): void;
   setAvailableTasks?(stations: readonly StationId[], offerId: string): void;
   setEarthOutside?(outside: boolean): void;
   getCameraYaw?(): number;
@@ -209,6 +210,7 @@ export interface GravityInfo {
   canJump: boolean;
 }
 export interface PhysicsAdapter {
+  setHabitatAccess?(access: import('./habitat').HabitatAccess): void;
   setGravityBody?(body: GravityBody): void;
   getGravityInfo?(): GravityInfo;
   setDoorOpen?(station: StationId, open: boolean): void;

@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { createHabitatDome } from './habitat';
+import { createEvaEquipment } from './eva-suit';
+import { freshHabitatAccess } from '../../contracts/habitat';
 import { STATIONS } from '../../contracts';
 import type { FlightStage, LaunchFlightSnapshot, LandingFlightSnapshot, GameState, StationId, Vec3, WorldAdapter } from '../../contracts';
 import { createLaunchView } from './launch-view';
@@ -96,11 +99,14 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     const terrain = createTerrain(kit, resources);
     terrain.traverse(object => { if (object instanceof THREE.Mesh) object.receiveShadow = true; });
     scene.add(terrain);
+    const dome=createHabitatDome(kit,resources);scene.add(dome.group);
+    let habitatAccess=freshHabitatAccess();
     const astronaut = createAstronaut(kit);
     const suit = new THREE.Group(); suit.position.y = -.8; astronaut.group.add(suit);
     void nasa.attach(suit, 'astronaut', 1.55, astronaut.fallback);
     astronaut.group.position.copy(playerPose);
     scene.add(astronaut.group);
+    const eva=createEvaEquipment(kit);astronaut.group.add(eva.helmet,eva.pack);
     astronaut.group.traverse(object => { if (object instanceof THREE.Mesh) object.castShadow = true; });
     const playerShadow = createGroundShadow(resources, .42, .32);
     playerShadow.name = 'astronaut-shadow';
@@ -731,6 +737,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       },
       isDoorOpen(id) { return level === 'earth' && id === 'habitat' ? earth.labDoor.isOpen() : stations.find(station => station.id === id)?.visual.door.isOpen() ?? false; },
       setConsoleHandler(handler) { if (!disposed) consoleHandler = handler; },
+      setHabitatAccess(access) { habitatAccess=access;dome.update(access); },
       setLevel(id) {
         if (disposed || level === id) return;
         level = id;
@@ -890,6 +897,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         if (astronaut.group.parent !== scene) scene.add(astronaut.group);
         updateAstronautAnimation(astronaut, delta, active, reduceMotion);
         if (cameraDirty) updateCamera();
+        eva.update(astronaut.group,habitatAccess.suited);
         renderer!.render(scene, cameraMode === 'follow' ? follow.camera : camera);
       },
       dispose,

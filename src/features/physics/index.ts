@@ -1,3 +1,5 @@
+import { constrainHabitatMotion } from './habitat';
+import type { HabitatAccess } from '../../contracts/habitat';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { BUILDING_HALF_SIZE, DOOR_HALF_WIDTH, STATIONS } from '../../contracts';
 import type { GravityBody, GravityInfo, PhysicsAdapter, StationId, Vec3 } from '../../contracts';
@@ -138,6 +140,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   let outsidePose: Vec3 | undefined;
   let cameraYaw = 0;
   let walkingPath: Vec3[] = [];
+  let habitatAccess: HabitatAccess | null = null;
   let gravityBody: GravityBody = 'mars';
   let jumpRequested = false;
 
@@ -189,6 +192,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   }
 
   return {
+    setHabitatAccess(access) { habitatAccess = access; },
     setGravityBody(next) {
       if (isDisposed || !(next in GRAVITY_BY_BODY)) return;
       gravityBody = next;
@@ -218,6 +222,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       jumpRequested = false;
       body.setLinvel({ x: vx, y: vy, z: vz }, true);
 
+      const previousPose = {...body.translation()};
       world.timestep = dt;
       world.step();
 
@@ -235,6 +240,10 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
         }
       }
 
+      if (gravityBody === 'mars' && !outsidePose && habitatAccess) {
+        const safe=constrainHabitatMotion(previousPose,{x:clampedX,y:clampedY,z:clampedZ},habitatAccess);
+        clampedX=safe.x;clampedZ=safe.z;
+      }
       if (clampedX !== pose.x || clampedY !== pose.y || clampedZ !== pose.z) {
         body.setTranslation({ x: clampedX, y: clampedY, z: clampedZ }, true);
       }
