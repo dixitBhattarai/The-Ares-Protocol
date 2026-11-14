@@ -1,6 +1,6 @@
 # Manual acceptance and demo checks
 
-These are checks to run, not claims that all final-game requirements already pass. Owners record actual results in local notes; Rohit records integrated checks in `game/NOTES.md`.
+These are checks to run, not claims that all final-game requirements already pass. Owners record feature checks in local notes; Rohit records game/app-wiring checks in `game/NOTES.md`; Himamshu records post-merge checks in `MERGE_LOG.md`.
 
 - Fresh checkout: `npm ci`, typecheck, tests, build; inspect the production build via `npm run preview`.
 - No login/API key needed. After initial assets load, decisions require no network. First-ever offline loading would need a service worker and is outside MVP.

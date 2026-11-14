@@ -23,4 +23,4 @@ Keep `createPhysics(): Promise<PhysicsAdapter>`, `step(seconds)`, `getPlayerPose
 1. Grounded controller/colliders: `feat(physics): add grounded astronaut controller`.
 2. Focus/pause/reset reliability: `fix(physics): handle focus pause and reset`.
 
-Run typecheck/tests/build and manual movement/collision checks. Stage only `src/features/physics`, review staged diff and commit milestones. Update notes; hand off branch/hash/checks/limits. Do not edit App/contracts/dependencies or add a second render loop.
+Run typecheck/tests/build and manual movement/collision checks. Stage only `src/features/physics`, review staged diff and commit milestones. Update notes; hand Himamshu branch/hash/paths/checks/limits for merging; send reset/input API requests to Rohit. Do not edit App/contracts/dependencies, add a second render loop or merge into main.

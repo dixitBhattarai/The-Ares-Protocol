@@ -35,4 +35,4 @@ These are starting links, not evidence already imported by the scaffold. Inspect
 1. Six authored teaching events: `feat(missions): add six teaching decisions`.
 2. Verified fixture/mapping/credits: `feat(missions): add archived NASA evidence`.
 
-Run typecheck/tests/build and content/provenance checks. Stage only `src/features/missions`, inspect staged diff and commit working milestones. Update notes; hand Rohit branch/hash/checks and requested rule changes. Do not edit UI, game, contracts, root docs, manifests or lockfile.
+Run typecheck/tests/build and content/provenance checks. Stage only `src/features/missions`, inspect staged diff and commit working milestones. Update notes; hand Himamshu branch/hash/paths/checks for merging and send requested rule changes to Rohit. Do not edit UI, game, contracts, root docs, manifests or lockfile, and do not merge into main.

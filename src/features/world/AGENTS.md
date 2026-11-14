@@ -2,6 +2,8 @@
 
 Read root `AGENTS.md` and `docs/CONTRACTS.md`. You own only `src/features/world/**`, including this guide, local assets/tests/styles and `NOTES.md`. Branch: `feat/himamshu-world` from the shared scaffold on main, in your own clone/worktree.
 
+Himamshu also owns merge coordination as a separate task. This world-feature prompt does not authorize merging. Finish and commit world work here; use `docs/MERGE_COORDINATOR_PROMPT.md` in the clean main checkout for any explicitly requested merges. App/contracts/package changes remain with Rohit.
+
 ## Task
 
 Make one readable, lightweight Mars base with habitat, solar station, greenhouse, astronaut and camera. Improve the primitive scene rather than building a full planet. Give modules distinct silhouettes/labels. React visually to the supplied game state and support station picking.

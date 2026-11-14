@@ -23,4 +23,4 @@ All commands emit typed `GameAction`; never mutate props, recompute balances, im
 1. Onboarding and choices: `feat(ui): build onboarding and decisions`.
 2. Debrief/replay/credits: `feat(ui): add debrief replay and source credits`.
 
-Run typecheck/tests/build and complete a keyboard/narrow-screen start-to-retry flow. Stage only `src/features/ui`, inspect staged diff and commit working milestones. Update notes; hand off branch/hash/checks/limits. Don't edit the HUD or simulate missing rules yourself.
+Run typecheck/tests/build and complete a keyboard/narrow-screen start-to-retry flow. Stage only `src/features/ui`, inspect staged diff and commit working milestones. Update notes; hand Himamshu branch/hash/paths/checks/limits for merging; send engineering requests to Rohit. Don't edit the HUD, simulate missing rules yourself or merge into main.

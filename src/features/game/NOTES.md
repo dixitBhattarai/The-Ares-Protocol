@@ -4,9 +4,9 @@ Status: starter only; final mission/integration work remains.
 
 - Existing: pure turn reducer, phases, costs, clamping/depletion, science completion; shell with one fixed-step loop and non-3D decision fallback.
 - Limits: one event repeats; research-only wins; shelter has no benefit; restart resets resources/log but not pose/input. No NASA fixture or deployment configured.
-- Next: coordinate richer consequences with Genius, reset/input hooks with Anshu, integrate all owners serially and run the final checklist.
+- Next: coordinate richer consequences with Genius, reset/input hooks with Anshu, implement shared app wiring and run feature checks. Himamshu merges the completed branches serially.
 - Validation: starter verification is recorded below by the scaffold producer; future owners append actual milestone checks.
-- Handoff: provide branch, commit hashes, integrated checks, public demo status and remaining limits.
+- Handoff to Himamshu: branch, commit hashes, changed engineering paths, actual checks, app-integration requests and remaining limits. Rohit does not merge branches into main.
 
 ## Scaffold verification — 14 November 2026
 
