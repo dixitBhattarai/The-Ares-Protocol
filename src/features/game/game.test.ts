@@ -103,6 +103,27 @@ describe('shelter hazard mechanics and eliminating research-only dominance', () 
 });
 
 describe('multiple winning strategies and victory debrief', () => {
+  it('achieves 3-Star Master Commander victory with DSN interplanetary comms strategy', () => {
+    let state = reduceGame(createInitialState(mission), { type: 'START' }, mission);
+    state = reduceGame(state, { type: 'CHOOSE', choiceId: 'oxygen' }, mission);   // Shift 1 (buffer O2)
+    state = reduceGame(state, { type: 'CHOOSE', choiceId: 'shield' }, mission);   // Shift 2 (prepare bunker)
+    state = reduceGame(state, { type: 'CHOOSE', choiceId: 'research' }, mission); // Shift 3 (storm mitigated)
+    state = reduceGame(state, { type: 'CHOOSE', choiceId: 'research' }, mission); // Shift 4 (grow crops)
+    state = reduceGame(state, { type: 'CHOOSE', choiceId: 'comms' }, mission);    // Shift 5 (beam to Earth)
+    state = reduceGame(state, { type: 'CHOOSE', choiceId: 'research' }, mission); // Shift 6 (final push + delayed comms arrive)
+
+    expect(state.phase).toBe('won');
+    expect(state.science).toBe(5);
+    expect(state.shielding).toBe(15);
+    expect(state.resources.power).toBeGreaterThan(0);
+    expect(state.resources.oxygen).toBeGreaterThan(0);
+    expect(state.resources.supplies).toBeGreaterThan(0);
+    expect(state.debrief?.verdict).toBe('won');
+    expect(state.debrief?.stars).toBe(3);
+    expect(state.debrief?.score).toBeGreaterThanOrEqual(230);
+    expect(state.debrief?.summary).toContain('⭐⭐⭐ 3-Star Rating');
+  });
+
   it('wins with Shelter-First Explorer strategy (Oxygen -> Shield -> Research x4)', () => {
     let state = reduceGame(createInitialState(mission), { type: 'START' }, mission);
     state = reduceGame(state, { type: 'CHOOSE', choiceId: 'oxygen' }, mission);   // Shift 1
@@ -120,8 +141,9 @@ describe('multiple winning strategies and victory debrief', () => {
     expect(state.resources.supplies).toBeGreaterThan(0);
     expect(state.debrief?.verdict).toBe('won');
     expect(state.debrief?.title).toContain('Accomplished');
-    expect(state.debrief?.stars).toBeGreaterThanOrEqual(2);
+    expect(state.debrief?.stars).toBe(2);
     expect(state.debrief?.score).toBeGreaterThan(150);
+    expect(state.debrief?.summary).toContain('⭐⭐ 2-Star Rating');
   });
 
   it('wins with Fortified Base strategy (Shield -> Oxygen -> Shield -> Research x3)', () => {
@@ -142,6 +164,7 @@ describe('multiple winning strategies and victory debrief', () => {
     expect(state.debrief?.verdict).toBe('won');
     expect(state.debrief?.stars).toBeGreaterThanOrEqual(1);
     expect(state.debrief?.score).toBeGreaterThan(100);
+    expect(state.debrief?.summary).toContain('Star Rating');
   });
 });
 
@@ -225,6 +248,24 @@ describe('losing conditions, explanations and clamping', () => {
     expect(restarted.history).toEqual([]);
     expect(restarted.debrief).toBeUndefined();
   });
+
+  it('supports 4th decision choice on Shift 5 (harden antenna & shelter)', () => {
+    let state = reduceGame(createInitialState(mission), { type: 'START' }, mission);
+    state = reduceGame(state, { type: 'CHOOSE', choiceId: 'oxygen' }, mission); // Turn 0
+    state = reduceGame(state, { type: 'CHOOSE', choiceId: 'shield' }, mission); // Turn 1
+    state = reduceGame(state, { type: 'CHOOSE', choiceId: 'shield' }, mission); // Turn 2
+    state = reduceGame(state, { type: 'CHOOSE', choiceId: 'oxygen' }, mission); // Turn 3
+    expect(state.turn).toBe(4); // Shift 5
+
+    const eventShift5 = getCurrentEvent(mission, state);
+    expect(eventShift5?.choices).toHaveLength(4);
+    expect(eventShift5?.choices[3].id).toBe('shield');
+
+    state = reduceGame(state, { type: 'CHOOSE', choiceId: eventShift5!.choices[3].id }, mission);
+    expect(state.turn).toBe(5);
+    expect(state.history?.[4].choiceId).toBe('shield');
+    expect(state.shielding).toBe(45);
+  });
 });
 
 describe('SoundFX synthesizer', () => {
@@ -233,7 +274,13 @@ describe('SoundFX synthesizer', () => {
     expect(soundFX.enabled).toBe(true);
     soundFX.enabled = false;
     expect(soundFX.enabled).toBe(false);
+    expect(() => soundFX.playStart()).not.toThrow();
+    expect(() => soundFX.playRestart()).not.toThrow();
     expect(() => soundFX.playDecision()).not.toThrow();
+    expect(() => soundFX.playTransmission()).not.toThrow();
+    expect(() => soundFX.playOxygen()).not.toThrow();
+    expect(() => soundFX.playShield()).not.toThrow();
+    expect(() => soundFX.playWarning()).not.toThrow();
     expect(() => soundFX.playHazard()).not.toThrow();
     expect(() => soundFX.playVictory()).not.toThrow();
     expect(() => soundFX.playDepleted()).not.toThrow();
