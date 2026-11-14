@@ -394,9 +394,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       if (firstPerson) {
         follow.look(dx, dy);
       } else {
-        // If mouse is locked in Third-Person Follow mode, allow both follow.look and horizontal orbit rotation
-        follow.look(dx, dy);
-        follow.rotate(-dx * 0.005);
+        follow.orbitLook(dx, dy);
       }
       cameraDirty = true;
     };

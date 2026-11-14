@@ -73,6 +73,12 @@ export function createFollowCamera(canvas: HTMLCanvasElement) {
     isFirstPerson: () => firstPerson,
     /** Pointer deltas in pixels. Ignored outside first person. */
     look(dx: number, dy: number) { if (firstPerson) look = applyLook(look, dx, dy); },
+    // OrbitControls subtracts these angles: positive mouse X must turn the view right.
+    orbitLook(dx: number, dy: number) {
+      controls.rotateLeft(dx * .0022);
+      controls.rotateUp(dy * .0022);
+      controls.update();
+    },
     yaw: () => firstPerson ? look.yaw : controls.getAzimuthalAngle(),
     reset() { context = ''; if (firstPerson) look = { yaw: look.yaw, pitch: -.08 }; },
     rotate(angle: number) {
