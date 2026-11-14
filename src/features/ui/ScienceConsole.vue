@@ -1,0 +1,64 @@
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue';
+import type { ScienceSnapshot, FeedStatus, FeedError } from '../missions/science-client';
+const props = defineProps<{ snapshot: ScienceSnapshot; loading: boolean; sampleStatus?: string }>();
+const emit = defineEmits<{ refresh: []; close: [] }>();
+const tab = ref<'solar'|'mars'>('mars');
+const imageIndex = ref(0);
+const imageFailed = ref(false);
+const photo = computed(() => props.snapshot.imagery.data[imageIndex.value % Math.max(1, props.snapshot.imagery.data.length)]);
+watch(() => photo.value?.thumbnailUrl, () => { imageFailed.value = false; });
+function mode(status: FeedStatus): string {
+  return status === 'fresh' ? 'NASA RESPONSE' : status === 'archive' ? 'BUNDLED ARCHIVE' : status === 'empty' ? 'NO RECORDS' : 'UNAVAILABLE';
+}
+function reason(error: FeedError | null): string {
+  if (error === 'rate-limit') return 'NASA’s shared demo limit was reached. Try later.';
+  if (error === 'timeout') return 'NASA took too long to reply.';
+  if (error === 'invalid') return 'The response did not contain usable science records.';
+  if (error === 'aborted') return 'Request stopped.';
+  return error ? 'NASA could not be reached. The mission still works offline.' : '';
+}
+function date(value: string | null): string {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? `${parsed.toISOString().slice(0, 16).replace('T', ' ')} UTC` : 'Date not supplied';
+}
+</script>
+<template>
+  <section class="science-console" aria-label="NASA science console" :aria-busy="loading">
+    <header class="console-top"><span><i aria-hidden="true"/> SCIENCE LINK</span><button type="button" aria-label="Close science console" @click="emit('close')">×</button></header>
+    <div class="console-heading"><h2>Explore real Mars</h2><p>Compare your sample with NASA science.</p></div>
+    <p v-if="sampleStatus" class="sample-note" role="status">{{ sampleStatus }}</p>
+    <nav aria-label="Science views"><button type="button" :aria-pressed="tab==='mars'" @click="tab='mars'">Mars images</button><button type="button" :aria-pressed="tab==='solar'" @click="tab='solar'">Solar weather</button></nav>
+    <template v-if="tab==='mars'">
+      <div class="feed-heading"><span :class="{archive:snapshot.imagery.status!=='fresh'}">{{ mode(snapshot.imagery.status) }}</span><small>{{ snapshot.imagery.data.length ? 'NASA Image and Video Library' : 'Image search' }}</small></div>
+      <figure v-if="photo" class="photo-card">
+        <img v-if="!imageFailed" :key="photo.thumbnailUrl" :src="photo.thumbnailUrl" :alt="photo.title" loading="lazy" referrerpolicy="no-referrer" @error="imageFailed=true"/>
+        <div v-else class="image-placeholder" role="img" aria-label="NASA photograph could not load"><span>▧</span><p>Photo unavailable</p></div>
+        <figcaption><a :href="photo.catalogUrl" target="_blank" rel="noopener noreferrer">{{ photo.title }} ↗</a><span>{{ photo.credit }} · {{ photo.createdAt.slice(0,10) }}</span></figcaption>
+      </figure>
+      <div v-else class="image-placeholder" role="status"><span aria-hidden="true">◎</span><strong>{{ loading ? 'Contacting NASA…' : snapshot.imagery.status==='empty' ? 'No photos in this search' : 'Image link unavailable' }}</strong><p>{{ reason(snapshot.imagery.error) || 'Refresh to request real Mars photographs.' }}</p></div>
+      <div v-if="snapshot.imagery.data.length>1" class="photo-controls"><span>{{ imageIndex % snapshot.imagery.data.length+1 }} / {{ snapshot.imagery.data.length }}</span><button type="button" @click="imageIndex++">Next image →</button></div>
+      <details v-if="photo" class="science-detail"><summary>Photo notes &amp; use</summary><p>{{ photo.description }}</p><p>Credit: {{ photo.credit }}. Open the NASA item page for the source and any image-specific restrictions. NASA-hosted items may include third-party material.</p><p>Response retrieved: {{ date(snapshot.imagery.fetchedAt) }}</p></details>
+      <section class="weather-strip" aria-label="Archived InSight conditions"><div><small>INSIGHT · SOL {{ snapshot.weather.sol }}</small><strong>{{ snapshot.weather.temperatureC }} °C</strong></div><div><small>PRESSURE</small><strong>{{ snapshot.weather.pressurePa }} Pa</strong></div><span>ARCHIVED</span></section>
+      <p class="science-caption">Bundled InSight reference, not weather at your game base. <a :href="snapshot.weather.sourceUrl" target="_blank" rel="noopener noreferrer">Source ↗</a></p>
+    </template>
+    <template v-else>
+      <div class="feed-heading"><span :class="{archive:snapshot.solar.status!=='fresh'}">{{ mode(snapshot.solar.status) }}</span><small>NASA CCMC · DONKI</small></div>
+      <article v-if="snapshot.solar.data" class="solar-card">
+        <svg class="sun" viewBox="0 0 240 125" role="img" aria-label="Illustration of a solar eruption, not a telescope observation"><defs><radialGradient id="science-sun"><stop offset="0" stop-color="#ffeab5"/><stop offset=".8" stop-color="#ecac5f"/><stop offset="1" stop-color="#be6e43"/></radialGradient></defs><circle cx="82" cy="66" r="39" fill="url(#science-sun)"/><circle cx="82" cy="66" r="47" fill="none" stroke="#f2b96e" opacity=".35"/><path d="M113 42Q168 4 187 48M119 57Q188 32 209 78M120 75Q174 83 186 113" fill="none" stroke="#e8b273" stroke-width="3" stroke-linecap="round"/><circle cx="68" cy="76" r="9" fill="#c07743" opacity=".35"/></svg>
+        <div class="solar-readout"><span>Solar eruption speed</span><strong>{{ snapshot.solar.data.speedKmPerSecond }} <em>km/s</em></strong><span class="reading-time">Observed {{ date(snapshot.solar.data.observedAt) }}</span></div>
+        <p>Solar plasma can disturb spacecraft systems. Solid shelter helps protect a crew.</p>
+        <a :href="snapshot.solar.data.catalogUrl" target="_blank" rel="noopener noreferrer">Open the NASA record ↗</a>
+      </article>
+      <p v-else class="empty-solar">{{ loading ? 'Checking solar records…' : 'No usable CME analysis in the past seven days.' }}</p>
+      <p v-if="snapshot.solar.error" class="request-note" role="status">{{ reason(snapshot.solar.error) }} Showing the bundled record.</p>
+      <details class="science-detail"><summary>What does this reading mean?</summary><p>A coronal mass ejection (CME) is an eruption of solar material. This is its analyzed speed, not a measurement of radiation received on Mars and not a forecast of an impact on your base.</p><p>Game hazards and shelter scores are authored rules. This feed never changes their timing or claims to predict a person’s dose.</p><p v-if="snapshot.solar.data">{{ snapshot.solar.data.instrument }}</p><p>Response retrieved: {{ date(snapshot.solar.fetchedAt) }}</p><a :href="snapshot.solar.queryUrl" target="_blank" rel="noopener noreferrer">Source query (no private credentials) ↗</a></details>
+    </template>
+    <footer><span>{{ loading ? 'Receiving science data…' : 'No account needed · public NASA services' }}</span><button type="button" :disabled="loading" @click="emit('refresh')">{{ loading ? 'Loading…' : 'Refresh NASA' }}</button></footer>
+    <details class="attribution"><summary>Science &amp; attribution</summary><p>NASA does not endorse any non-U.S. Government entity and is not responsible for information contained on non-U.S. Government websites. For non-U.S. Government websites, participants must comply with any data use parameters of that specific website.</p><p>The mission uses simplified engineering rules. Your collected sand and its research results are fictional game samples, not measurements from a NASA rover. InSight values and the fallback DONKI record are preserved from this repository’s bundled archives; they have not been reverified by the current live request.</p></details>
+  </section>
+</template>
+<style scoped>
+.science-console{--line:#658b8a;box-sizing:border-box;width:100%;padding:0 18px 14px;background:linear-gradient(145deg,#17343d,#10252f);color:#edf9ee;font-family:system-ui,sans-serif}.console-top{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #72948b55;min-height:48px;font:700 10px ui-monospace,monospace;letter-spacing:.13em;color:#a7d8ca}.console-top i{display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:#b9e9c6;box-shadow:0 0 10px #b9e9c633}.console-top button{border:0;background:transparent!important;color:#b4d0c8;font-size:24px;padding:0;min-width:44px}.console-heading h2{font-size:25px;letter-spacing:-.035em;margin:15px 0 3px;color:#fff0cc}.console-heading p{margin:0 0 16px;font-size:13px;color:#b8cec8}.sample-note{border-left:3px solid #a8d6bc;padding:8px 10px;background:#9fd7c311;font-size:12px;line-height:1.5}nav{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;border:1px solid #71958f55;border-radius:8px;background:#0a1d26}button{font:inherit;min-height:42px;border:1px solid #80aca580;border-radius:6px;background:#23464e;color:#e9faed;cursor:pointer;font-size:12px;padding:8px 12px}button:disabled{opacity:.5;cursor:default}button:focus-visible,summary:focus-visible,a:focus-visible{outline:3px solid #ffdc95;outline-offset:3px}nav button{border:1px solid transparent;background:transparent;color:#afc8c2}nav button[aria-pressed=true]{background:#335653;border-color:#709d8d;color:#f6ffef}.feed-heading{display:flex;align-items:center;gap:10px;margin:16px 0 10px}.feed-heading>span{font:700 9px ui-monospace,monospace;padding:4px 6px;border-radius:3px;background:#204d40;color:#b9edc4;letter-spacing:.08em}.feed-heading .archive{background:#51422e;color:#f2d099}.feed-heading small{font-size:10px;color:#a4c2bc}.photo-card{margin:0;border:1px solid #76988a55;border-radius:8px;overflow:hidden;background:#0b1c25}.photo-card img{display:block;width:100%;height:185px;object-fit:cover}.photo-card figcaption{display:grid;gap:5px;padding:11px 12px}.photo-card figcaption a{color:#f2e6c8;font-size:13px;line-height:1.4;text-decoration:none}.photo-card figcaption span{font-size:10px;color:#aac2bc}.photo-controls{display:flex;align-items:center;justify-content:space-between;font:11px ui-monospace,monospace;margin:9px 0}.photo-controls button{min-height:36px}.image-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;min-height:180px;padding:14px;border:1px dashed #69928b66;border-radius:9px;background:radial-gradient(ellipse at bottom,#744f3c44,transparent 65%),#0d212a;color:#b5cec1;text-align:center}.image-placeholder>span{font-size:40px;color:#cba578}.image-placeholder strong{font-size:15px;font-weight:600}.image-placeholder p{font-size:12px;line-height:1.5;margin:0;max-width:280px;color:#9eb8b2}.weather-strip{display:flex;align-items:center;gap:20px;margin-top:14px;padding:12px 10px;border:1px solid #6e918644;border-radius:6px;background:#0b2028}.weather-strip div{display:grid;gap:5px}.weather-strip small{font:8px ui-monospace,monospace;color:#94b7ab;letter-spacing:.07em}.weather-strip strong{font:600 17px ui-monospace,monospace;color:#e3efda}.weather-strip>span{margin-left:auto;font:8px ui-monospace,monospace;color:#e8cc92;letter-spacing:.09em}.science-caption a{color:#a7deca}.science-caption{font-size:10px;line-height:1.5;color:#a8bfb7;margin:7px 0 0}.solar-card{padding:8px 14px 15px;border:1px solid #b48b5c44;border-radius:8px;background:radial-gradient(ellipse at top,#80582d25,transparent 65%),#0b2029}.sun{display:block;width:100%;height:120px}.solar-readout{text-align:center;display:grid;gap:5px;font-size:11px;color:#b8cec5}.solar-readout strong{font:600 34px ui-monospace,monospace;color:#ffdf9c}.solar-readout em{font-size:14px;font-style:normal}.reading-time{font:9px ui-monospace,monospace}.solar-card p{font-size:12px;line-height:1.55;color:#bfd0c4;margin:15px 0 10px}.solar-card>a{font-size:12px;color:#a7deca}.empty-solar{min-height:100px;padding:18px;background:#0c232c;border-radius:8px;font-size:14px;line-height:1.5}.science-detail,.attribution{margin-top:12px;color:#a9c2b9;font-size:11px;line-height:1.6}.science-detail summary,.attribution summary{min-height:32px;cursor:pointer;color:#c7d8ca}.science-detail a{color:#a6ddcb}.request-note{font-size:11px;line-height:1.5;color:#e2c491;border-left:2px solid #bc9c60;padding-left:10px}footer{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #74938b44;padding-top:13px;margin-top:16px}footer span{font-size:10px;color:#95b5a9;max-width:180px}footer button{background:#b4dbc1;color:#15372d;font-weight:700;flex-shrink:0}.attribution{font-size:10px}.attribution p{margin:8px 0}.science-console *{box-sizing:border-box}@media(max-width:480px){.science-console{padding:0 14px 12px}.console-heading h2{font-size:23px}.photo-card img{height:155px}.weather-strip{gap:12px;padding:10px 8px}.weather-strip strong{font-size:15px}.feed-heading{gap:7px}.feed-heading small{font-size:9px}footer span{max-width:140px}}
+</style>
