@@ -1,0 +1,9 @@
+*.glb -text
+*.wasm -text
+*.jpg -text
+*.ogg -text
+*.flac -text
+*.mp3 -text
+draco/*.js -text
+draco/*.txt text eol=lf
+.gitattributes text eol=lf

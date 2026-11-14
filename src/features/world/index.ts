@@ -9,6 +9,7 @@ import { pickStationAt } from './picking';
 import { applyStationStatus, getStationStatus, getWorldEventNotice } from './status';
 import './world.css';
 import { createExpeditionViews } from './expedition';
+import { createNasaLoader } from './nasa-assets';
 
 export function createWorld(host: HTMLElement, onInteract: (station: StationId) => void): WorldAdapter {
   const resources = new WorldResources();
@@ -57,14 +58,20 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     cleanups.push(() => sun.shadow.dispose());
     scene.add(sun);
     const kit = createModelKit(resources);
-    const expedition = createExpeditionViews(kit, resources);
+    const nasa = createNasaLoader(resources);
+    cleanups.push(() => nasa.dispose());
+    const expedition = createExpeditionViews(kit, resources, nasa);
     cleanups.push(() => expedition.dispose());
     let interior: StationId | null = null;
     let journey: number | null = null;
+    let level: 'earth' | 'space' | null = null;
+    let consoleHandler: ((index: number) => void) | null = null;
     const terrain = createTerrain(kit, resources);
     terrain.traverse(object => { if (object instanceof THREE.Mesh) object.receiveShadow = true; });
     scene.add(terrain);
     const astronaut = createAstronaut(kit);
+    const suit = new THREE.Group(); suit.position.y = -.8; astronaut.group.add(suit);
+    void nasa.attach(suit, 'astronaut', 1.55, astronaut.fallback);
     astronaut.group.position.copy(playerPose);
     scene.add(astronaut.group);
     astronaut.group.traverse(object => { if (object instanceof THREE.Mesh) object.castShadow = true; });
@@ -197,7 +204,16 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       return pickStationAt(pointer, camera, stationGroups, raycaster);
     };
     const stationGroups = stations.map(station => station.visual.group);
-    const click = (event: MouseEvent) => { const id = stationAt(event); if (id) selectStation(id); };
+    const click = (event: MouseEvent) => {
+      if (interior || level) {
+        const rect = renderer!.domElement.getBoundingClientRect();
+        pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1);
+        const control = expedition.pickControl(pointer);
+        if (control !== undefined) consoleHandler?.(control);
+        return;
+      }
+      const id = stationAt(event); if (id) selectStation(id);
+    };
     const move = (event: PointerEvent) => {
       const id = stationAt(event);
       if (id === hovered) return;
@@ -264,12 +280,23 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     }
     updateCamera();
     return {
+      setConsoleHandler(handler) { if (!disposed) consoleHandler = handler; },
+      setLevel(id) {
+        if (disposed || level === id) return;
+        level = id;
+        if (id) expedition.interior(id);
+        container.classList.toggle('ares-world--interior', Boolean(id || interior));
+        heading.childNodes[0].textContent = id === 'earth' ? 'EARTH / FLIGHT OPERATIONS' : id === 'space' ? 'ORBIT / TRANSFER CABIN' : 'ARES / OUTPOST 01';
+        subtitle.textContent = id ? 'Prepare the expedition. Complete the checks.' : 'A small base. Big decisions.';
+        hint.textContent = id ? 'WASD / arrows · walk to the numbered console screens' : 'Select a base module · WASD / arrows to walk';
+      },
       setActivityProgress(progress) { if (!disposed) expedition.progress(progress); },
       setInterior(id) {
         if (disposed || interior === id) return;
         interior = id;
         if (id) expedition.interior(id);
         container.classList.toggle('ares-world--interior', Boolean(id));
+        heading.childNodes[0].textContent = id ? `ARES / ${STATION_NAMES[id].toUpperCase()} INTERIOR` : 'ARES / OUTPOST 01';
         hint.textContent = id ? `Inside ${STATION_NAMES[id]} · operate the task console in the mission panel` : 'Select a base module · WASD / arrows to walk';
       },
       setJourney(progress) {
@@ -332,7 +359,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         if (disposed) return;
         expedition.resize(width / height);
         if (journey !== null) { expedition.journey(journey); renderer!.render(expedition.flight, expedition.camera); return; }
-        if (interior) { expedition.roomCamera(); renderer!.render(expedition.room, expedition.camera); return; }
+        if (interior || level) { expedition.roomCamera(); renderer!.render(expedition.room, expedition.camera); return; }
         if (cameraDirty) updateCamera();
         renderer!.render(scene, camera);
       },
