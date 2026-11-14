@@ -10,6 +10,10 @@ import HudOverlay from './features/hud/HudOverlay.vue';
 import MissionPanels from './features/ui/MissionPanels.vue';
 import ActivityPanel from './features/world/ActivityPanel.vue';
 import { getActivity, advanceActivity, type Activity } from './features/game/activities';
+import PreparationPanel from './features/world/PreparationPanel.vue';
+import AssetCredits from './features/world/AssetCredits.vue';
+import { advancePreparation, PREPARATION, type PreparationLevel } from './features/world/preflight';
+import { createMusic } from './features/world/music';
 
 const mission = loadMission();
 const state = shallowRef(createInitialState(mission));
@@ -19,6 +23,7 @@ const graphicsError = ref('');
 const stationMessage = ref('Click a base module to inspect systems, or use WASD / Arrow keys to walk.');
 const soundEnabled = ref(true);
 const directDecisionMode = ref(false);
+const deckVisible = ref(true);
 const activeActivity = shallowRef<(Activity & { choiceId: string; impact: string }) | null>(null);
 const activityProgress = ref(0);
 const activityFeedback = ref('');
@@ -26,8 +31,43 @@ const interior = ref<StationId | null>(null);
 const nearby = ref<StationId | null>(null);
 const flightProgress = ref<number | null>(null);
 let arrivalComplete = false;
+let orbitComplete = false;
+let music: ReturnType<typeof createMusic> | undefined;
+const preparation = ref<PreparationLevel | null>(null);
+const preparationProgress = ref(0);
+const preparationFeedback = ref('');
+const preparationPaused = ref(false);
+const nearConsole = ref(false);
+let remoteConsole = false;
 
-function finishArrival() { flightProgress.value = null; arrivalComplete = true; world?.setJourney?.(null); dispatch({ type: 'START' }); }
+function beginPreparation(level: PreparationLevel) {
+  flightProgress.value = null; world?.setJourney?.(null);
+  preparation.value = level; preparationProgress.value = 0; preparationFeedback.value = ''; preparationPaused.value = false; nearConsole.value = false; remoteConsole = false;
+  world?.setLevel?.(level); world?.setActivityProgress?.(0); physics?.enterInterior?.(); physics?.resumeInput?.();
+  stationMessage.value = level === 'earth' ? 'Earth preparation lab: walk to the console and complete your departure checks.' : 'Orbital cabin: establish the navigation link before continuing to Mars.';
+  music?.setPaused(false); music?.select(level); music?.unlock();
+}
+function togglePreparationPause() { preparationPaused.value = !preparationPaused.value; music?.setPaused(preparationPaused.value); if (preparationPaused.value) physics?.pauseInput?.(); else physics?.resumeInput?.(); }
+function operatePreparation(control: string) {
+  const level = preparation.value;
+  if (!level || preparationPaused.value) return;
+  if (!nearConsole.value && !remoteConsole) { preparationFeedback.value = 'Walk to the console or enable the accessible remote console.'; return; }
+  const next = advancePreparation(level, preparationProgress.value, control);
+  if (next === preparationProgress.value) { preparationFeedback.value = 'Follow the procedure in order.'; return; }
+  preparationProgress.value = next; world?.setActivityProgress?.(next); preparationFeedback.value = `Check ${next} complete.`;
+  if (next === PREPARATION[level].steps.length) {
+    preparation.value = null; physics?.exitInterior?.(); world?.setLevel?.(null); world?.setActivityProgress?.(0);
+    if (level === 'space') orbitComplete = true;
+    music?.select('space'); flightProgress.value = 0;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) finishArrival();
+  }
+}
+
+function finishArrival() {
+  flightProgress.value = null; world?.setJourney?.(null);
+  if (!orbitComplete) { beginPreparation('space'); return; }
+  arrivalComplete = true; music?.select('mars'); stationMessage.value = 'Landed on Mars. Choose a shift job, then walk to its module.'; dispatch({ type: 'START' });
+}
 function leaveModule() { physics?.exitInterior?.(); world?.setInterior?.(null); interior.value = null; physics?.resumeInput?.(); }
 function cancelActivity() {
   soundFX.playRestart();
@@ -90,12 +130,13 @@ let currentSelectedStation: string | null = null;
 function toggleSound() {
   soundEnabled.value = !soundEnabled.value;
   soundFX.enabled = soundEnabled.value;
+  music?.setEnabled(soundEnabled.value); music?.unlock();
 }
 
 function dispatch(action: GameAction, procedureComplete = false) {
   if (action.type === 'START' && !arrivalComplete && world && !graphicsError.value) {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) arrivalComplete = true;
-    else { if (flightProgress.value === null) flightProgress.value = 0; return; }
+    if (!preparation.value && flightProgress.value === null) beginPreparation('earth');
+    return;
   }
   if (action.type === 'CHOOSE' && !procedureComplete && state.value.phase === 'running' && physics && !graphicsError.value && !directDecisionMode.value) {
     if (activeActivity.value) return;
@@ -108,7 +149,9 @@ function dispatch(action: GameAction, procedureComplete = false) {
     world?.setObjective?.(activeActivity.value.station);
     return;
   }
-  if (action.type === 'RESTART') { cancelActivity(); arrivalComplete = false; flightProgress.value = null; world?.setJourney?.(null); }
+  if (action.type === 'RESTART') { cancelActivity(); preparation.value = null; orbitComplete = false; arrivalComplete = false; flightProgress.value = null; world?.setJourney?.(null); world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
+  if (action.type === 'PAUSE' && state.value.phase === 'running') music?.setPaused(true);
+  if (action.type === 'RESUME' && state.value.phase === 'paused') music?.setPaused(false);
   const previousState = state.value;
   state.value = reduceGame(state.value, action, mission);
   if (state.value !== previousState) {
@@ -118,12 +161,20 @@ function dispatch(action: GameAction, procedureComplete = false) {
   if (action.type === 'START') {
     soundFX.playStart();
   } else if (action.type === 'CHOOSE') {
+    const prevRes = previousState.resources;
+    const nextRes = state.value.resources;
+    const filledTo100 = (['power', 'oxygen', 'supplies'] as const).some(
+      key => prevRes[key] < 100 && nextRes[key] === 100
+    );
+
     if (state.value.phase === 'won') {
       soundFX.playVictory();
     } else if (state.value.phase === 'lost') {
       soundFX.playDepleted();
     } else if (state.value.lastHazardNotice) {
       soundFX.playHazard();
+    } else if (filledTo100) {
+      soundFX.playFullReserve();
     } else if (action.choiceId === 'comms') {
       soundFX.playTransmission();
     } else if (action.choiceId === 'oxygen') {
@@ -156,6 +207,7 @@ function dispatch(action: GameAction, procedureComplete = false) {
 }
 
 function pauseWhenHidden() {
+  if (document.hidden && preparation.value) { preparationPaused.value = true; physics?.pauseInput?.(); music?.setPaused(true); }
   if (document.hidden) dispatch({ type: 'PAUSE' });
 }
 
@@ -187,9 +239,14 @@ function checkStationProximity(pose: Vec3) {
 
 function handleGlobalKeydown(event: KeyboardEvent) {
   if ((event.target as HTMLElement | null)?.closest('button, input, textarea, select, [contenteditable]')) return;
+  if (preparation.value && event.code === 'KeyP') { togglePreparationPause(); return; }
   if (event.code === 'KeyE') { if (interior.value) leaveModule(); else enterModule(); return; }
   if (event.code === 'KeyM') {
     toggleSound();
+    return;
+  }
+  if (event.code === 'KeyC') {
+    deckVisible.value = !deckVisible.value;
     return;
   }
   if (activeActivity.value) {
@@ -240,6 +297,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 }
 
 onMounted(async () => {
+  music = createMusic();
   document.addEventListener('visibilitychange', pauseWhenHidden);
   window.addEventListener('keydown', handleGlobalKeydown);
   try {
@@ -254,6 +312,10 @@ onMounted(async () => {
       stationMessage.value = stationDescriptions[station] || `Selected: ${station}. Use decision cards below to manage operations.`;
     });
     physics = await createPhysics();
+    world.setConsoleHandler?.(index => {
+      if (preparation.value) operatePreparation(PREPARATION[preparation.value].steps[index]);
+      else if (activeActivity.value) operateControl(activeActivity.value.steps[index]);
+    });
     if (disposed) {
       physics.dispose();
       return;
@@ -264,10 +326,10 @@ onMounted(async () => {
       previous = now;
       if (flightProgress.value !== null && !document.hidden) {
         flightProgress.value = Math.min(1, flightProgress.value + elapsed / 8);
-        world!.setJourney?.(flightProgress.value);
+        world!.setJourney?.((orbitComplete ? .5 : 0) + flightProgress.value * .5);
         if (flightProgress.value >= 1) finishArrival();
       }
-      if (state.value.phase === 'running') {
+      if (state.value.phase === 'running' || (preparation.value && !preparationPaused.value)) {
         accumulator = Math.min(accumulator + elapsed, 0.1);
         while (accumulator >= 1 / 60) {
           physics!.step(1 / 60);
@@ -277,6 +339,7 @@ onMounted(async () => {
         accumulator = 0;
       }
       const pose = physics!.getPlayerPose();
+      nearConsole.value = pose.z < -.4;
       checkStationProximity(pose);
       world!.setPlayerPose(pose);
       world!.setState(state.value);
@@ -295,6 +358,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  music?.dispose();
   disposed = true;
   cancelAnimationFrame(frame);
   document.removeEventListener('visibilitychange', pauseWhenHidden);
@@ -327,7 +391,7 @@ onBeforeUnmount(() => {
         >
           {{ directDecisionMode ? '⚡ Direct Mode' : '🚀 3D Procedures' }}
         </button>
-        <button v-if="state.phase === 'ready'" class="launch-btn" @click="dispatch({ type: 'START' })">Begin expedition <span aria-hidden="true">↗</span></button>
+        <button v-if="state.phase === 'ready' && !preparation && flightProgress === null" class="launch-btn" @click="dispatch({ type: 'START' })">Begin expedition <span aria-hidden="true">↗</span></button>
         <button
           type="button"
           class="sound-btn"
@@ -344,7 +408,21 @@ onBeforeUnmount(() => {
         <HudOverlay :state="state" :mission="mission" />
       </div>
       <section class="world-panel" aria-label="Mars surface exploration">
-        <div class="surface-header"><span><span class="live-dot" aria-hidden="true" /> OUTPOST ARES / SURFACE VIEW</span><span>SECTOR 01</span></div>
+        <div class="surface-header">
+          <span><span class="live-dot" aria-hidden="true" /> {{ preparation === 'earth' ? 'EARTH / PREPARATION LAB' : preparation === 'space' ? 'ORBIT / COMMUNICATIONS CABIN' : flightProgress !== null ? 'EXPEDITION / IN TRANSIT' : 'OUTPOST ARES / SURFACE VIEW' }}</span>
+          <div class="surface-actions">
+            <button
+              v-if="state.phase === 'running'"
+              type="button"
+              class="deck-toggle-btn"
+              :aria-label="deckVisible ? 'Hide Command Deck' : 'Show Command Deck'"
+              @click="deckVisible = !deckVisible"
+            >
+              {{ deckVisible ? '◨ Hide Deck' : '📋 Command Deck' }}
+            </button>
+            <span>SECTOR 01</span>
+          </div>
+        </div>
         <div
           ref="host"
           class="viewport"
@@ -352,9 +430,9 @@ onBeforeUnmount(() => {
           aria-label="Interactive 3D Mars Outpost Viewport"
         />
         <div v-if="flightProgress !== null" class="arrival-overlay" role="status">
-          <h2>Earth → Mars</h2><p>{{ flightProgress < .3 ? 'Leaving home' : flightProgress < .85 ? 'Cruising to the Red Planet' : 'Approaching Ares Outpost' }}</p>
+          <h2>{{ orbitComplete ? 'Orbit → Mars' : 'Earth → Orbit' }}</h2><p>{{ orbitComplete ? 'Transfer to Ares Outpost' : 'Ascending to the communications cabin' }}</p>
           <progress :value="flightProgress" max="1" aria-label="Journey to Mars" />
-          <p>Condensed journey · not real travel time or scale</p><button @click="finishArrival">Skip flight / land on Mars</button>
+          <p>Condensed journey · not real travel time or scale</p><button @click="finishArrival">Skip transfer</button>
         </div>
         <p class="scene-status" role="status">
           <span v-if="currentSelectedStation" class="selected-badge">
@@ -370,20 +448,37 @@ onBeforeUnmount(() => {
           {{ graphicsError || stationMessage }}
         </p>
         <div class="surface-footer"><span>STYLIZED MARS OUTPOST</span><span>WASD / ARROWS <span aria-hidden="true">·</span> SELECT A MODULE</span></div>
+
+        <!-- Coherent In-Viewport Overlay Host for Shell UI Panels -->
+        <aside
+          v-show="deckVisible"
+          ref="commandPanel"
+          class="command-panel in-viewport-deck"
+          aria-label="Mission command panel"
+          tabindex="0"
+          @keydown.stop
+          @focusin="physics?.pauseInput?.()"
+          @focusout="(state.phase === 'running' || (preparation && !preparationPaused)) && physics?.resumeInput?.()"
+        >
+          <div class="command-heading">
+            <span>YOUR NEXT MOVE</span>
+            <span>{{ state.phase === 'ready' ? 'BRIEFING' : state.phase === 'running' ? 'DECISION DESK' : 'MISSION DESK' }}</span>
+          </div>
+          <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
+            {{ state.upcomingHazardNotice }}
+          </p>
+          <PreparationPanel v-if="preparation" :level="preparation" :progress="preparationProgress" :feedback="preparationFeedback" :near-console="nearConsole" :paused="preparationPaused" @control="operatePreparation" @remote="remoteConsole = true; preparationFeedback = 'Remote console enabled.'" @pause="togglePreparationPause" />
+          <ActivityPanel v-else-if="activeActivity" :station="activeActivity.station" :title="activeActivity.title" :steps="activeActivity.steps" :impact="activeActivity.impact" :progress="activityProgress" :inside="interior === activeActivity.station" :feedback="activityFeedback" :paused="state.phase === 'paused'" @control="operateControl" @travel="travelToTask" @enter="enterModule()" @exit="leaveModule" @cancel="cancelActivity" @pause="dispatch({ type: state.phase === 'paused' ? 'RESUME' : 'PAUSE' })" />
+          <section v-else-if="flightProgress !== null" style="padding:18px" aria-label="In transit"><h2>{{ orbitComplete ? 'Mars transfer' : 'Earth departure' }}</h2><p>Flight systems are carrying the expedition to the next playable stage.</p></section>
+          <MissionPanels v-else
+            :state="state"
+            :mission="mission"
+            :event="getCurrentEvent(mission, state)"
+            @action="dispatch"
+          />
+          <AssetCredits />
+        </aside>
       </section>
-      <aside ref="commandPanel" class="command-panel" aria-label="Mission command panel" tabindex="0" @keydown.stop @focusin="physics?.pauseInput?.()" @focusout="state.phase === 'running' && physics?.resumeInput?.()">
-        <div class="command-heading"><span>YOUR NEXT MOVE</span><span>{{ state.phase === 'ready' ? 'BRIEFING' : state.phase === 'running' ? 'DECISION DESK' : 'MISSION DESK' }}</span></div>
-        <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
-          {{ state.upcomingHazardNotice }}
-        </p>
-        <ActivityPanel v-if="activeActivity" :station="activeActivity.station" :title="activeActivity.title" :steps="activeActivity.steps" :impact="activeActivity.impact" :progress="activityProgress" :inside="interior === activeActivity.station" :feedback="activityFeedback" :paused="state.phase === 'paused'" @control="operateControl" @travel="travelToTask" @enter="enterModule()" @exit="leaveModule" @cancel="cancelActivity" @pause="dispatch({ type: state.phase === 'paused' ? 'RESUME' : 'PAUSE' })" />
-        <MissionPanels v-else
-          :state="state"
-          :mission="mission"
-          :event="getCurrentEvent(mission, state)"
-          @action="dispatch"
-        />
-      </aside>
     </div>
   </main>
 </template>
@@ -405,29 +500,60 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
 .sound-btn { font-size: 11px; padding: 9px 12px; background: #15232c; border-color: #34434d; border-radius: 7px; }
 .launch-btn { display: flex; gap: 18px; align-items: center; background: #e9b97d; color: #1d2830; border-color: #f2c796; border-radius: 7px; font-size: 12px; font-weight: 750; padding: 11px 15px; }
 .launch-btn:hover { background: #f5ce9e; }
-.mission-layout { display: grid; grid-template-columns: minmax(0, 1fr) 370px; grid-template-rows: auto minmax(0, 1fr); gap: 14px; height: calc(100dvh - 108px); min-height: 620px; }
-.hud-container { grid-column: 1 / -1; min-width: 0; }
-.world-panel { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; margin: 0; overflow: hidden; border: 1px solid #3e4c50; border-radius: 14px; background: #142028; box-shadow: 0 16px 55px #0003; }
-.surface-header, .surface-footer, .command-heading { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; color: #a6bbc2; font-size: 9px; font-weight: 650; letter-spacing: .1em; }
-.surface-header { border-bottom: 1px solid #34434a; color: #e2e6d9; }
-.surface-footer { border-top: 1px solid #34434a; font-size: 8px; }
+.mission-layout { display: flex; flex-direction: column; height: calc(100dvh - 108px); min-height: 620px; gap: 12px; }
+.hud-container { width: 100%; min-width: 0; }
+.world-panel { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; margin: 0; overflow: hidden; border: 1px solid #3e4c50; border-radius: 14px; background: #142028; box-shadow: 0 16px 55px #0003; }
+.surface-header, .surface-footer, .command-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; color: #a6bbc2; font-size: 9px; font-weight: 650; letter-spacing: .1em; }
+.surface-header { border-bottom: 1px solid #34434a; color: #e2e6d9; z-index: 4; }
+.surface-actions { display: flex; align-items: center; gap: 8px; }
+.deck-toggle-btn { font-size: 10px; font-weight: 700; padding: 4px 10px; background: #1c303c; border: 1px solid #4a6677; border-radius: 6px; color: #d0e4ee; cursor: pointer; }
+.deck-toggle-btn:hover { background: #284455; color: #ffffff; }
+.surface-footer { border-top: 1px solid #34434a; font-size: 8px; z-index: 4; }
 .live-dot { display: inline-block; width: 5px; height: 5px; margin-right: 7px; border-radius: 50%; background: #9ac5b5; box-shadow: 0 0 0 3px #9ac5b514; }
-.viewport { min-height: 0; overflow: hidden; background: #765040; }
-.scene-status { margin: 0; padding: 11px 16px; color: #becbd0; font-size: 11px; line-height: 1.5; }
+.viewport { position: relative; flex: 1; min-height: 380px; overflow: hidden; background: #765040; }
+.scene-status { margin: 0; padding: 10px 16px; color: #becbd0; font-size: 11px; line-height: 1.5; z-index: 4; background: rgba(20, 32, 40, 0.7); }
 .selected-badge { display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; padding: 2px 7px; background: #263e48; border: 1px solid #486877; border-radius: 4px; font-size: 10px; font-weight: 700; color: #bde0ea; }
 .clear-station-btn { font-size: 11px; padding: 0 4px; background: transparent; border: none; color: #a4c4cf; cursor: pointer; line-height: 1; }
 .clear-station-btn:hover { color: #ffffff; }
-.command-panel { min-width: 0; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: #49606a transparent; border: 1px solid #34434c; border-radius: 14px; background: linear-gradient(145deg, #182731, #111d26); }
+.in-viewport-deck { min-width: 0; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: #49606a transparent; border: 1px solid #3c5462; border-radius: 12px; background: linear-gradient(150deg, rgba(23, 37, 47, 0.93), rgba(16, 27, 36, 0.95)); backdrop-filter: blur(14px); }
 .command-heading { position: sticky; top: 0; z-index: 3; background: #1b2c35; border-bottom: 1px solid #34434c; font-size: 8px; }
 .command-panel :deep(.mission-panels-root) { padding: 16px; gap: 18px; }
-.command-panel :deep(.choices-container), .command-panel :deep(.briefing-grid) { grid-template-columns: minmax(0, 1fr); }
-.command-panel :deep(.choice-card) { min-height: 0; padding: 13px; background: #1c303a; border-color: #3a505a; border-radius: 9px; }
-.command-panel :deep(.choice-card:hover) { background: #29434d; border-color: #d7b481; }
-.command-panel :deep(.choice-label), .command-panel :deep(h2) { font-size: 18px; }
-.command-panel :deep(.choice-explanation), .command-panel :deep(.event-desc) { font-size: 12px; line-height: 1.6; }
+.command-panel :deep(.choices-container), .command-panel :deep(.briefing-grid) { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.command-panel :deep(.choice-card) {
+  position: relative;
+  min-height: 0;
+  padding: 14px 16px;
+  background: linear-gradient(150deg, #1d313d, #14222c);
+  border: 1px solid #3c5462;
+  border-radius: 10px;
+  text-align: left;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+.command-panel :deep(.choice-card:hover) {
+  transform: translateY(-3px);
+  background: linear-gradient(150deg, #253e4d, #192a37);
+  border-color: #e2ba7e;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+.command-panel :deep(.choice-card:active) {
+  transform: translateY(0);
+}
+.command-panel :deep(.choice-card:focus-visible) {
+  outline: 3px solid #f6c768;
+  outline-offset: 2px;
+}
+.command-panel :deep(.choice-label), .command-panel :deep(h2) { font-size: 17px; font-weight: 700; color: #edf5f8; letter-spacing: -0.01em; margin: 0; }
+.command-panel :deep(.choice-explanation), .command-panel :deep(.event-desc) { font-size: 12px; line-height: 1.55; color: #b8c9d1; }
 .command-panel :deep(.tagline) { font-size: 13px; }
-.command-panel :deep(.impacts) { margin-top: 12px; }
-.command-panel :deep(.impact-pill) { font-size: 10px; }
+.command-panel :deep(.impacts) { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.command-panel :deep(.impact-pill) { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 5px; letter-spacing: 0.02em; }
+.command-panel :deep(.impact-pill.gain) { background: rgba(26, 68, 52, 0.7); color: #86efac; border: 1px solid rgba(74, 222, 128, 0.35); }
+.command-panel :deep(.impact-pill.cost) { background: rgba(70, 28, 28, 0.7); color: #fca5a5; border: 1px solid rgba(248, 113, 113, 0.35); }
+.command-panel :deep(.impact-pill.science-pill) { background: rgba(24, 52, 85, 0.7); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.4); }
+.command-panel :deep(.impact-pill.shelter-pill) { background: rgba(74, 48, 20, 0.7); color: #fde047; border: 1px solid rgba(250, 204, 21, 0.4); }
+.command-panel :deep(.delayed-preview) { margin-top: 8px; padding: 6px 9px; background: rgba(45, 27, 71, 0.65); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 6px; color: #e9d5ff; font-size: 11px; line-height: 1.4; }
 .command-panel :deep(.role-badge), .command-panel :deep(.shift-badge) { font-size: 9px; background: #264149; border-color: #527580; color: #b4d4d7; }
 .command-panel :deep(.card) { padding: 13px; background: #172a34; }
 .command-panel :deep(.card h3) { font-size: 13px; }
@@ -445,23 +571,32 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
   .hud-container :deep(.secondary-heading) { gap: 4px; flex-wrap: wrap; }
   .hud-container :deep(.units-note) { grid-column: 1 / -1; margin: 0; font-size: 9px; }
   .hud-container :deep(.hazard-notice), .hud-container :deep(.feedback), .hud-container :deep(.delayed-effects) { grid-column: 2 / -1; margin: 0; padding: 8px 12px; font-size: 10px; }
+  .in-viewport-deck {
+    position: absolute;
+    top: 50px;
+    right: 14px;
+    bottom: 38px;
+    width: 410px;
+    max-width: calc(100% - 28px);
+    z-index: 10;
+    box-shadow: -8px 0 35px rgba(0, 0, 0, 0.55);
+  }
 }
 @media (max-width: 999px) {
   .ares-app { padding: 0 12px 16px; }
   .app-header { height: auto; min-height: 80px; flex-wrap: wrap; padding: 14px 0; }
   .prototype-label { display: none; }
-  .mission-layout { height: auto; min-height: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; }
+  .mission-layout { height: auto; min-height: 0; display: flex; flex-direction: column; }
   .hud-container :deep(.hud) { width: 100%; }
-  .world-panel { height: 560px; }
-  .command-panel { overflow: visible; }
-  .command-heading { position: static; }
+  .world-panel { height: auto; }
+  .viewport { min-height: 380px; }
+  .in-viewport-deck { position: relative; width: 100%; max-height: 540px; margin-top: 10px; }
 }
 @media (max-width: 480px) {
   .brand-planet { width: 28px; height: 28px; }
   h1 { font-size: 19px; }
   .brand-kicker { font-size: 7px; }
   .header-controls { width: 100%; justify-content: space-between; }
-  .world-panel { height: 440px; }
   .surface-header, .surface-footer { font-size: 7px; padding: 12px; }
   .surface-footer span:last-child { max-width: 130px; text-align: right; }
 }

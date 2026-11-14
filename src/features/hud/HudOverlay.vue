@@ -4,10 +4,37 @@ import type { GameState, MissionData, ResourceId } from '../../contracts';
 
 const props = defineProps<{ state: Readonly<GameState>; mission: MissionData }>();
 const hudTarget = ref<string | HTMLElement>('body');
+const hazardToastElement = ref<HTMLElement | null>(null);
+let gameViewport: HTMLElement | null = null;
+let driftFrame = 0;
+let targetDriftX = 0;
+let targetDriftY = 0;
+let currentDriftX = 0;
+let currentDriftY = 0;
+let reduceMotionQuery: MediaQueryList | null = null;
+
+const driftLayers = [
+  { name: 'header', x: .08, y: .1 },
+  { name: 'shift', x: .16, y: .13 },
+  { name: 'reserves', x: -.12, y: .2 },
+  { name: 'science', x: .08, y: -.1 },
+  { name: 'shelter', x: .14, y: .07 },
+  { name: 'feedback', x: -.11, y: .08 },
+  { name: 'delayed', x: .06, y: -.12 },
+];
 
 onMounted(() => {
-  const gameScreen = document.querySelector<HTMLElement>('.world-panel .viewport');
-  if (gameScreen) hudTarget.value = gameScreen;
+  gameViewport = document.querySelector<HTMLElement>('.world-panel .viewport');
+  if (!gameViewport) return;
+  hudTarget.value = gameViewport;
+  if (typeof window.matchMedia === 'function') {
+    reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    reduceMotionQuery.addEventListener('change', onMotionPreferenceChange);
+  }
+  if (!reduceMotionQuery?.matches) {
+    gameViewport.addEventListener('pointermove', onViewportPointerMove, { passive: true });
+    gameViewport.addEventListener('pointerleave', resetViewportPointer, { passive: true });
+  }
 });
 
 const resourceInfo: Record<ResourceId, { label: string }> = {
@@ -17,12 +44,20 @@ const resourceInfo: Record<ResourceId, { label: string }> = {
 };
 
 type ReserveMotion = { direction: 'up' | 'down' | ''; key: number; fullKey: number; reachedFull: boolean };
+type ProgressStat = 'science' | 'shelter';
+type StatPop = { key: number; from: number; to: number; max: number };
 const reserveMotion = ref<Record<ResourceId, ReserveMotion>>({
   power: { direction: '', key: 0, fullKey: 0, reachedFull: false },
   oxygen: { direction: '', key: 0, fullKey: 0, reachedFull: false },
   supplies: { direction: '', key: 0, fullKey: 0, reachedFull: false },
 });
 const reserveTimers: Partial<Record<ResourceId, ReturnType<typeof setTimeout>>> = {};
+const statPops = ref<Record<ProgressStat, StatPop | null>>({ science: null, shelter: null });
+const statPopTimers: Partial<Record<ProgressStat, ReturnType<typeof setTimeout>>> = {};
+const expandedStat = ref<ProgressStat | null>(null);
+const pinnedStat = ref<ProgressStat | null>(null);
+const focusedStat = ref<ProgressStat | null>(null);
+let statPopKey = 0;
 
 const resources = computed(() => (Object.keys(resourceInfo) as ResourceId[]).map(id => {
   const value = Math.max(0, Math.min(100, props.state.resources[id]));
@@ -95,6 +130,21 @@ watch(
     }
     reserveMotion.value = motion;
 
+    const showProgressPop = (id: ProgressStat, before: number, now: number, max: number) => {
+      if (now <= before) return;
+      statPops.value = {
+        ...statPops.value,
+        [id]: { key: ++statPopKey, from: before, to: now, max },
+      };
+      if (statPopTimers[id]) clearTimeout(statPopTimers[id]);
+      statPopTimers[id] = setTimeout(() => {
+        statPops.value = { ...statPops.value, [id]: null };
+        delete statPopTimers[id];
+      }, 1450);
+    };
+    showProgressPop('science', previous[6], science, props.mission.scienceTarget);
+    showProgressPop('shelter', previous[5], shielding, 100);
+
     if (phase === 'ready' && turn === 0 && logLength === 0) {
       feedback.value = 'Mission reset. Your reserves are ready for a new plan.';
       feedbackTone.value = '';
@@ -138,11 +188,112 @@ watch(
 onUnmounted(() => {
   if (feedbackTimer) clearTimeout(feedbackTimer);
   for (const timer of Object.values(reserveTimers)) if (timer) clearTimeout(timer);
+  for (const timer of Object.values(statPopTimers)) if (timer) clearTimeout(timer);
   if (hazardTimer) clearTimeout(hazardTimer);
+  if (gameViewport) {
+    gameViewport.removeEventListener('pointermove', onViewportPointerMove);
+    gameViewport.removeEventListener('pointerleave', resetViewportPointer);
+    for (const layer of driftLayers) {
+      gameViewport.style.removeProperty(`--hud-${layer.name}-x`);
+      gameViewport.style.removeProperty(`--hud-${layer.name}-y`);
+    }
+  }
+  reduceMotionQuery?.removeEventListener('change', onMotionPreferenceChange);
+  if (driftFrame) window.cancelAnimationFrame(driftFrame);
+  if (hazardToastElement.value) hazardToastElement.value.style.translate = '';
 });
 
 function meterText(value: number, level: string): string {
   return `${value} of 100 simplified game units. ${level} reserve.`;
+}
+
+function onViewportPointerMove(event: PointerEvent): void {
+  if (!gameViewport || reduceMotionQuery?.matches) return;
+  const rect = gameViewport.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  targetDriftX = ((event.clientX - rect.left) / rect.width - .5) * 8;
+  targetDriftY = ((event.clientY - rect.top) / rect.height - .5) * 6;
+  startDriftFrame();
+}
+
+function resetViewportPointer(): void {
+  targetDriftX = 0;
+  targetDriftY = 0;
+  startDriftFrame();
+}
+
+function startDriftFrame(): void {
+  if (!driftFrame) driftFrame = window.requestAnimationFrame(updateHudDrift);
+}
+
+function updateHudDrift(): void {
+  currentDriftX += (targetDriftX - currentDriftX) * .12;
+  currentDriftY += (targetDriftY - currentDriftY) * .12;
+  const style = gameViewport?.style;
+  if (style) {
+    for (const layer of driftLayers) {
+      style.setProperty(`--hud-${layer.name}-x`, `${(currentDriftX * layer.x).toFixed(2)}px`);
+      style.setProperty(`--hud-${layer.name}-y`, `${(currentDriftY * layer.y).toFixed(2)}px`);
+    }
+  }
+  if (hazardToastElement.value) {
+    hazardToastElement.value.style.translate = `${(currentDriftX * .06).toFixed(2)}px ${(currentDriftY * .06).toFixed(2)}px`;
+  }
+
+  if (Math.abs(targetDriftX - currentDriftX) > .015 || Math.abs(targetDriftY - currentDriftY) > .015) {
+    driftFrame = window.requestAnimationFrame(updateHudDrift);
+  } else {
+    currentDriftX = targetDriftX;
+    currentDriftY = targetDriftY;
+    driftFrame = 0;
+  }
+}
+
+function onMotionPreferenceChange(event: MediaQueryListEvent): void {
+  if (!gameViewport) return;
+  gameViewport.removeEventListener('pointermove', onViewportPointerMove);
+  gameViewport.removeEventListener('pointerleave', resetViewportPointer);
+  if (event.matches) {
+    if (driftFrame) window.cancelAnimationFrame(driftFrame);
+    driftFrame = 0;
+    currentDriftX = 0;
+    currentDriftY = 0;
+    targetDriftX = 0;
+    targetDriftY = 0;
+    for (const layer of driftLayers) {
+      gameViewport.style.removeProperty(`--hud-${layer.name}-x`);
+      gameViewport.style.removeProperty(`--hud-${layer.name}-y`);
+    }
+    if (hazardToastElement.value) hazardToastElement.value.style.translate = '';
+  } else {
+    gameViewport.addEventListener('pointermove', onViewportPointerMove, { passive: true });
+    gameViewport.addEventListener('pointerleave', resetViewportPointer, { passive: true });
+  }
+}
+
+function openStat(id: ProgressStat): void {
+  expandedStat.value = id;
+}
+
+function closeStat(id: ProgressStat): void {
+  if (focusedStat.value === id) return;
+  expandedStat.value = pinnedStat.value ?? null;
+}
+
+function focusStat(id: ProgressStat): void {
+  focusedStat.value = id;
+  expandedStat.value = id;
+}
+
+function blurStat(id: ProgressStat): void {
+  if (focusedStat.value !== id) return;
+  focusedStat.value = null;
+  if (expandedStat.value === id) expandedStat.value = pinnedStat.value ?? null;
+}
+
+function toggleStat(id: ProgressStat): void {
+  pinnedStat.value = pinnedStat.value === id ? null : id;
+  expandedStat.value = id;
 }
 </script>
 
@@ -208,44 +359,46 @@ function meterText(value: number, level: string): string {
     </div>
 
     <div class="secondary-grid">
-      <div class="secondary-card science-card">
-        <div class="secondary-heading">
-          <span class="secondary-icon science-icon" aria-hidden="true">✦</span>
-          <span class="secondary-copy">
-            <span class="secondary-label">SCIENCE GOAL</span>
-            <strong>{{ state.science }} <span>/ {{ mission.scienceTarget }}</span></strong>
-          </span>
+      <div class="stat-widget science-widget" :class="{ 'is-expanded': expandedStat === 'science' }" @mouseenter="openStat('science')" @mouseleave="closeStat('science')">
+        <span v-if="statPops.science" :key="statPops.science.key" class="progress-pop science-pop" aria-hidden="true"><span class="progress-numerator"><span class="count-old">{{ statPops.science.from }}</span><span class="count-new">{{ statPops.science.to }}</span></span><span class="progress-denominator">/{{ statPops.science.max }}</span></span>
+        <div class="stat-detail" :aria-hidden="expandedStat !== 'science'">
+          <span class="secondary-label">SCIENCE GOAL</span>
+          <strong class="stat-value">{{ state.science }} <span>/ {{ mission.scienceTarget }}</span></strong>
+          <div
+            id="science-progress-detail"
+            class="science-track"
+            role="progressbar"
+            aria-label="Science goal progress"
+            :aria-valuemin="0"
+            :aria-valuemax="mission.scienceTarget"
+            :aria-valuenow="Math.min(state.science, mission.scienceTarget)"
+            :aria-valuetext="`${state.science} of ${mission.scienceTarget} science points`"
+          ><span :style="{ width: `${sciencePercent}%` }" /></div>
         </div>
-        <div
-          class="science-track"
-          role="progressbar"
-          aria-label="Science goal progress"
-          :aria-valuemin="0"
-          :aria-valuemax="mission.scienceTarget"
-          :aria-valuenow="Math.min(state.science, mission.scienceTarget)"
-          :aria-valuetext="`${state.science} of ${mission.scienceTarget} science points`"
-        >
-          <span :style="{ width: `${sciencePercent}%` }" />
-        </div>
+        <button class="stat-icon-button science-icon" type="button" :aria-label="`Science goal, ${state.science} of ${mission.scienceTarget}`" :aria-expanded="expandedStat === 'science'" aria-controls="science-progress-detail" @click="toggleStat('science')" @focus="focusStat('science')" @blur="blurStat('science')">
+          <span aria-hidden="true">✦</span>
+        </button>
       </div>
-      <div class="secondary-card shelter-card">
-        <div class="secondary-heading">
-          <span class="secondary-icon shelter-icon" aria-hidden="true">⬟</span>
-          <span class="secondary-copy">
-            <span class="secondary-label">SHELTER</span>
-            <strong>{{ state.shielding }}<span> / 100</span></strong>
-          </span>
+      <div class="stat-widget shelter-widget" :class="{ 'is-expanded': expandedStat === 'shelter' }" @mouseenter="openStat('shelter')" @mouseleave="closeStat('shelter')">
+        <span v-if="statPops.shelter" :key="statPops.shelter.key" class="progress-pop shelter-pop" aria-hidden="true"><span class="progress-numerator"><span class="count-old">{{ statPops.shelter.from }}</span><span class="count-new">{{ statPops.shelter.to }}</span></span><span class="progress-denominator">/100</span></span>
+        <div class="stat-detail" :aria-hidden="expandedStat !== 'shelter'">
+          <span class="secondary-label">SHELTER</span>
+          <strong class="stat-value">{{ state.shielding }}<span> / 100</span></strong>
+          <div
+            id="shelter-progress-detail"
+            class="shelter-track"
+            role="meter"
+            aria-label="Shelter protection"
+            :aria-valuemin="0"
+            :aria-valuemax="100"
+            :aria-valuenow="state.shielding"
+            :aria-valuetext="`${state.shielding} of 100 protection. ${state.shielding >= 60 ? 'Ready for a storm' : state.shielding >= 25 ? 'Some protection' : 'Needs protection'}`"
+          ><span :style="{ width: `${state.shielding}%` }" /></div>
+          <span class="shelter-note">{{ state.shielding >= 60 ? 'Storm ready' : state.shielding >= 25 ? 'Some protection' : 'Needs protection' }}</span>
         </div>
-        <div
-          class="shelter-track"
-          role="meter"
-          aria-label="Shelter protection"
-          :aria-valuemin="0"
-          :aria-valuemax="100"
-          :aria-valuenow="state.shielding"
-          :aria-valuetext="`${state.shielding} of 100 protection. ${state.shielding >= 60 ? 'Ready for a storm' : state.shielding >= 25 ? 'Some protection' : 'Needs protection'}`"
-        ><span :style="{ width: `${state.shielding}%` }" /></div>
-        <span class="shelter-note">{{ state.shielding >= 60 ? 'Storm ready' : state.shielding >= 25 ? 'Some protection' : 'Needs protection' }}</span>
+        <button class="stat-icon-button shelter-icon" type="button" :aria-label="`Shelter protection, ${state.shielding} of 100`" :aria-expanded="expandedStat === 'shelter'" aria-controls="shelter-progress-detail" @click="toggleStat('shelter')" @focus="focusStat('shelter')" @blur="blurStat('shelter')">
+          <span aria-hidden="true">⬟</span>
+        </button>
       </div>
     </div>
 
@@ -257,16 +410,16 @@ function meterText(value: number, level: string): string {
       </p>
     </div>
 
-    <p v-if="feedback" class="feedback" :class="feedbackTone" aria-live="polite" aria-atomic="true">
+        <p v-if="feedback" class="feedback" :class="feedbackTone" aria-live="polite" aria-atomic="true">
       <span class="feedback-mark" aria-hidden="true">{{ feedbackTone === 'cost' ? '−' : feedbackTone === 'gain' ? '+' : '↻' }}</span>
-      <span><strong>SHIFT UPDATE</strong>{{ feedback }}</span>
+          <span class="feedback-copy"><strong>SHIFT UPDATE</strong><span>{{ feedback }}</span></span>
     </p>
 
     <p class="units-note">Simplified game units · not real spacecraft readings</p>
   </section>
   </Teleport>
   <Teleport to="body">
-    <div v-if="hazardToast && state.phase === 'running'" :key="hazardToast.key" class="achievement-toast" role="status" aria-live="polite" aria-atomic="true">
+    <div v-if="hazardToast && state.phase === 'running'" ref="hazardToastElement" :key="hazardToast.key" class="achievement-toast" role="status" aria-live="polite" aria-atomic="true">
       <span class="toast-medal" aria-hidden="true"><span>!</span></span>
       <span class="toast-copy">
         <strong>✦ MISSION UPDATE ✦</strong>
@@ -300,6 +453,7 @@ function meterText(value: number, level: string): string {
 .hud-header, .brand, .secondary-heading { display: flex; align-items: center; }
 .brand, .secondary-heading { display: flex; align-items: center; }
 .hud-header { position: absolute; top: 56px; left: 14px; justify-content: space-between; gap: .35rem; margin: 0; }
+.hud-header { translate: var(--hud-header-x, 0px) var(--hud-header-y, 0px); }
 .brand { min-width: 0; gap: .35rem; }
 .brand-mark { display: none; }
 .mission-heading { display: grid; gap: .02rem; }
@@ -308,8 +462,10 @@ function meterText(value: number, level: string): string {
 .mission-heading strong span { color: #e8ddca; font-size: .72em; }
 .unit-tag { display: none; }
 .shift-track { position: absolute; top: 78px; left: 14px; display: block; width: min(135px, calc(100% - 28px)); height: .18rem; overflow: hidden; margin: 0; border: 1px solid rgb(255 245 220 / 45%); border-radius: 999px; background: rgb(10 19 24 / 22%); }
+.shift-track { translate: var(--hud-shift-x, 0px) var(--hud-shift-y, 0px); }
 .shift-track > span { display: block; height: 100%; border-radius: inherit; background: #f4c86d; box-shadow: 0 0 7px #efb4539c; transition: width 260ms ease; }
 .reserve-grid { position: absolute; left: 14px; bottom: 42px; display: grid; grid-template-columns: minmax(0, 1fr); gap: .34rem; width: min(230px, calc(100% - 28px)); }
+.reserve-grid { translate: var(--hud-reserves-x, 0px) var(--hud-reserves-y, 0px); }
 .reserve-card { --reserve-color: #ffd36f; display: grid; grid-template-columns: 22px minmax(0, 1fr) 27px; align-items: center; gap: .48rem; min-width: 0; min-height: 21px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .resource-power { --reserve-color: #ffd36f; }
 .resource-oxygen { --reserve-color: #8ce8ff; }
@@ -332,31 +488,47 @@ function meterText(value: number, level: string): string {
 .fill-up::after { animation: reserve-shine .55s ease-out; }
 .fill-full::after { animation: reserve-shine .72s cubic-bezier(.2,.8,.2,1); }
 .fill-down { filter: saturate(1.3) brightness(1.18); }
-.low-pulse .reserve-meter { animation: reserve-critical-pulse 1.1s ease-in-out infinite; }
+.low-pulse .reserve-meter { animation: reserve-critical-pulse 2.35s ease-in-out infinite; }
 .level-watch .reserve-fill { background: color-mix(in srgb, #ffe18a, transparent 12%); }
 .level-low .reserve-fill, .level-empty .reserve-fill { background: color-mix(in srgb, #ff9d7e, transparent 12%); }
-.secondary-grid { position: absolute; right: 20px; bottom: 42px; display: grid; gap: .52rem; width: min(190px, calc(100% - 28px)); margin: 0; text-align: right; }
-.secondary-card { min-width: 0; padding: .12rem 0 .2rem; border: 0; border-radius: 0; background: transparent; }
-.secondary-heading { justify-content: flex-end; gap: .38rem; }
-.secondary-icon { display: grid; place-items: center; width: 1.45rem; height: 1.45rem; flex: 0 0 auto; font-size: .9rem; filter: drop-shadow(0 1px 2px rgb(0 0 0 / 55%)); }
-.science-icon { color: #bfd5e8; }
-.shelter-icon { color: #dfcba9; }
-.secondary-copy { display: grid; justify-items: end; gap: .04rem; }
-.secondary-label { color: #e1ddcf; font-size: .52rem; font-weight: 800; letter-spacing: .09em; text-shadow: 0 1px 3px #171317; }
-.secondary-heading strong { color: #f1eee5; font-size: .86rem; line-height: 1.05; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px #171317; }
-.secondary-heading strong span { color: #e4dac9; font-size: .68em; }
-.science-track, .shelter-track { display: block; height: 3px; overflow: hidden; margin: .24rem 0 0 auto; border: 1px solid rgb(255 255 255 / 24%); border-radius: 999px; background: transparent; }
-.science-track { width: 100%; }
-.shelter-track { width: calc(100% - 2.3rem); }
+.secondary-grid { position: absolute; right: 18px; bottom: 42px; display: grid; justify-items: end; gap: .34rem; width: auto; margin: 0; }
+.science-widget { translate: var(--hud-science-x, 0px) var(--hud-science-y, 0px); }
+.shelter-widget { translate: var(--hud-shelter-x, 0px) var(--hud-shelter-y, 0px); }
+.stat-widget { position: relative; box-sizing: border-box; display: flex; align-items: center; justify-content: flex-end; gap: .28rem; width: 2.4rem; min-height: 2.4rem; overflow: visible; color: #f1eee5; transition: width 420ms cubic-bezier(.2,.85,.25,1); }
+.stat-widget.is-expanded { width: min(190px, calc(100vw - 34px)); }
+.stat-detail { box-sizing: border-box; display: grid; justify-items: end; align-content: center; gap: .12rem; width: 0; overflow: hidden; opacity: 0; text-align: right; transform: translateX(8px); transition: width 380ms cubic-bezier(.2,.85,.25,1), opacity 180ms ease, transform 380ms cubic-bezier(.2,.85,.25,1); pointer-events: none; }
+.stat-widget.is-expanded .stat-detail { width: calc(100% - 2.4rem); overflow: visible; opacity: 1; transform: translateX(0); }
+.secondary-label { color: #e1ddcf; font-size: .5rem; font-weight: 800; letter-spacing: .08em; text-shadow: 0 1px 3px #171317; white-space: nowrap; }
+.stat-value { color: #f1eee5; font-size: .82rem; line-height: 1.05; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px #171317; white-space: nowrap; }
+.stat-value span { color: #d5d0c5; font-size: .72em; }
+.science-track, .shelter-track { display: block; box-sizing: border-box; width: 100%; height: 4px; overflow: hidden; margin: .1rem 0 0 auto; border: 1px solid rgb(255 255 255 / 27%); border-radius: 999px; background: transparent; }
 .science-track > span, .shelter-track > span { display: block; height: 100%; border-radius: inherit; transition: width 360ms cubic-bezier(.2,.8,.2,1); }
 .science-track > span { background: #a8c9e6; }
 .shelter-track > span { background: #d5bd96; }
-.shelter-note { display: block; margin: .16rem 0 0; color: #e2d7c5; font-size: .56rem; font-weight: 650; letter-spacing: .01em; text-shadow: 0 1px 3px #171317; }
-.feedback { position: absolute; top: 88px; left: 14px; display: flex; align-items: flex-start; gap: .48rem; width: min(270px, calc(100% - 28px)); margin: 0; padding: .45rem .6rem; border-left: 2px solid rgb(255 207 145 / 80%); background: linear-gradient(90deg, rgb(12 23 29 / 48%), transparent); color: #fff5e6; font-size: .65rem; line-height: 1.35; text-shadow: 0 1px 4px #171317; animation: feedback-arrive .32s ease-out both; }
-.feedback > span:last-child { display: -webkit-box; overflow: hidden; gap: .1rem; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.feedback strong { color: #ffcf91; font-size: .55rem; letter-spacing: .09em; }
-.feedback-mark { width: 1rem; height: 1rem; display: grid; place-items: center; flex: 0 0 auto; color: #ffd28c; font-size: .95rem; font-weight: 900; }
+.shelter-note { display: block; margin: .04rem 0 0; color: #e2d7c5; font-size: .52rem; font-weight: 650; letter-spacing: .01em; text-shadow: 0 1px 3px #171317; white-space: nowrap; }
+.stat-icon-button { position: relative; z-index: 1; display: grid; place-items: center; flex: 0 0 2.4rem; width: 2.4rem; height: 2.4rem; padding: 0; border: 1px solid color-mix(in srgb, currentColor, transparent 52%); border-radius: 50%; background: transparent; color: #d6d1c6; font: inherit; cursor: pointer; pointer-events: auto; transition: color 180ms ease, transform 240ms cubic-bezier(.2,.85,.25,1), border-color 180ms ease; }
+.stat-icon-button > span { display: grid; place-items: center; width: 100%; height: 100%; font-size: 1.08rem; filter: drop-shadow(0 1px 2px rgb(0 0 0 / 45%)); }
+.stat-icon-button:hover, .stat-widget.is-expanded .stat-icon-button { color: #fff3d4; transform: scale(1.08); }
+.stat-icon-button:hover > span, .stat-icon-button:focus-visible > span { animation: stat-icon-spin .5s cubic-bezier(.2,.8,.2,1) both; }
+.stat-icon-button:focus-visible { outline: 2px solid #fff1ba; outline-offset: 2px; }
+.science-icon { color: #bfd5e8; }
+.shelter-icon { color: #dfcba9; }
+.progress-pop { position: absolute; z-index: 3; top: 50%; right: 2.62rem; display: flex; align-items: center; gap: .02rem; color: #f4f0e7; font-size: .76rem; font-weight: 800; line-height: 1; white-space: nowrap; text-shadow: 0 1px 4px rgb(0 0 0 / 85%); translate: 0 -50%; transform-origin: 85% 100%; animation: progress-pop-in .32s cubic-bezier(.18,1.4,.42,1) both, progress-pop-away .24s 1.22s ease-in forwards; pointer-events: none; }
+.progress-numerator { position: relative; display: grid; min-width: .62em; height: 1em; overflow: hidden; place-items: center; font-variant-numeric: tabular-nums; }
+.count-old, .count-new { grid-area: 1 / 1; }
+.count-old { animation: count-roll-away .3s .22s cubic-bezier(.4,0,.7,.2) both; }
+.count-new { color: #fff8e8; animation: count-roll-in .34s .22s cubic-bezier(.2,.9,.25,1.2) both; }
+.progress-denominator { display: inline-block; color: #e1ddd4; font-size: .72em; font-weight: 650; animation: denominator-nudge .28s .2s ease-out both; }
+.science-pop { color: #d9ebfa; }
+.shelter-pop { color: #eee1c9; }
+.feedback { position: absolute; top: 88px; left: 14px; display: flex; align-items: flex-start; gap: .32rem; width: min(240px, calc(100% - 28px)); margin: 0; padding: 0; border: 0; background: transparent; color: #fff0db; font-size: .58rem; line-height: 1.3; text-shadow: 0 1px 4px #171317; }
+.feedback { translate: var(--hud-feedback-x, 0px) var(--hud-feedback-y, 0px); }
+.feedback-copy { display: grid; gap: .08rem; min-width: 0; }
+.feedback-copy > span { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.feedback strong { color: #ffcf91; font-size: .49rem; letter-spacing: .06em; }
+.feedback-mark { width: .75rem; height: .75rem; display: grid; place-items: center; flex: 0 0 auto; color: #ffd28c; font-weight: 900; }
 .delayed-effects { position: absolute; top: 132px; left: 14px; width: min(240px, calc(100% - 28px)); margin: 0; color: #fff1cf; text-shadow: 0 1px 4px #171317; }
+.delayed-effects { translate: var(--hud-delayed-x, 0px) var(--hud-delayed-y, 0px); }
 .delayed-heading { color: #f4d28f; font-size: .49rem; font-weight: 850; letter-spacing: .08em; }
 .delayed-item { display: grid; grid-template-columns: auto 1fr; gap: .3rem; margin: .12rem 0 0; color: #fff8e9; font-size: .56rem; }
 .delayed-timing { color: #f4d28f; font-weight: 800; white-space: nowrap; }
@@ -371,11 +543,16 @@ function meterText(value: number, level: string): string {
 .toast-copy > strong { color: #ffdc96; font-size: .68rem; font-weight: 950; letter-spacing: .1em; text-shadow: 0 1px #50391f; }
 .toast-spark { align-self: start; color: #ffe6a8; font-size: 1rem; text-shadow: 0 0 10px #ffd779; animation: spark-spin 1.6s ease-in-out infinite; }
 @keyframes reserve-hover-bop { 0%, 100% { transform: scale(1) rotate(0); } 35% { transform: scale(1.16) rotate(-7deg); } 70% { transform: scale(1.12) rotate(6deg); } }
-@keyframes feedback-arrive { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes stat-icon-spin { 0% { transform: rotate(-24deg) scale(.88); } 55% { transform: rotate(205deg) scale(1.12); } 100% { transform: rotate(360deg) scale(1); } }
+@keyframes progress-pop-in { 0% { opacity: 0; transform: translateY(.8rem) scale(.62); } 62% { opacity: 1; transform: translateY(-.06rem) scale(1.12); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes count-roll-away { to { opacity: 0; transform: translateY(-110%) scale(.78); } }
+@keyframes count-roll-in { from { opacity: 0; transform: translateY(105%) scale(.78); } 72% { opacity: 1; transform: translateY(-8%) scale(1.08); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes denominator-nudge { 35% { transform: translateX(-1px) rotate(-2deg); } 70% { transform: translateX(1px) rotate(2deg); } to { transform: translateX(0) rotate(0); } }
+@keyframes progress-pop-away { to { opacity: 0; transform: translateY(-.55rem) scale(.88); } }
 @keyframes reserve-pop { 0% { transform: scaleY(.8); } 45% { transform: scaleY(1.28); filter: brightness(1.45); } 100% { transform: scaleY(1); } }
 @keyframes reserve-shimmy { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
 @keyframes reserve-shine { 0% { opacity: .9; transform: translateX(-120%); } 100% { opacity: 0; transform: translateX(150%); } }
-@keyframes reserve-critical-pulse { 0%, 100% { box-shadow: inset 0 1px 2px rgb(0 0 0 / 20%); } 50% { box-shadow: 0 0 12px color-mix(in srgb, var(--reserve-color), transparent 35%), inset 0 1px 2px rgb(0 0 0 / 20%); } }
+@keyframes reserve-critical-pulse { 0%, 100% { box-shadow: inset 0 1px 2px rgb(0 0 0 / 20%); } 50% { box-shadow: 0 0 7px color-mix(in srgb, var(--reserve-color), transparent 52%), inset 0 1px 2px rgb(0 0 0 / 20%); } }
 @keyframes toast-in { 0% { opacity: 0; transform: translate(-50%, -45%) scale(.68); } 68% { opacity: 1; transform: translate(-50%, -51%) scale(1.045); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 @keyframes toast-pulse { 0%, 100% { box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 24px rgb(244 196 104 / 25%), inset 0 1px 0 rgb(255 248 220 / 22%); } 50% { box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 35px rgb(255 215 133 / 58%), inset 0 1px 0 rgb(255 248 220 / 35%); } }
 @keyframes toast-out { to { opacity: 0; transform: translate(-50%, -46%) scale(.92); } }
@@ -384,23 +561,25 @@ function meterText(value: number, level: string): string {
   .hud-header { top: 50px; left: 10px; }
   .shift-track { top: 72px; left: 10px; width: 120px; }
   .reserve-grid { left: 10px; bottom: 38px; width: min(215px, calc(100% - 20px)); }
-  .secondary-grid { top: 32px; right: 10px; bottom: auto; width: min(178px, calc(100% - 20px)); gap: .48rem; }
+  .secondary-grid { top: 32px; right: 10px; bottom: auto; gap: .26rem; }
   .feedback, .delayed-effects { left: 10px; width: min(215px, calc(100% - 20px)); }
   .feedback { top: 90px; }
   .delayed-effects { top: 128px; }
   .reserve-grid { gap: .3rem; }
   .reserve-card { min-height: 20px; padding: 0; }
   .reserve-meter { height: 7px; }
-  .secondary-grid { width: min(168px, calc(100% - 20px)); }
-  .secondary-icon { width: 1.35rem; height: 1.35rem; font-size: .82rem; }
-  .secondary-heading strong { font-size: .82rem; }
+  .stat-widget.is-expanded { width: min(168px, calc(100vw - 20px)); }
+  .stat-icon-button { flex-basis: 2.2rem; width: 2.2rem; height: 2.2rem; }
+  .stat-widget.is-expanded .stat-detail { width: calc(100% - 2.2rem); }
   .achievement-toast { grid-template-columns: 2.5rem minmax(0, 1fr) .7rem; gap: .55rem; min-height: 90px; padding: .68rem .72rem; font-size: .82rem; }
   .toast-medal { width: 2.45rem; height: 2.45rem; }
   .toast-medal span { width: 1.3rem; height: 1.3rem; }
   .toast-copy > strong { font-size: .58rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .shift-track > span, .reserve-fill, .science-track > span, .icon-tooltip { transition: none; }
-  .motion-up, .motion-down, .reserve-icon-wrap:hover, .reserve-icon:focus-visible, .reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap, .feedback, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
+  .shift-track > span, .reserve-fill, .science-track > span, .icon-tooltip, .stat-widget, .stat-detail, .stat-icon-button { transition: none; }
+  .hud-header, .shift-track, .reserve-grid, .science-widget, .shelter-widget, .feedback, .delayed-effects, .achievement-toast { translate: none !important; }
+  .progress-pop { translate: 0 -50% !important; }
+  .motion-up, .motion-down, .reserve-icon-wrap:hover, .reserve-icon:focus-visible, .reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap, .stat-icon-button:hover > span, .stat-icon-button:focus-visible > span, .progress-pop, .count-old, .count-new, .progress-denominator, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
 }
 </style>

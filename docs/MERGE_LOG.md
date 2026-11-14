@@ -6,9 +6,9 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 
 | Branch | Reported tip | Scope | State |
 | --- | --- | --- | --- |
-| `feat/himamshu-world` | `1f93ff1` | `src/features/world/**`, `src/App.vue`, `src/styles.css` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors merged by `8764bfa`; checks passed |
-| `feat/rohit-game` | `a17ea4b` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory `72f8f65`; audio synthesis, star badges, keyboard navigation `b7c9c33`; contextual station procedures, console audio, and direct decision mode merged by `44a7120`; checks passed |
-| `feat/saurav-hud` | `0467edb` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations `4d07adf`; in-game status polish `86c1beb`; science & shelter readout softening merged by `44ff31e`; checks passed |
+| `feat/himamshu-world` | `bd51017` | `src/features/world/**`, `src/App.vue`, `src/contracts/index.ts` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard `44365c5`; Earth arrival & playable station interiors `8764bfa`; NASA assets, detailed interiors, and playable Earth/orbit preflight `c644a59`; procedural suit rig merged by `2a4f7f7`; checks passed |
+| `feat/rohit-game` | `4d02fd0` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory `72f8f65`; audio synthesis, star badges, keyboard navigation `b7c9c33`; contextual station procedures `44a7120`; full-reserve sound, in-viewport deck overlay, and roguelike choice cards merged by `828493c`; checks passed |
+| `feat/saurav-hud` | `2bdacef` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations `4d07adf`; in-game status polish `86c1beb`; science & shelter readout softening `44ff31e`; expandable science and shelter buttons `f994aa7`; stat icon spin and numerator progress roll `667ae75`; gentle cursor parallax and motion polish merged by `afff7e4`; checks passed |
 | `feat/anshu-physics` | `4108654` | `src/features/physics/**` | Grounded astronaut controller, reset and pause merged by `dfe1d24`; checks passed |
 | `feat/dixit-ui` | `0637603` | `src/features/ui/**` | Onboarding, decisions, pause, debrief replay & sources merged by `55799b3`; checks passed |
 | `feat/genius-missions` | `66a5322` | `src/features/missions/**` | Six teaching decisions & NASA CME evidence merged by `a8d9a39`; alert wording reconciled by `500c830`; checks passed |
@@ -154,6 +154,51 @@ Himamshu issued a standing mandate authorizing the merge coordinator to automati
    - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
    - Changes: Removed gradient panel wash and decorative divider from science and shelter secondary cards; set tracks and panels transparent; softened glow effects, icon, label, number, and fill colors for visual balance against the 3D viewport.
    - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (8 test files, 72 tests passed); `npm run build` passed cleanly.
+
+### 14 Nov 2026 — Saurav (HUD) expandable science & shelter buttons integration
+
+1. **`feat/saurav-hud` (tip `29ad929`)**:
+   - Merged as `f994aa7`, preserving Saurav's commits `35c2f6b`, `7a73552`, `45d953d`, `ee96b46`, and `29ad929`.
+   - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
+   - Changes: Replaced always-visible science and shelter readouts with two independent icon-only buttons with hover, keyboard focus, and click-to-pin expansion revealing value, progress track, and status. Animated progress bubbles on value gains, and simplified shift feedback.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (8 test files, 72 tests passed); `npm run build` passed cleanly.
+
+### 14 Nov 2026 — Himamshu (world) NASA assets, detailed interiors, and playable Earth/orbit preflight integration
+
+1. **`feat/himamshu-world` (tip `97547fe`)**:
+   - Merged as `c644a59`, preserving Himamshu's commits `e5324bd` and `97547fe`.
+   - Scope: `src/App.vue`, `src/contracts/index.ts`, `src/features/world/**` (including `assets/**`, `nasa-assets.ts`, `interiors.ts`, `preflight.ts`, `preflight.test.ts`, `music.ts`, `music.test.ts`, `PreparationPanel.vue`, `AssetCredits.vue`, `ActivityPanel.vue`, `CREDITS.md`, `NOTES.md`).
+   - Changes: Local NASA GLB models (astronaut, EO-1, Opportunity), Earth/Mars textures, local Draco WASM/JS decoder with asynchronous loading and procedural fallbacks; detailed cutaway interiors with equipment, racks, monitors, hydroponic beds, and raycast 3D console screens; playable Earth departure checks and orbital communications cabin with sequential control validation and accessible remote mode; stage-specific music tracks (Snowfall, Space, happy tune) with pause/mute/visibility management; and visible asset attribution / NASA non-endorsement modal.
+   - Conflict reconciliation: In `src/App.vue`, reconciled the header launch button condition (`state.phase === 'ready' && !preparation && flightProgress === null`) while preserving Rohit's direct decision mode toggle button (`⚡ Direct Mode` / `🚀 3D Procedures`).
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (10 test files, 74 tests passed); `npm run build` passed cleanly with all hashed assets generated in `dist/assets/`.
+
+### 14 Nov 2026 — Saurav (HUD) stat icon spin & numerator progress roll integration
+
+1. **`feat/saurav-hud` (tip `1d6902a`)**:
+   - Merged as `667ae75`, preserving Saurav's commits `c81a6dc`, `50a70f4`, and `1d6902a`.
+   - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
+   - Changes: Thin circular outline with one-shot spin on icon hover/focus; background-free progress feedback pop with numerator roll animation and gentle denominator nudge; shift update description placed below heading.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (10 test files, 74 tests passed); `npm run build` passed cleanly.
+
+### 14 Nov 2026 — Rohit (game), Himamshu (world), and Saurav (HUD) continuation integration
+
+1. **`feat/rohit-game` (tip `4d02fd0`)**:
+   - Merged as `828493c`, preserving Rohit's commits `8653e0c` and `4d02fd0`.
+   - Scope: `src/App.vue`, `src/contracts/index.ts`, `src/features/game/NOTES.md`, `src/features/game/audio.ts`, `src/features/game/game.test.ts`, `src/features/game/index.ts`. All paths owned by Rohit.
+   - Changes: Synthesizer full-reserve ascending chime ($D5 \to A5 \to D6$) triggered when any resource crosses to 100%; in-viewport command deck overlay allowing full-screen surface exploration with toggle (`KeyC`); roguelike choice cards with additive rarity types (`vital`, `hazard-response`, `experimental`, `standard`), presentation badges, and tactile hover states.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (10 test files, 75 tests passed); `npm run build` passed cleanly.
+
+2. **`feat/himamshu-world` (tip `bd51017`)**:
+   - Merged as `2a4f7f7`, preserving Himamshu's commit `bd51017`.
+   - Scope: `src/features/world/CREDITS.md`, `src/features/world/NOTES.md`, `src/features/world/astronaut.ts`, `src/features/world/index.ts`, `src/features/world/nasa-assets.ts`, `src/features/world/resources.ts`, `src/features/world/suit-rig.test.ts`, `src/features/world/suit-rig.ts`. All paths owned by Himamshu.
+   - Changes: Procedural suit rig for the NASA astronaut model, binding animated joints and limb rotations to player movement vectors and posture states; added unit tests in `suit-rig.test.ts`.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (11 test files, 78 tests passed); `npm run build` passed cleanly.
+
+3. **`feat/saurav-hud` (tip `2bdacef`)**:
+   - Merged as `afff7e4`, preserving Saurav's commits `5f6aedd`, `50eaced`, and `2bdacef`.
+   - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
+   - Changes: Eased sub-pixel cursor parallax with distinct directions and depths across HUD elements and hazard toast (disabled on reduced-motion); softened low-reserve meter pulse; progress pop positioned beside icon.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (11 test files, 78 tests passed); `npm run build` passed cleanly.
 
 ### Updated open requests
 

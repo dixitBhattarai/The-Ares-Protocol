@@ -1,0 +1,62 @@
+[
+  {
+    "file": ".gitattributes",
+    "bytes": 143,
+    "sha256": "cd21f88d139c7b4621efd92a15d662a2e0b5b806605c927a6f7b4ecb885c58f1"
+  },
+  {
+    "file": "astronaut.glb",
+    "bytes": 762988,
+    "sha256": "d18c141410542b935113d1c25a9271d90c40d44015a64295b7b68a30f0ce2820"
+  },
+  {
+    "file": "earth.jpg",
+    "bytes": 1398329,
+    "sha256": "5e18afce2860f02a215c09954fff5d3d1ca140cafa26c368d24d7636dd6705a7"
+  },
+  {
+    "file": "eo1.glb",
+    "bytes": 224580,
+    "sha256": "2d26422a45147e86c93c535979b1d9ae16d34fc0171f661dec051bca61c14a74"
+  },
+  {
+    "file": "mars.jpg",
+    "bytes": 972896,
+    "sha256": "12ec6bf02ebd42a246edc778cb2ce8c595b4d9f0892badf0bfff8abb2303c780"
+  },
+  {
+    "file": "opportunity.glb",
+    "bytes": 36668,
+    "sha256": "95c852efb385b55bea3104a0fca2730cd2ef25353af4d38273d3f0bda5c68c31"
+  },
+  {
+    "file": "draco/draco_decoder.wasm",
+    "bytes": 192420,
+    "sha256": "a680d927bed9cb864ddbd63521868891af2bfbe755092761b4837487618df8ac"
+  },
+  {
+    "file": "draco/draco_wasm_wrapper.js",
+    "bytes": 58456,
+    "sha256": "8bb2952d2ba7d67e1414f8df819410cb0434a666be53f671fff75f68843d76f6"
+  },
+  {
+    "file": "draco/DRACO-LICENSE.txt",
+    "bytes": 13898,
+    "sha256": "d3709b0fb4b8a94bbb1d02b8a2e484f258b0d9c5c5a01f940391f3fe662cd1a4"
+  },
+  {
+    "file": "music/happy-tune.mp3",
+    "bytes": 2532513,
+    "sha256": "5b916bdf95661a45782f97009db6ef1dd1864522f3d3db79503d005524ac5730"
+  },
+  {
+    "file": "music/snowfall.ogg",
+    "bytes": 1069722,
+    "sha256": "76c3e85ea456057fa4a0314b64e2f7ef583d98bf94f0c44641b899d0f52da82a"
+  },
+  {
+    "file": "music/space.flac",
+    "bytes": 6594210,
+    "sha256": "ca0b8058a4640d19d8f9d95dfca40ee2053a30c993726faf1d82b0ef751ab2d1"
+  }
+]
