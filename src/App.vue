@@ -12,7 +12,7 @@ import { usableMachines, WORK_MACHINES, type WorkWorldAdapter } from './features
 import SpaceflightPanel from './features/ui/SpaceflightPanel.vue';
 import LaunchControls from './features/ui/LaunchControls.vue';
 import LandingControls from './features/ui/LandingControls.vue';
-import {createLandingFlight,stepLandingFlight,landingGuidance,LANDING_ALTITUDE} from './features/physics/landing-flight';
+import {createLandingFlight,createFinalApproach,stepLandingFlight,landingGuidance,LANDING_ALTITUDE} from './features/physics/landing-flight';
 import {createLaunchFlight,stepLaunchFlight,SPACE_ALTITUDE} from './features/physics/launch-flight';
 import SplashScreen from './features/ui/SplashScreen.vue';
 import LoginScreen from './features/ui/LoginScreen.vue';
@@ -68,10 +68,15 @@ function holdLanding(key:FlightControlKey,down:boolean){if(down&&flightStage.val
 function setLandingThrottle(value:number){const s=landingFlight.value;if(s&&s.status==='flying'&&!preparationPaused.value)landingFlight.value={...s,throttle:Math.max(0,Math.min(1,value)),assist:false};}
 function nudgeLanding(key:FlightControlKey){
  const s=landingFlight.value;if(!s||s.status!=='flying'||preparationPaused.value)return;
- if(key==='KeyW'||key==='KeyS')setLandingThrottle(s.throttle+(key==='KeyW'?.05:-.05));
- else if(key==='KeyA'||key==='KeyD')landingFlight.value={...s,pitch:Math.max(-25,Math.min(25,s.pitch+(key==='KeyA'?-3:3))),assist:false};
+ if(key==='KeyQ'||key==='KeyE')setLandingThrottle(s.throttle+(key==='KeyE'?.05:-.05));
+ else if(key==='KeyW'||key==='KeyS')landingFlight.value={...s,pitch:Math.max(-25,Math.min(25,s.pitch+(key==='KeyW'?-3:3))),assist:false};
+ else if(key==='KeyA'||key==='KeyD')landingFlight.value={...s,bank:Math.max(-25,Math.min(25,s.bank+(key==='KeyA'?-3:3))),assist:false};
 }
-function deployLandingLegs(){if(landingFlight.value?.status==='flying'&&!preparationPaused.value)landingFlight.value={...landingFlight.value,legs:true};}
+function retryMarsLanding(){
+ const final=landingFlight.value?.phase==='approach'||landingFlight.value?.status==='retry';beginMarsLanding();
+ if(final){landingFlight.value=createFinalApproach();world?.setLandingFlight?.(landingFlight.value);}
+}
+function deployLandingLegs(){if(landingFlight.value?.status==='flying'&&landingFlight.value.phase==='approach'&&!preparationPaused.value)landingFlight.value={...landingFlight.value,legs:true};}
 function toggleLandingAssist(){if(landingFlight.value?.status==='flying'&&!preparationPaused.value){clearLaunchInput();landingFlight.value={...landingFlight.value,assist:!landingFlight.value.assist};}}
 let flightStageElapsed = 0;
 // The bundled flight sim supplies telemetry and responds to simple throttle/attitude commands; stage timing remains authored for a short, child-friendly mission.
@@ -485,7 +490,7 @@ function checkStationProximity(pose: Vec3) {
 function handleGlobalKeydown(event: KeyboardEvent) {
   if(landingFlight.value&&flightStage.value==='landing'&&!(event.target as HTMLElement|null)?.closest('input,textarea,select,[contenteditable]')){
     if(event.code==='KeyP'){event.preventDefault();if(!event.repeat)togglePreparationPause();return;}
-    if(['KeyW','KeyS','KeyA','KeyD'].includes(event.code)){event.preventDefault();holdLanding(event.code as FlightControlKey,true);return;}
+    if(['KeyW','KeyS','KeyA','KeyD','KeyQ','KeyE'].includes(event.code)){event.preventDefault();holdLanding(event.code as FlightControlKey,true);return;}
     if(event.code==='Space'&&!(event.target as HTMLElement|null)?.closest('button')){event.preventDefault();if(!event.repeat)deployLandingLegs();return;}
   }
   if(state.value.phase==='running'&&!activeActivity.value&&['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.code)&&!(event.target as HTMLElement|null)?.closest('input,textarea,select,[contenteditable]'))startMissionAfterGuide();
@@ -606,7 +611,7 @@ onMounted(async () => {
           world!.setLaunchFlight?.(launchFlight.value);
           if(stage==='launch'&&launchFlight.value.spaceReached){clearLaunchInput();updateFlightStage('orbit-autopilot',0);}
         }else if(landingFlight.value&&(stage==='landing'||stage==='touchdown')){
-          landingFlight.value=stepLandingFlight(landingFlight.value,elapsed,{throttle:Number(launchHeld.has('KeyW'))-Number(launchHeld.has('KeyS')),steer:Number(launchHeld.has('KeyD'))-Number(launchHeld.has('KeyA'))});
+          landingFlight.value=stepLandingFlight(landingFlight.value,elapsed,{throttle:Number(launchHeld.has('KeyE'))-Number(launchHeld.has('KeyQ')),pitch:Number(launchHeld.has('KeyS'))-Number(launchHeld.has('KeyW')),steer:Number(launchHeld.has('KeyD'))-Number(launchHeld.has('KeyA'))});
           flightProgress.value=Math.max(0,Math.min(1,1-landingFlight.value.altitude/LANDING_ALTITUDE));
           world!.setLandingFlight?.(landingFlight.value);
           if(stage==='landing'&&landingFlight.value.status==='landed'){clearLaunchInput();updateFlightStage('touchdown',1);}
@@ -766,7 +771,7 @@ onBeforeUnmount(() => {
           :station="interior ?? nearby" :inside="!!interior" :open="!!doorsOpen[interior ?? nearby ?? 'habitat']"
           :ready="doorReady" :paused="false" @toggle="toggleDoor" @enter="enterModule()" @exit="leaveModule" @travel="travelToDoor" />
         <LaunchControls v-if="launchFlight" :flight="launchFlight" :paused="preparationPaused" @ignite="igniteLaunch" @hold="holdLaunch" @nudge="nudgeLaunch" @throttle="setLaunchThrottle" @pause="togglePreparationPause" @reset="beginLaunchSequence" />
-        <LandingControls v-if="landingFlight" :flight="landingFlight" :guidance="landingGuidance(landingFlight)" :paused="preparationPaused" @hold="holdLanding" @nudge="nudgeLanding" @throttle="setLandingThrottle" @legs="deployLandingLegs" @assist="toggleLandingAssist" @pause="togglePreparationPause" @retry="beginMarsLanding" @continue="finishArrival" />
+        <LandingControls v-if="landingFlight" :flight="landingFlight" :guidance="landingGuidance(landingFlight)" :paused="preparationPaused" @hold="holdLanding" @nudge="nudgeLanding" @throttle="setLandingThrottle" @legs="deployLandingLegs" @assist="toggleLandingAssist" @pause="togglePreparationPause" @retry="retryMarsLanding" @continue="finishArrival" />
         <div v-if="flightStage && !launchFlight && !landingFlight" class="arrival-overlay" role="status">
           <h2>{{ flightStage === 'launch' ? 'Launch control' : flightStage === 'orbit-autopilot' ? 'Autopilot to orbit' : flightStage === 'transfer' ? 'Earth → Mars' : flightStage === 'landing' ? 'Mars descent' : 'Touchdown' }}</h2>
           <p>{{ flightFeedback }}</p>
