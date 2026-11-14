@@ -6,7 +6,7 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 
 | Branch | Reported tip | Scope | State |
 | --- | --- | --- | --- |
-| `feat/himamshu-world` | `95a03b3` | `src/features/world/**` | Local handoff exists; not merged by this coordination update |
+| `feat/himamshu-world` | `95a03b3` | `src/features/world/**` | Pushed to origin and remote tip verified; not merged into main |
 
 Verify refs, scope and checks before a merge; this table is not authorization to merge. Other roles have no handoff recorded here yet.
 
@@ -16,7 +16,8 @@ Verify refs, scope and checks before a merge; this table is not authorization to
 - Local main held coordination update `9149a4b`; local world held verified milestones `9fc1290` and `95a03b3`, with a clean worktree. All existing commits retain their configured author metadata.
 - Himamshu authorized normal pushes of tested milestones and periodic checks. No feature merge is authorized or performed by this publication task.
 - Created active recurring check `check-ares-team-branches`: every 30 minutes through 15 Nov 2026, 11:59 pm Asia/Katmandu. It checks branch tips/handoffs, preserves authorship and may publish reviewed tested commits under the standing authorization; it does not automatically merge branches. Local checks require the computer/app/project to remain available and applicable Git/network permissions.
-- Publication results will be confirmed in the final handoff; an intended push is not a completed one.
+- Publication completed: pushed main through `9284537` (including coordinator policy `9149a4b`) and published `feat/himamshu-world` at `95a03b3`, preserving both world milestones and their original author. Verified both remote hashes using `git ls-remote --heads origin`; local branches matched their upstreams.
+- A second fetch found no additional teammate feature branches. Their unpushed work on other computers remains unavailable; later checks will review published updates. This log entry is a later documentation commit and does not merge any feature.
 
 ## Completed merges
 
