@@ -2,12 +2,13 @@
 // Integration shell: Rohit owns this file. Himamshu's layout handoff is recorded in world/NOTES.md.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
 import { STATIONS } from './contracts';
-import type { GameAction, PhysicsAdapter, Vec3, WorldAdapter, StationId } from './contracts';
+import type { FlightStage, GameAction, GravityBody, PhysicsAdapter, Vec3, WorldAdapter, StationId } from './contracts';
 import { createInitialState, getCurrentEvent, reduceGame } from './features/game';
 import { soundFX } from './features/game/audio';
 import { loadMission } from './features/missions';
 import HudOverlay from './features/hud/HudOverlay.vue';
 import MissionPanels from './features/ui/MissionPanels.vue';
+import SpaceflightPanel from './features/ui/SpaceflightPanel.vue';
 import SplashScreen from './features/ui/SplashScreen.vue';
 import LoginScreen from './features/ui/LoginScreen.vue';
 import ActivityPanel from './features/world/ActivityPanel.vue';
@@ -18,6 +19,8 @@ import DoorPanel from './features/world/DoorPanel.vue';
 import { doorApproach, doorwayOccupied, insideStation, nearbyDoor } from './features/world/doors';
 import { advancePreparation, PREPARATION, type PreparationLevel } from './features/world/preflight';
 import { createMusic } from './features/world/music';
+import { createSpacecraftSim, type SpacecraftSim } from './features/physics/spacecraft';
+import { advanceFlightControls, flightCommandForControl, FLIGHT_CONTROL_STEPS, type FlightControlKey } from './features/game/spaceflight';
 
 const mission = loadMission();
 const state = shallowRef(createInitialState(mission));
@@ -36,8 +39,44 @@ const nearby = ref<StationId | null>(null);
 const doorsOpen = ref<Record<StationId, boolean>>({ habitat: false, solar: false, greenhouse: false });
 const doorReady = ref(false);
 const flightProgress = ref<number | null>(null);
+const flightStage = ref<FlightStage | null>(null);
+const flightControlProgress = ref(0);
+const flightFeedback = ref('');
+let flightStageElapsed = 0;
+// The bundled flight sim supplies telemetry and responds to simple throttle/attitude commands; stage timing remains authored for a short, child-friendly mission.
+let flightSim: SpacecraftSim | undefined;
+const flightTelemetry = ref('');
+const gravityLabel = ref('');
+function setGravity(body: GravityBody) {
+  physics?.setGravityBody?.(body);
+  const info = physics?.getGravityInfo?.();
+  gravityLabel.value = !info ? '' : info.canJump
+    ? `Gravity: ${info.gravityMS2.toFixed(2)} m/s² (${Math.round(info.relativeToEarth * 100)}% of Earth) · press Space to jump — about ${info.jumpHeightM.toFixed(2)} m high here`
+    : 'Gravity: 0 m/s² — weightless in orbit, so there is no jumping in the cabin.';
+}
+function startFlightSim(preset: string, timeScale = 1, paused = false) {
+  stopFlightSim();
+  try {
+    flightSim = createSpacecraftSim(preset);
+    flightSim.setTimeScale(timeScale);
+    if (paused) flightSim.pause();
+  } catch (error) { console.warn('Flight sim unavailable', error); flightSim = undefined; }
+}
+function stopFlightSim() { flightSim?.dispose(); flightSim = undefined; flightTelemetry.value = ''; }
+function mayResumeFlightSim() {
+  if (flightStage.value === 'launch') return flightControlProgress.value >= 2;
+  if (flightStage.value === 'landing') return flightControlProgress.value >= 3;
+  return flightStage.value !== null;
+}
+function stepFlightSim(seconds: number) {
+  if (!flightSim) return;
+  try {
+    flightSim.step(seconds);
+    const s = flightSim.getSnapshot().spacecraft;
+    flightTelemetry.value = `Flight computer · altitude ${(s.altitude_m / 1000).toFixed(1)} km · speed ${(s.speed_m_s / 1000).toFixed(2)} km/s · propellant ${Math.round(s.propellant_mass_kg).toLocaleString()} kg · Δv ${Math.round(s.delta_v_remaining_m_s).toLocaleString()} m/s`;
+  } catch (error) { console.warn('Flight sim failed', error); stopFlightSim(); }
+}
 let arrivalComplete = false;
-let orbitComplete = false;
 let music: ReturnType<typeof createMusic> | undefined;
 const preparation = ref<PreparationLevel | null>(null);
 const earthOutside = ref(false);
@@ -47,16 +86,99 @@ const preparationPaused = ref(false);
 const nearConsole = ref(false);
 let remoteConsole = false;
 
+function updateFlightStage(stage: FlightStage | null, progress = 0) {
+  flightStage.value = stage;
+  flightProgress.value = stage === null ? null : Math.max(0, Math.min(1, progress));
+  flightStageElapsed = 0;
+  world?.setJourney?.(null);
+  world?.setFlightStage?.(stage, progress);
+}
+
 function beginPreparation(level: PreparationLevel) {
-  flightProgress.value = null; world?.setJourney?.(null);
+  updateFlightStage(null);
+  world?.setJourney?.(null);
+  stopFlightSim();
   preparation.value = level; preparationProgress.value = 0; preparationFeedback.value = ''; preparationPaused.value = false; nearConsole.value = false; remoteConsole = false;
   earthOutside.value = level === 'earth';
   world?.setLevel?.(level); world?.setEarthOutside?.(earthOutside.value); world?.setActivityProgress?.(0);
   if (earthOutside.value) { const spawn=doorApproach('habitat');physics?.reset?.({...spawn,z:spawn.z+1});setDoor('habitat',true); }
   else physics?.enterInterior?.();
+  setGravity(level === 'earth' ? 'earth' : 'orbit');
   physics?.resumeInput?.();
-  stationMessage.value = level === 'earth' ? 'Earth preparation lab: walk to the console and complete your departure checks.' : 'Orbital cabin: establish the navigation link before continuing to Mars.';
+  stationMessage.value = level === 'earth' ? 'Earth departure checks: fuel, crew air, food and water cargo, guidance batteries and the launch window.' : 'Orbital cabin: establish the navigation link before the compressed Mars transfer.';
   music?.setPaused(false); music?.select(level); music?.unlock();
+}
+
+function beginLaunchSequence() {
+  earthOutside.value = false;
+  world?.setEarthOutside?.(false);
+  preparation.value = null;
+  physics?.exitInterior?.();
+  physics?.pauseInput?.();
+  world?.setLevel?.(null);
+  world?.setActivityProgress?.(0);
+  preparationPaused.value = false;
+  flightControlProgress.value = 0;
+  flightFeedback.value = 'Boarded and strapped in. Press Space to begin the countdown.';
+  startFlightSim('EARTH_LAUNCH_ASCENT', 10, true);
+  updateFlightStage('launch', 0);
+  music?.setPaused(false); music?.select('space');
+}
+
+function beginMarsTransfer() {
+  preparationPaused.value = false;
+  flightControlProgress.value = 0;
+  flightFeedback.value = 'Course checked. Autopilot has the Mars transfer.';
+  startFlightSim('EARTH_MARS_TRANSFER', 20);
+  updateFlightStage('transfer', 0);
+  physics?.pauseInput?.();
+  world?.setLevel?.(null);
+  music?.select('space');
+}
+
+function beginMarsLanding() {
+  preparationPaused.value = false;
+  flightControlProgress.value = 0;
+  flightFeedback.value = 'Mars approach confirmed. Use small steering and thrust corrections.';
+  startFlightSim('MARS_POWERED_DESCENT', 3, true);
+  updateFlightStage('landing', 0);
+  physics?.pauseInput?.();
+  world?.setLevel?.(null);
+}
+
+function operateFlightControl(key: FlightControlKey) {
+  const stage = flightStage.value;
+  if ((stage !== 'launch' && stage !== 'landing') || preparationPaused.value) return;
+  const completedAction = FLIGHT_CONTROL_STEPS[stage][flightControlProgress.value]?.action ?? 'Flight control';
+  const result = advanceFlightControls(stage, flightControlProgress.value, key);
+  if (!result.accepted) {
+    flightFeedback.value = result.expected ? `Use ${result.expected.key === 'Space' ? 'Space' : result.expected.key.replace('Key', '')}: ${result.expected.action}.` : 'The flight sequence is complete.';
+    return;
+  }
+  const command = flightCommandForControl(stage, key, flightControlProgress.value);
+  if (command) flightSim?.command(command);
+  if (key === 'KeyW') flightSim?.resume();
+  if (stage === 'landing' && key === 'Space' && flightControlProgress.value === FLIGHT_CONTROL_STEPS.landing.length - 1) {
+    flightSim?.command({ action: 'set_throttle', throttle: 0.2 });
+    flightSim?.setTimeScale(10);
+  }
+  flightControlProgress.value = result.progress;
+  flightProgress.value = stage === 'launch'
+    ? Math.max(0, (result.progress - 1) / (FLIGHT_CONTROL_STEPS.launch.length - 1))
+    : result.progress / FLIGHT_CONTROL_STEPS.landing.length;
+  const nextStep = FLIGHT_CONTROL_STEPS[stage][result.progress]?.action;
+  flightFeedback.value = result.complete ? (stage === 'launch' ? 'Guidance is taking over for orbital insertion.' : 'Landing controls are set. Autopilot is completing touchdown.') : `${completedAction} complete. Next: ${nextStep}.`;
+  world?.setFlightStage?.(stage, flightProgress.value);
+  if (result.complete && stage === 'launch') updateFlightStage('orbit-autopilot', 0);
+  if (result.complete && stage === 'landing') updateFlightStage('touchdown', 0);
+}
+
+function togglePreparationPause() {
+  preparationPaused.value = !preparationPaused.value;
+  music?.setPaused(preparationPaused.value);
+  if (preparationPaused.value) { physics?.pauseInput?.(); flightSim?.pause(); }
+  else { if (!flightStage.value) physics?.resumeInput?.(); if (mayResumeFlightSim()) flightSim?.resume(); }
+  world?.setMotionPaused?.(preparationPaused.value || state.value.phase === 'paused');
 }
 function enterEarthLab(accessible = true) {
   if (preparation.value !== 'earth' || preparationPaused.value || !earthOutside.value) return;
@@ -68,7 +190,6 @@ function leaveEarthLab() {
   setDoor('habitat',true);physics?.resumeInput?.();const station=STATIONS.find(station=>station.id==='habitat')!;physics?.walkPath?.([{x:station.position.x,y:.8,z:station.position.z+2},doorApproach('habitat')]);
   preparationFeedback.value = 'Walking back outdoors through the same doorway.';
 }
-function togglePreparationPause() { preparationPaused.value = !preparationPaused.value; music?.setPaused(preparationPaused.value); if (preparationPaused.value) physics?.pauseInput?.(); else physics?.resumeInput?.(); }
 function operatePreparation(control: string) {
   const level = preparation.value;
   if (!level || preparationPaused.value) return;
@@ -79,16 +200,23 @@ function operatePreparation(control: string) {
   if (next === PREPARATION[level].steps.length) {
     earthOutside.value = false; world?.setEarthOutside?.(false);
     preparation.value = null; physics?.exitInterior?.(); world?.setLevel?.(null); world?.setActivityProgress?.(0);
-    if (level === 'space') orbitComplete = true;
-    music?.select('space'); flightProgress.value = 0;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) finishArrival();
+    if (level === 'earth') beginLaunchSequence();
+    else beginMarsTransfer();
   }
 }
 
 function finishArrival() {
-  flightProgress.value = null; world?.setJourney?.(null);
-  if (!orbitComplete) { beginPreparation('space'); return; }
-  arrivalComplete = true;physics?.reset?.({x:0,y:.8,z:6});music?.select('mars'); stationMessage.value = 'Landed on Mars. Choose a shift job, then walk to its module.'; dispatch({ type: 'START' });
+  if (flightStage.value === 'orbit-autopilot') {
+    flightSim?.pause();
+    beginPreparation('space');
+    return;
+  }
+  if (flightStage.value === 'transfer') { beginMarsLanding(); return; }
+  if (flightStage.value === 'touchdown') {
+    stopFlightSim();
+    updateFlightStage(null);
+    arrivalComplete = true;physics?.reset?.({x:0,y:.8,z:6});setGravity('mars');music?.select('mars'); stationMessage.value = 'Touchdown complete. Mars gravity is 3.72 m/s², about 38% of Earth gravity. Choose a shift job, then walk to its module.'; dispatch({ type: 'START' });
+  }
 }
 function setDoor(id: StationId, open: boolean) { doorsOpen.value = { ...doorsOpen.value, [id]: open }; doorReady.value = false; world?.setDoorState?.(id, open); }
 function toggleDoor() {
@@ -208,7 +336,7 @@ function dispatch(action: GameAction, procedureComplete = false) {
     world?.setObjective?.(activeActivity.value.station);
     return;
   }
-  if (action.type === 'RESTART') { cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; orbitComplete = false; arrivalComplete = false; flightProgress.value = null; world?.setJourney?.(null); world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
+  if (action.type === 'RESTART') { cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
   if (action.type === 'PAUSE' && state.value.phase === 'running') music?.setPaused(true);
   if (action.type === 'RESUME' && state.value.phase === 'paused') music?.setPaused(false);
   const previousState = state.value;
@@ -266,7 +394,7 @@ function dispatch(action: GameAction, procedureComplete = false) {
 }
 
 function pauseWhenHidden() {
-  if (document.hidden && preparation.value) { preparationPaused.value = true; physics?.pauseInput?.(); music?.setPaused(true); }
+  if (document.hidden && (preparation.value || flightStage.value)) { preparationPaused.value = true; physics?.pauseInput?.(); flightSim?.pause(); music?.setPaused(true); }
   if (document.hidden) dispatch({ type: 'PAUSE' });
 }
 
@@ -305,7 +433,22 @@ function checkStationProximity(pose: Vec3) {
 
 function handleGlobalKeydown(event: KeyboardEvent) {
   if ((event.target as HTMLElement | null)?.closest('button, input, textarea, select, [contenteditable]')) return;
-  if (preparation.value && event.code === 'KeyP') { togglePreparationPause(); return; }
+  if ((preparation.value || flightStage.value) && event.code === 'KeyP') { event.preventDefault(); togglePreparationPause(); return; }
+  if (flightStage.value) {
+    if (event.code === 'Space' || event.code === 'Enter') {
+      if (flightStage.value === 'orbit-autopilot' || flightStage.value === 'transfer' || flightStage.value === 'touchdown') {
+        event.preventDefault(); if (!preparationPaused.value) finishArrival();
+      } else if (!event.repeat) {
+        event.preventDefault(); operateFlightControl('Space');
+      }
+      return;
+    }
+    const flightKey = event.code === 'KeyW' || event.code === 'KeyA' || event.code === 'KeyS' || event.code === 'KeyD' ? event.code : undefined;
+    if (flightKey && !event.repeat && (flightStage.value === 'launch' || flightStage.value === 'landing')) {
+      event.preventDefault(); operateFlightControl(flightKey as FlightControlKey); return;
+    }
+    return;
+  }
   if (preparation.value === 'earth' && event.code === 'KeyE') {
     event.preventDefault();
     if (!event.repeat && !preparationPaused.value && (!earthOutside.value || nearbyDoor(physics!.getPlayerPose()) === 'habitat')) {
@@ -353,7 +496,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
       dispatch({ type: 'CHOOSE', choiceId: currentEvent.choices[2].id });
     } else if (['Digit4', 'Numpad4'].includes(event.code) && currentEvent.choices[3]) {
       dispatch({ type: 'CHOOSE', choiceId: currentEvent.choices[3].id });
-    } else if (event.code === 'KeyP' || event.code === 'Space') {
+    } else if (event.code === 'KeyP') { // Space is the jump key (handled by physics)
       event.preventDefault();
       dispatch({ type: 'PAUSE' });
     }
@@ -399,10 +542,16 @@ onMounted(async () => {
     const tick = (now: number) => {
       const elapsed = Math.min((now - previous) / 1000, 0.1);
       previous = now;
-      if (flightProgress.value !== null && !document.hidden) {
-        flightProgress.value = Math.min(1, flightProgress.value + elapsed / 8);
-        world!.setJourney?.((orbitComplete ? .5 : 0) + flightProgress.value * .5);
-        if (flightProgress.value >= 1) finishArrival();
+      if (flightStage.value && !document.hidden && !preparationPaused.value) {
+        const stage = flightStage.value;
+        stepFlightSim(elapsed);
+        if (stage === 'orbit-autopilot' || stage === 'transfer' || stage === 'touchdown') {
+          const duration = stage === 'orbit-autopilot' ? 4 : stage === 'transfer' ? 8 : 3;
+          flightStageElapsed += elapsed;
+          flightProgress.value = Math.min(1, flightStageElapsed / duration);
+          if (flightProgress.value >= 1) finishArrival();
+        }
+        if (flightStage.value === stage) world!.setFlightStage?.(stage, flightProgress.value ?? 0);
       }
       if (state.value.phase === 'running' || (preparation.value && !preparationPaused.value)) {
         physics!.setCameraYaw?.(world!.getCameraYaw?.() ?? 0);
@@ -450,6 +599,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   music?.dispose();
+  stopFlightSim();
   disposed = true;
   cancelAnimationFrame(frame);
   document.removeEventListener('visibilitychange', pauseWhenHidden);
@@ -500,9 +650,9 @@ onBeforeUnmount(() => {
       <div class="hud-container">
         <HudOverlay :state="state" :mission="mission" />
       </div>
-      <section class="world-panel" aria-label="Mars surface exploration">
+      <section class="world-panel" :aria-label="flightStage ? 'Spaceflight sequence' : preparation === 'earth' ? 'Earth launch preparation' : preparation === 'space' ? 'Orbital cabin preparation' : 'Mars surface exploration'">
         <div class="surface-header">
-          <span><span class="live-dot" aria-hidden="true" /> {{ preparation === 'earth' ? 'EARTH / PREPARATION LAB' : preparation === 'space' ? 'ORBIT / COMMUNICATIONS CABIN' : flightProgress !== null ? 'EXPEDITION / IN TRANSIT' : 'OUTPOST ARES / SURFACE VIEW' }}</span>
+          <span><span class="live-dot" aria-hidden="true" /> {{ preparation === 'earth' ? 'EARTH / PREPARATION LAB' : preparation === 'space' ? 'ORBIT / COMMUNICATIONS CABIN' : flightStage === 'launch' || flightStage === 'orbit-autopilot' ? 'EARTH / LAUNCH VEHICLE' : flightStage === 'transfer' ? 'EXPEDITION / AUTOPILOT TRANSFER' : flightStage === 'landing' || flightStage === 'touchdown' ? 'MARS / LANDING APPROACH' : 'OUTPOST ARES / SURFACE VIEW' }}</span>
           <div class="surface-actions">
             <button
               v-if="state.phase === 'running'"
@@ -520,15 +670,16 @@ onBeforeUnmount(() => {
           ref="host"
           class="viewport"
           role="region"
-          aria-label="Interactive 3D Mars Outpost Viewport"
+          :aria-label="flightStage ? 'Rocket ascent, transfer or Mars landing view' : preparation === 'earth' ? 'Interactive Earth launch site' : preparation === 'space' ? 'Orbital cabin view' : 'Interactive 3D Mars Outpost Viewport'"
         />
         <DoorPanel v-if="arrivalComplete && state.phase === 'running' && !preparation && flightProgress === null"
           :station="interior ?? nearby" :inside="!!interior" :open="!!doorsOpen[interior ?? nearby ?? 'habitat']"
           :ready="doorReady" :paused="false" @toggle="toggleDoor" @enter="enterModule()" @exit="leaveModule" @travel="travelToDoor" />
-        <div v-if="flightProgress !== null" class="arrival-overlay" role="status">
-          <h2>{{ orbitComplete ? 'Orbit → Mars' : 'Earth → Orbit' }}</h2><p>{{ orbitComplete ? 'Transfer to Ares Outpost' : 'Ascending to the communications cabin' }}</p>
-          <progress :value="flightProgress" max="1" aria-label="Journey to Mars" />
-          <p>Condensed journey · not real travel time or scale</p><button @click="finishArrival">Skip transfer</button>
+        <div v-if="flightStage" class="arrival-overlay" role="status">
+          <h2>{{ flightStage === 'launch' ? 'Launch control' : flightStage === 'orbit-autopilot' ? 'Autopilot to orbit' : flightStage === 'transfer' ? 'Earth → Mars' : flightStage === 'landing' ? 'Mars descent' : 'Touchdown' }}</h2>
+          <p>{{ flightFeedback }}</p>
+          <p v-if="flightStage === 'transfer'">A compressed autopilot journey · not real travel time or scale</p>
+          <p v-if="flightStage === 'landing' || flightStage === 'touchdown'">Mars gravity: 3.72 m/s² — about 38% of Earth’s 9.81 m/s².</p>
         </div>
         <p class="scene-status" role="status">
           <span v-if="currentSelectedStation" class="selected-badge">
@@ -543,7 +694,8 @@ onBeforeUnmount(() => {
           </span>
           {{ graphicsError || stationMessage }}
         </p>
-        <div class="surface-footer"><span>STYLIZED MARS OUTPOST</span><span>WASD / ARROWS <span aria-hidden="true">·</span> SELECT A MODULE</span></div>
+        <p v-if="gravityLabel && flightProgress === null" class="scene-status" role="status">{{ gravityLabel }}</p>
+        <div class="surface-footer"><span>{{ flightStage ? 'COMPRESSED SPACEFLIGHT SEQUENCE' : preparation ? 'EARTH / ORBIT PREPARATION' : 'STYLIZED MARS OUTPOST' }}</span><span>{{ flightStage ? 'W / S THRUST · A / D STEER · SPACE CONFIRM' : 'WASD / ARROWS · SELECT A MODULE' }}</span></div>
 
         <!-- Coherent In-Viewport Overlay Host for Shell UI Panels -->
         <aside
@@ -558,14 +710,14 @@ onBeforeUnmount(() => {
         >
           <div class="command-heading">
             <span>YOUR NEXT MOVE</span>
-            <span>{{ state.phase === 'ready' ? 'BRIEFING' : state.phase === 'running' ? 'DECISION DESK' : 'MISSION DESK' }}</span>
+            <span>{{ flightStage ? 'FLIGHT DECK' : state.phase === 'ready' ? 'BRIEFING' : state.phase === 'running' ? 'DECISION DESK' : 'MISSION DESK' }}</span>
           </div>
           <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
             {{ state.upcomingHazardNotice }}
           </p>
           <PreparationPanel v-if="preparation" :level="preparation" :outdoors="earthOutside" :progress="preparationProgress" :feedback="preparationFeedback" :near-console="nearConsole" :paused="preparationPaused" @enter-lab="enterEarthLab()" @outside="leaveEarthLab" @control="operatePreparation" @remote="remoteConsole = true; preparationFeedback = 'Remote console enabled.'" @pause="togglePreparationPause" />
+          <SpaceflightPanel v-else-if="flightStage" :stage="flightStage" :progress="flightProgress ?? 0" :step="flightControlProgress" :feedback="flightFeedback" :telemetry="flightTelemetry" :paused="preparationPaused" :controls="flightStage === 'landing' ? FLIGHT_CONTROL_STEPS.landing : FLIGHT_CONTROL_STEPS.launch" @control="operateFlightControl" @pause="togglePreparationPause" @continue="finishArrival" />
           <ActivityPanel v-else-if="activeActivity" :station="activeActivity.station" :title="activeActivity.title" :steps="activeActivity.steps" :impact="activeActivity.impact" :progress="activityProgress" :inside="interior === activeActivity.station" :feedback="activityFeedback" :paused="state.phase === 'paused'" @control="operateControl" @travel="travelToTask" @enter="enterModule()" @exit="leaveModule" @cancel="cancelActivity" @pause="dispatch({ type: state.phase === 'paused' ? 'RESUME' : 'PAUSE' })" />
-          <section v-else-if="flightProgress !== null" style="padding:18px" aria-label="In transit"><h2>{{ orbitComplete ? 'Mars transfer' : 'Earth departure' }}</h2><p>Flight systems are carrying the expedition to the next playable stage.</p></section>
           <MissionPanels v-else
             :state="state"
             :mission="mission"

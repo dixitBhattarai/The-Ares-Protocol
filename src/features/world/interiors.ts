@@ -24,11 +24,13 @@ export function dressRoom(room: THREE.Object3D, kit: ModelKit, resources: WorldR
 }
 
 export function furnishRoom(equipment: THREE.Group, id: string, kit: ModelKit, screens: THREE.MeshStandardMaterial[], steel: THREE.Material) {
-  for (const [i, x] of [-1.8, 0, 1.8].entries()) {
-    kit.box(equipment, kit.materials.ivory, [1.3, .85, .75], [x, .43, -2.2]);
-    const monitor = kit.box(equipment, kit.materials.dark, [1.05, .64, .13], [x, 1.24, -2]);
+  const consolePositions = id === 'earth' ? [-2.1, -.7, .7, 2.1] : [-1.8, 0, 1.8];
+  const deskWidth = id === 'earth' ? .95 : 1.3;
+  for (const [i, x] of consolePositions.entries()) {
+    kit.box(equipment, kit.materials.ivory, [deskWidth, .85, .75], [x, .43, -2.2]);
+    const monitor = kit.box(equipment, kit.materials.dark, [deskWidth * .82, .64, .13], [x, 1.24, -2]);
     monitor.rotation.x = -.1;
-    const control = kit.box(equipment, screens[i], [.91, .48, .025], [x, 1.25, -1.92]);
+    const control = kit.box(equipment, screens[i], [deskWidth * .72, .48, .025], [x, 1.25, -1.92]);
     control.userData.controlIndex = i;
     kit.box(equipment, steel, [1.28, .08, .62], [x, .94, -1.9]);
     for (let j = 0; j < 5; j++) kit.box(equipment, j === 0 ? kit.materials.orange : kit.materials.trim, [.1, .035, .15], [x - .36 + j * .18, 1, -1.7]);

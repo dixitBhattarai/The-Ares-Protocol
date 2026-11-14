@@ -6,6 +6,9 @@ These are checks to run, not claims that all final-game requirements already pas
 - No login/API key needed. After initial assets load, decisions require no network. First-ever offline loading would need a service worker and is outside MVP.
 - New player can explain the goal, distinguish reserves and see a decision's cost before choosing.
 - Normalized WASD/arrows; no page scroll on movement arrows; camera/astronaut remain legible.
+- Complete the Earth propellant, crew-air, cargo and guidance checks; try both the numbered console and accessible controls.
+- Use Space/W/A/D through liftoff, observe autopilot telemetry, then use A/D/W/S/Space to finish the Mars landing. Pause/resume and replay from Earth.
+- Confirm the flight is described as a compressed educational sequence, with authored checks and mechanics clearly distinguished from real launch procedures.
 - Walk into each module: collisions match visible footprints; solid ground; bounded map.
 - Pause and tab away/back: no resource catch-up or unexpected movement; explicit resume.
 - Every useful choice costs something; delayed consequences have simple explanations.

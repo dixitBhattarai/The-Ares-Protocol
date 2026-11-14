@@ -87,3 +87,11 @@ Status: Tested milestones complete; audio synthesis, station proximity, star rat
 - `npm run typecheck`: passed with zero type errors.
 - `npm test`: 75 tests passing cleanly across all 10 test suites (16 game tests, 4 activities tests, 8 missions tests, 20 physics tests, 13 UI tests, 14 world tests).
 - `npm run build`: production build passed cleanly in 704ms.
+
+## Earth launch → Mars landing flow — 14 Nov 2026
+
+- Added ordered, forgiving flight controls in `spaceflight.ts`: Space/W/A/D for launch and A/D/W/S/Space for landing. Wrong inputs keep the current step; every control also has a visible clickable alternative.
+- App sequences Earth propellant, crew-air, supplies/cargo and guidance checks → guided ascent → short orbital autopilot → orbit navigation checks → compressed Mars transfer autopilot → guided descent → touchdown → the existing Mars mission. Restart and hidden-tab pause return the player to Earth preparation and clear flight state.
+- The bundled sim now receives throttle and attitude commands and displays altitude, speed, remaining propellant and delta-v. Stage durations and control prompts remain authored game mechanics; the sim does not set mission outcome or claim a real Earth–Mars flight.
+- Contract additions: `FlightStage`, `FlightControlKey`, `FlightControlStep` and optional `WorldAdapter.setFlightStage`. Rohit retains App/contracts/game wiring ownership after this coordinated user request; Himamshu retains world visuals, Anshu retains spacecraft presets/simulation, and Dixit retains the flight panel.
+- Validation: `npm run typecheck` and `npm run build` pass. The full `npm test` run reports 118 passed and one unrelated failure in the pre-existing `src/features/physics/jump.test.ts` (`window` is undefined in Vitest's Node environment); the flight-control tests pass. A live browser walkthrough was blocked before navigation because the Windows browser tool does not support URL policy enforcement. Limits: orbital insertion, checklist values, flight duration and landing are condensed educational abstractions; no supplied rocket GLB was present, so the procedural fallback and replacement slot remain active.

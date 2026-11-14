@@ -80,3 +80,9 @@
   - `src/App.vue` (minimal non-intrusive integration)
   - `src/assets/*` (Earth, Moon, and Mars telescope textures)
 - **Boundaries**: Strictly within `src/features/ui/**` with minimal hook in `App.vue`.
+
+## Spaceflight control panel — 14 Nov 2026
+
+- Added `SpaceflightPanel.vue` for child-readable launch, autopilot and landing prompts. It shows the current WASD/Space action, checklist progress, telemetry and clickable keyboard alternatives, plus pause/resume and a way to continue compressed autopilot stages.
+- The component receives shared `FlightStage` and flight-control presentation types; it does not mutate game resources or import the game reducer.
+- Validation: typecheck and production build pass; the full suite passes all flight-panel related checks (118 tests pass overall). The suite still has one unrelated physics jump-test failure because `window` is undefined in Vitest's Node environment. Live browser verification was blocked before navigation by unsupported URL policy enforcement in the Windows browser tool. Rohit owns subsequent App integration; Dixit retains UI ownership.
