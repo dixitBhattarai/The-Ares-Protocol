@@ -6,6 +6,7 @@ export interface StationVisual {
   group: THREE.Group;
   windows: THREE.MeshStandardMaterial;
   indicator: THREE.MeshStandardMaterial;
+  beacon: THREE.MeshStandardMaterial;
   shelterPanels: THREE.Mesh[];
   selection: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>;
 }
@@ -24,6 +25,9 @@ export function createStation(id: StationId, kit: ModelKit, resources: WorldReso
   }));
   const indicator = resources.material(new THREE.MeshStandardMaterial({
     color: '#bce9b3', emissive: '#8ab982', emissiveIntensity: .3,
+  }));
+  const beacon = resources.material(new THREE.MeshStandardMaterial({
+    color: '#91d0a3', emissive: '#91d0a3', emissiveIntensity: .2,
   }));
   const shelterPanels: THREE.Mesh[] = [];
   // All solid geometry remains within local X/Z +/-1.5, Y +/-1.
@@ -80,32 +84,25 @@ export function createStation(id: StationId, kit: ModelKit, resources: WorldReso
     kit.box(group, windows, [2.4, .045, .07], [0, .79, .8]);
     kit.box(group, indicator, [.45, .09, .04], [0, -.5, 1.46]);
   }
+  kit.cylinder(group, trim, [.035, .12, .035], [1.4, .86, 1.4]);
+  const lamp = kit.cylinder(group, beacon, [.07, .08, .07], [1.4, .94, 1.4]);
+  lamp.name = `${id}-beacon`;
   const envelope = resources.geometry(new THREE.BoxGeometry(3.15, 2.1, 3.15));
   const outline = resources.geometry(new THREE.EdgesGeometry(envelope));
   const selection = new THREE.LineSegments(outline, resources.material(new THREE.LineBasicMaterial({ color: '#ffe0a2' })));
   selection.visible = false;
   // Selection is a non-solid annotation, not part of the collision/pick group.
-  return { group, windows, indicator, shelterPanels, selection };
+  return { group, windows, indicator, beacon, shelterPanels, selection };
 }
 
-export function createAstronaut(kit: ModelKit): THREE.Group {
-  const astronaut = new THREE.Group();
-  astronaut.name = 'astronaut';
-  const { ivory, dark, orange, trim } = kit.materials;
-  kit.sphere(astronaut, ivory, [.235, .4, .2], [0, -.12, 0]);
-  kit.box(astronaut, trim, [.32, .4, .13], [0, -.05, -.15]);
-  kit.sphere(astronaut, ivory, [.29, .29, .29], [0, .43, 0]);
-  kit.sphere(astronaut, dark, [.25, .18, .16], [0, .44, .12]);
-  kit.box(astronaut, orange, [.18, .14, .04], [0, -.04, .195]);
-  for (const x of [-.13, .13]) {
-    kit.box(astronaut, ivory, [.16, .36, .18], [x, -.48, 0]);
-    kit.box(astronaut, dark, [.18, .14, .26], [x, -.72, .02]);
-  }
-  for (const x of [-.23, .23]) {
-    kit.sphere(astronaut, ivory, [.065, .29, .08], [x, -.15, 0]);
-    kit.sphere(astronaut, orange, [.065, .09, .075], [x, -.39, .02]);
-  }
-  return astronaut;
+export function createGroundShadow(resources: WorldResources, width: number, depth: number): THREE.Mesh {
+  const geometry = resources.geometry(new THREE.CircleGeometry(1, 24));
+  const material = resources.material(new THREE.MeshBasicMaterial({ color: '#352c32', transparent: true, opacity: .16, depthWrite: false }));
+  const shadow = new THREE.Mesh(geometry, material);
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.scale.set(width, depth, 1);
+  shadow.position.y = .014;
+  return shadow;
 }
 
 export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.Group {
