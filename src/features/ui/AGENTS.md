@@ -4,6 +4,10 @@ Read root `AGENTS.md` and `docs/CONTRACTS.md`. Own only `src/features/ui/**`, in
 
 ## Task
 
+### Current task-first direction
+
+Design the post-task three-card choice, each with a plain benefit, cost/drawback and duration. Cards appear after completion, resolve once, and must not require choosing a card just to enter a building. Keep task selection distinct from reward/modifier selection; avoid double payouts. Add or adapt local UI for the three reusable minigame families after Rohit coordinates contracts; each needs keyboard/touch alternatives and forgiving instructions. Keep onboarding and debrief tied to actual effects. Use cohesive brighter station accents, illustrated buttons, large readable type and gentle success feedback; no flashing or color-only meaning. Do not change HUD, world, global layout or balances. Preserve existing MissionPanels compatibility during migration and record missing shell/API wiring in NOTES.md.
+
 Build the child's complete start → tutorial → choice → pause → results → retry journey. Add a useful debrief and science credits. Keep `MissionPanels.vue` props `state`, `mission`, `event` and `action` emit compatible; split local child components freely.
 
 All commands emit typed `GameAction`; never mutate props, recompute balances, import the game reducer or fetch NASA data. Saurav owns in-game resource meters; don't duplicate his HUD. Himamshu owns the canvas. No App/global style/package changes.
@@ -23,4 +27,4 @@ All commands emit typed `GameAction`; never mutate props, recompute balances, im
 1. Onboarding and choices: `feat(ui): build onboarding and decisions`.
 2. Debrief/replay/credits: `feat(ui): add debrief replay and source credits`.
 
-Run typecheck/tests/build and complete a keyboard/narrow-screen start-to-retry flow. Stage only `src/features/ui`, inspect staged diff and commit working milestones. Update notes; hand off branch/hash/checks/limits. Don't edit the HUD or simulate missing rules yourself.
+Run typecheck/tests/build and complete a keyboard/narrow-screen start-to-retry flow. Stage only `src/features/ui`, inspect staged diff and commit working milestones. Update notes; hand Himamshu branch/hash/paths/checks/limits for merging; send engineering requests to Rohit. Don't edit the HUD, simulate missing rules yourself or merge into main.

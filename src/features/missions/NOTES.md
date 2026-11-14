@@ -1,9 +1,80 @@
-# Missions handoff — Genius
+# Missions Handoff — Genius (NASA Data & Mission Architect)
 
-Status: authored scaffold only; no NASA data has been imported or verified here.
+## Status: COMPLETE
 
-- Existing: one authored choice event repeated across six shifts.
-- Next: six teaching events; verified archived observation, raw fixture and mapping.
-- Validation: record retrieval/query/date/units/terms and actual tests here or in local data provenance files.
-- Integration requests: coordinate conditional shelter hazards and delayed outcomes with Rohit; v1 effects are additive only.
-- Handoff: provide branch, milestone commits, changed files and science limits.
+Branch: `feat/genius-missions`  
+Owned Paths: `src/features/missions/**` only.
+
+---
+
+## 1. Completed Features
+
+### A. Six-Shift Pedagogical Teaching Arc
+Authored six distinct, deterministic shifts matching `docs/HACKATHON_PLAN.md` with child-friendly explanations, stable IDs, and meaningful trade-offs where every choice costs reserves:
+1. **Shift 1 (`shift-1-oxygen-vs-science`)**: Oxygen Production vs. Science Equipment. Demonstrates spending power and supplies to secure breathable air buffers vs. deploying initial science instruments.
+2. **Shift 2 (`shift-2-shelter-vs-exploration`)**: Storm Shelter Preparation vs. Surface Exploration. Demonstrates spending construction stock and battery power to harden the storm bunker before space weather arrives vs. rover exploration.
+3. **Shift 3 (`shift-3-solar-weather-alert`)**: Space Weather Hazard Response. Directly implements the environmental hazard:
+   - If `shielding >= 15`: Mitigated damage ($-4\ \text{Power}, -2\ \text{Oxygen}$).
+   - If `shielding < 15`: Unmitigated damage ($-22\ \text{Power}, -18\ \text{Oxygen}, -10\ \text{Supplies}$).
+4. **Shift 4 (`shift-4-greenhouse-vs-battery`)**: Greenhouse Food Production vs. Battery Conservation. Teaches that growing food takes power and consumable supplies, while conserving power draws down stored rations.
+5. **Shift 5 (`shift-5-comms-vs-autonomous`)**: Interplanetary Communications vs. Autonomous Science. Demonstrates speed-of-light delay across interplanetary space: transmitting telemetry to Earth takes 1 turn for confirmation (delayed effect: $+2\ \text{Science}$ on Shift 6), while autonomous science yields immediate $+1\ \text{Science}$.
+6. **Shift 6 (`shift-6-final-science-vs-reserves`)**: Final Science Push vs. Reserve Stabilization. Balances a final push to achieve the science target ($\ge 3$) against stabilizing life-support air tanks for incoming expedition crews.
+
+### B. Verified NASA Archived Observation & Sources
+- **Archived Data Mode**: `dataMode: 'archived'`.
+- **Primary NASA Source (`nasa-donki-cme-2024`)**:
+  - Raw JSON fixture: `src/features/missions/data/donki-cme-may2024-raw.json`.
+  - Event: Coronal Mass Ejection `2024-05-11T01:36:00-CME-001` associated with X5.8 flare from NOAA Active Region 13664.
+  - Observing instruments: SOHO LASCO C2/C3, STEREO A SECCHI/COR2, SDO AIA 193.
+  - Physical velocity: up to $1820\ \text{km/s}$ (CME Analysis 30761, Type O).
+  - Explicit mapping to game: Incoming solar energetic particles (SEPs) drive the Shift 3 space weather alert; regolith shelter shielding mitigates damage to sensitive electronics and life support.
+- **Contextual Sources**:
+  - `nasa-moxie-isru`: NASA Perseverance MOXIE solid oxide electrolysis ($2\text{CO}_2 \to 2\text{CO} + \text{O}_2$) for Shift 1 air generation.
+  - `nasa-dsn-light-delay`: NASA Deep Space Network light-travel delay ($c = 300{,}000\ \text{km/s}$, 3–22 min one-way latency) for Shift 5 comms delay.
+  - `csa-space-food-toolkit`: Canadian Space Agency Controlled Environment Agriculture toolkit for Shift 4 greenhouse cultivation.
+- **Provenance & Attribution**:
+  - Detailed provenance documentation in `src/features/missions/data/PROVENANCE.md`.
+  - Non-endorsement statement included on all sources: *"NASA data, imagery, and technical information may not be used to state or imply the endorsement by NASA or by any NASA employee of a commercial product, service, or activity, or used in any manner that might mislead."*
+  - All event `sourceIds` resolve to `mission.sources`.
+
+---
+
+## 2. Validation & Automated Tests
+
+All tests and checks pass cleanly on `.worktrees/genius`:
+- **`npm run typecheck`**: Passed with 0 errors (`vue-tsc --noEmit`).
+- **`npm test`**: 20/20 tests passing across 2 test suites:
+  - `src/features/missions/missions.test.ts` (8 tests):
+    - Valid mission configuration & 6 shifts with `archived` dataMode.
+    - Unique, stable IDs (`shift-[1-6]-...`) and non-empty titles/descriptions.
+    - Meaningful costs on all choices (no free benefits).
+    - 6-shift educational arc content verification.
+    - Verified archived sources schema and non-endorsement caveats.
+    - All `sourceIds` resolve to existing `sources`.
+    - Authentic NASA DONKI CME fixture data loading & physical validation ($1820\ \text{km/s}$, AR 13664, X5.8 flare).
+    - Playthrough proving the Deep Space Communications strategy (Oxygen $\to$ Shield $\to$ Research $\to$ Research $\to$ Comms $\to$ Oxygen) achieves victory with Science = 4 and positive reserves.
+  - `src/features/game/game.test.ts` (12 tests):
+    - 100% regression compatibility maintained with all existing reducer, hazard, and win/loss strategy tests.
+- **`npm run build`**: Client production build completed cleanly in Vite with 0 errors.
+
+---
+
+## 3. Scientific Distinctions & Educational Simplifications
+
+1. **Space Weather Observation vs. Surface Biological Dose**:
+   A solar flare (X5.8) and CME velocity ($1820\ \text{km/s}$) describe solar plasma ejection in the heliosphere, not a direct crew radiation dose on Mars. Mars lacks an intrinsic global dipolar magnetosphere and has a thin atmosphere (~1% of Earth's column density), allowing high-energy protons to penetrate to the surface. Translating this into game units ($-22\ \text{Power}, -18\ \text{Oxygen}$) is an educational abstraction illustrating the necessity of regolith shielding.
+2. **Discrete Shifts vs. Continuous Time**:
+   Shifts represent operational mission phases, not claims that hydroponic crops reach maturity or communications occur in minutes.
+3. **Authored Reserves**:
+   Power, Oxygen, and Supplies are 0–100 game indicators designed for young learners, not engineering telemetry in kWh, liters, or kilograms.
+
+---
+
+## 4. Integration Handoff for Rohit
+
+- **Branch**: `feat/genius-missions`
+- **Changed Paths**: `src/features/missions/**` only.
+- **Contract Compatibility**: Zero changes to shared files or `src/contracts/**`.
+- **Milestones**:
+  - `a1b931d`: `feat(missions): add six teaching decisions`
+  - Current: `feat(missions): add archived NASA evidence`

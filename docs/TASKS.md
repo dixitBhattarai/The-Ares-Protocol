@@ -1,6 +1,21 @@
 # Six owners, six task areas
 
-Saurav and Dixit were both assigned HUD/UI. Their work is split below to create six independent tracks. Rohit is the only shared-file integrator; everyone else can implement immediately against the supplied stubs and contracts.
+## Active update: explore, task, outcome, cards
+
+The 14 Nov user-approved direction in root AGENTS.md supersedes the original card-first scaffold acceptance below. This is assigned work, not a claim that the migration is complete. Keep each implementation in its owner's feature branch, with additive contracts coordinated by Rohit and serial merging by Antigravity.
+
+| Owner | Next deliverable | Acceptance |
+| --- | --- | --- |
+| Himamshu | Free building exploration, animated open/close doors, readable local models | Enter without an active task; closed doors block portal entry; walk through open door; safe exit; keyboard/touch controls; local licensed optimized assets; disposal |
+| Saurav | Brighter task-aware HUD | Available/current job, separate task payout and card effect feedback, reserves readable, player/door prompts unobscured |
+| Dixit | Three minigame families and post-task card UI | Air leak, power connections, greenhouse balance with accessible alternatives; exactly three post-task cards; benefits/costs/durations visible; no card-first entry gate |
+| Anshu | Reliable door portal/movement support | Shared coordinates, safe exterior return, closed-door checks composed by shell, no wall bypass, pause/restart/focus reliability |
+| Genius | Station job variants and trade-off content | Stable IDs, seeded optional variants, distinct base outcomes and modifiers; essential jobs always available; bounded loot; honest NASA mapping |
+| Rohit | Validated task → outcome → card state machine and wiring | Once-only completion and card resolution, six-job pacing, tested modifier lifecycle/reset, capped one-time finds, additive contracts and backwards-compatible migration |
+
+Scope guard: one Mars map plus existing Earth/orbit introductions, 2–3 available jobs, three reusable minigames, modest exploration finds. No mandatory idle timeout, giant open world or uncontrolled random resource economy. Existing six shifts remain until the coordinated migration is complete.
+
+Saurav and Dixit were both assigned HUD/UI. Their work is split below to create six independent tracks. Rohit implements shared app wiring/contracts; Himamshu runs the Git merge queue. Every owner, including Rohit, hands completed branches to Himamshu. Everyone can implement against the supplied stubs and contracts immediately.
 
 | Owner | Task and deliverable | Acceptance criteria | Suggested feature commits |
 | --- | --- | --- | --- |
@@ -9,7 +24,9 @@ Saurav and Dixit were both assigned HUD/UI. Their work is split below to create 
 | Dixit | Tutorial, choices, pause, results/debrief and sources | Keyboard-accessible start-to-retry flow; costs and benefits visible before choosing; constructive loss explanation and log review; attribution and demo/archive labels; no simulation logic | `feat(ui): build onboarding and decisions`; `feat(ui): add debrief replay and source credits` |
 | Anshu | Reliable controller, collisions and input lifecycle | Normalized WASD/arrows; stationary at pause; no stuck keys after blur; floor/module collisions match map; grounded movement; bounded play area; cited Mars gravity if implemented; cleanup; request reset API with Rohit | `feat(physics): add grounded astronaut controller`; `fix(physics): handle focus pause and reset` |
 | Genius | Evidence-backed mission pack | Six varied deterministic shifts; useful choices have costs; food/communications represented without more meters; at least one checked NASA observation with raw fixture/provenance; explicit game mapping; no live-fetch dependency; honest labels | `feat(missions): add six teaching decisions`; `feat(missions): add archived NASA evidence` |
-| Rohit | Rules, composition, integration and release | Reserve costs, shelter benefit during hazard, science target, winning and losing strategies, pause/restart; one loop; tests of trade-offs and failure; merge five features; successful production demo and submission assets | `feat(game): implement consequences and debrief`; `feat(game): integrate team modules`; `fix(game): stabilize release and demo` |
+| Rohit | Rules, app composition and release preparation | Reserve costs, shelter benefit during hazard, science target, winning and losing strategies, pause/restart; one loop; tested shared wiring; hand branch to Himamshu; demo/submission assets | `feat(game): implement consequences and debrief`; `feat(game): integrate team modules`; `fix(game): stabilize release and demo` |
+
+Himamshu additionally coordinates merging from a clean main checkout: inspect handoffs, merge one named branch at a time, run integrated checks and record results in `docs/MERGE_LOG.md`. His world feature remains isolated on `feat/himamshu-world`. See `MERGE_COORDINATOR_PROMPT.md` for the separate coordinator task.
 
 ## Existing starter versus remaining work
 

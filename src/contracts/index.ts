@@ -9,11 +9,34 @@ export interface Effect {
   shielding?: number;
   science?: number;
 }
+export interface DelayedEffectDef {
+  delayTurns: number;
+  description: string;
+  effect: Effect;
+}
+export type ChoiceRarity = 'standard' | 'vital' | 'experimental' | 'hazard-response';
+
+export interface ChoicePresentation {
+  icon?: string;
+  summary?: string;
+  rarity?: ChoiceRarity;
+  badge?: string;
+}
+
 export interface Choice {
   id: string;
   label: string;
   explanation: string;
   effect: Effect;
+  delayedEffect?: DelayedEffectDef;
+  presentation?: ChoicePresentation;
+}
+export interface HazardEffect {
+  minShielding: number;
+  mitigatedLoss: Partial<Resources>;
+  unmitigatedLoss: Partial<Resources>;
+  mitigatedNotice: string;
+  unmitigatedNotice: string;
 }
 export interface MissionEvent {
   id: string;
@@ -21,6 +44,7 @@ export interface MissionEvent {
   description: string;
   choices: readonly Choice[];
   sourceIds: readonly string[];
+  hazard?: HazardEffect;
 }
 export interface SourceRecord {
   id: string;
@@ -43,6 +67,40 @@ export interface MissionData {
   sources: readonly SourceRecord[];
   dataMode: 'authored-demo' | 'archived' | 'live';
 }
+
+export type DebriefVerdict = 'won' | 'depleted' | 'low_science';
+
+export interface DebriefDetails {
+  verdict: DebriefVerdict;
+  title: string;
+  summary: string;
+  primaryCause?: string;
+  recommendations: readonly string[];
+  lessons: readonly string[];
+  stars?: number;
+  score?: number;
+}
+
+export interface TurnRecord {
+  turn: number;
+  shift: number;
+  eventId: string;
+  eventTitle: string;
+  choiceId: string;
+  choiceLabel: string;
+  explanation: string;
+  hazardNotice?: string;
+  resources: Resources;
+  science: number;
+  shielding: number;
+}
+
+export interface PendingDelayedEffect {
+  dueTurn: number;
+  description: string;
+  effect: Effect;
+}
+
 export interface GameState {
   phase: Phase;
   turn: number;
@@ -50,6 +108,11 @@ export interface GameState {
   shielding: number;
   science: number;
   log: readonly string[];
+  history?: readonly TurnRecord[];
+  debrief?: DebriefDetails;
+  pendingDelayedEffects?: readonly PendingDelayedEffect[];
+  lastHazardNotice?: string;
+  upcomingHazardNotice?: string;
 }
 export type GameAction =
   | { type: 'START' }
@@ -58,15 +121,29 @@ export type GameAction =
   | { type: 'RESTART' }
   | { type: 'CHOOSE'; choiceId: string };
 export interface WorldAdapter {
+  setDoorState?(station: StationId, open: boolean): void;
+  isDoorOpen?(station: StationId): boolean;
+  setMotionPaused?(paused: boolean): void;
+  setLevel?(level: 'earth' | 'space' | null): void;
+  setConsoleHandler?(handler: ((index: number) => void) | null): void;
+  setInterior?(station: StationId | null): void;
+  setJourney?(progress: number | null): void;
+  setObjective?(station: StationId | null): void;
+  setActivityProgress?(progress: number): void;
   setPlayerPose(pose: Vec3): void;
   setState(state: Readonly<GameState>): void;
   render(): void;
   dispose(): void;
 }
 export interface PhysicsAdapter {
+  enterInterior?(): void;
+  exitInterior?(): void;
   step(seconds: number): void;
   getPlayerPose(): Vec3;
   dispose(): void;
+  reset?(pose?: Vec3): void;
+  pauseInput?(): void;
+  resumeInput?(): void;
 }
 // Units: metres, Y up, ground at Y=0. Keep rendering and collision layouts identical.
 export const STATIONS: ReadonlyArray<{ id: StationId; position: Vec3 }> = [

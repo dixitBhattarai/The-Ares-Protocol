@@ -1,6 +1,6 @@
-# Frozen integration contracts — v1
+# Frozen integration contracts — v1 & additive extensions
 
-Canonical types and coordinates: `src/contracts/index.ts` (Rohit-owned). Keep public APIs compatible; request additive changes through your feature notes. Avoid casts that conceal mismatches.
+Canonical types and coordinates: `src/contracts/index.ts` (Rohit-owned). Public APIs are frozen with additive backwards-compatible fields.
 
 | Owner / entry point | API | Caller |
 | --- | --- | --- |
@@ -11,28 +11,46 @@ Canonical types and coordinates: `src/contracts/index.ts` (Rohit-owned). Keep pu
 | Saurav: `hud/HudOverlay.vue` | props `state: Readonly<GameState>`, `mission: MissionData`; no mutation | App shell |
 | Dixit: `ui/MissionPanels.vue` | same props plus `event: MissionEvent \| undefined`; emit `action` carrying `GameAction` | App shell |
 
-WorldAdapter: `setPlayerPose(Vec3)`, `setState(Readonly<GameState>)`, `render()`, `dispose()`. No separate animation loop.
+## World & Physics Adapters
 
-PhysicsAdapter: `step(seconds)`, `getPlayerPose(): Vec3`, `dispose()`. App steps at 1/60 second only while running. Physics owns input and safe focus loss. Adapter v1 has no reset/pause-input method; propose these with Rohit, not by editing the shell on a physics branch.
+- **WorldAdapter**: `setPlayerPose(Vec3)`, `setState(Readonly<GameState>)`, `render()`, `dispose()`. Single animation loop lives in `App.vue`.
+- **PhysicsAdapter**: `step(seconds)`, `getPlayerPose(): Vec3`, `dispose()`.
+  - Additive optional lifecycle hooks:
+    - `reset?(pose?: Vec3): void`: Resets astronaut position and velocity back to spawn (or given pose) and clears held keys.
+    - `pauseInput?(): void`: Clears held keys and suppresses keyboard motion while game is paused.
+    - `resumeInput?(): void`: Resumes keyboard motion processing.
 
-## State and rules
+## State and Rules
 
-- Phase: `ready | running | paused | won | lost`. `turn` is completed decisions, zero-based; `maxTurns` is total shifts.
-- Reserves: `{ power, oxygen, supplies }` on a 0–100 authored game scale. Supplies includes food/construction stock. Not kWh, litres, dose or measured physiology.
-- `shielding`: authored shelter score, 0–100, not a radiation measurement. `science`: progress toward target. `log`: child-readable resolved explanations.
-- Actions: `START`, `PAUSE`, `RESUME`, `RESTART`, `CHOOSE { choiceId }`.
-- `MissionData.events` must be nonempty. Event/choice IDs should be stable and unique. Starter cycles through `turn % events.length`; supply six events for six shifts.
-- `Choice.effect.resources` has signed deltas; `shielding` and `science` are signed deltas. Every useful choice has a cost. Rohit owns clamping, depletion and completion.
-- A choice advances a discrete shift regardless of walking/frame rate. No real-time reserve drain in v1.
-- Starter permits choices that deplete reserves and loses at zero. Coordinate any future affordability restrictions and UI behavior with Dixit.
-- Game owns immutable state updates. Keep Three/Rapier objects outside Vue's deep reactive state.
+- **Phase**: `ready | running | paused | won | lost`. `turn` is completed decisions, zero-based; `maxTurns` is total shifts.
+- **Reserves**: `{ power, oxygen, supplies }` on a 0–100 authored game scale. Supplies includes food/construction stock.
+- **Shielding**: authored shelter score, 0–100.
+- **Science**: progress toward target.
+- **Log**: child-readable resolved explanations.
+- **Additive GameState Fields**:
+  - `debrief?: DebriefDetails`: Structured outcome containing verdict (`won` | `depleted` | `low_science`), title, summary, primaryCause, flight director recommendations, spaceflight lessons, star rating (`stars: 0..3`), and efficiency score (`score: number`).
+  - `history?: readonly TurnRecord[]`: Turn-by-turn log recording shift number, choice, explanation, hazard notice, and reserve snapshots for debrief timeline replay.
+  - `pendingDelayedEffects?: readonly PendingDelayedEffect[]`: Queued delayed consequences (e.g., speed-of-light radio delay from Earth).
+  - `lastHazardNotice?: string`: Most recent hazard mitigation or unmitigated damage alert.
+- **Additive Event & Choice Fields**:
+  - `MissionEvent.hazard?: HazardEffect`: Defines `minShielding`, `mitigatedLoss`, `unmitigatedLoss`, and child-readable notices.
+  - `Choice.delayedEffect?: DelayedEffectDef`: Defines `delayTurns`, `description`, and `effect` applied when the due turn arrives.
 
-## Spatial convention
+## Spatial Convention
 
-Metres, Y up, ground top Y=0. Surface X/Z -20..20; starter clamps astronaut centre to -18..18. Spawn `(0, 0.8, 5)`. Capsule radius .3 and cylindrical length 1. `STATIONS` defines habitat/solar/greenhouse centres; starter modules are `(3, 2, 3)` with collider half extents `(1.5, 1, 1.5)`. Coordinate changed layouts/envelopes through Rohit. World does not integrate movement; physics does not render.
+Metres, Y up, ground top Y=0. Surface X/Z -20..20; astronaut clamped to -18..18. Spawn `(0, 0.8, 5)`. Stations located at:
+- `habitat`: `(-5, 1, 0)`
+- `solar`: `(5, 1, 0)`
+- `greenhouse`: `(0, 1, -6)`
 
-## Evidence
+## Additive world door/playback hooks — 14 Nov
 
-`SourceRecord` requires ID, title, original URL, retrieval date, archived/live mode, usage notes and observation-to-game mapping; include observation date/units when relevant. Events reference source IDs. Keep raw fixtures, exact query and adaptation notes in `missions/data/`. `dataMode` stays `authored-demo` until a verified observation is used; bundled snapshots are `archived`, even if downloaded today.
+Himamshu's user-requested door slice adds optional `setDoorState(station, open)`, `isDoorOpen(station)` and `setMotionPaused(paused)` methods to WorldAdapter. Shell owns each door's intent; world renders it and reports fully-open readiness after its 0.4-second slide (instant for reduced motion). Closed or still-opening doors cannot trigger entry. Pausing freezes door and character animations, including Earth/orbit preparation. No second loop is introduced.
 
-A solar flare/CME is evidence about solar activity, not a crew-dose measurement on Mars. ISS dosimetry describes another environment. Neither alone establishes clinical health risk. Explain the simplification.
+Existing `setInterior`, `setLevel`, `setJourney`, `setConsoleHandler`, `setObjective`, `setActivityProgress` and physics `enterInterior`/`exitInterior` remain compatible. This implementation uses cutaway room portals, not seamless building collision geometry. Exterior doors face +Z. Approach/return is station `(x, .8, z + 2.65)`; the entry trigger is within .48m of door center X and relative Z 1.75..2.02, before the unchanged station collider face + capsule radius. Indoor exit is centered X within .55m and Z >= 2.4. Return uses the safe approach point to prevent immediate re-entry. No task or resource cost is required to explore a room. Closing a door changes navigation only; it does not invent shelter/radiation simulation effects.
+
+Rohit retains engineering ownership after this explicitly authorized handoff. Task-first job rewards/card/loot migration is separately assigned and not implemented by these hooks.
+
+## Scientific evidence record requirements
+
+`SourceRecord` requires ID, title, original URL, retrieval date, archived/live mode, usage notes and observation-to-game mapping; include observation date/units when relevant. Real observations retain provenance in `src/features/missions/data/`. `dataMode` is `archived` for bundled snapshots.
