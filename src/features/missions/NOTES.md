@@ -19,7 +19,7 @@
 - Added refresh and mission assertions, plus refresh instructions in `data/PROVENANCE.md`.
 - Validation after syncing `origin/main`: all 82 tests passed, typecheck passed, production build passed, and all mission JSON fixtures parsed. Build still reports large-chunk advisories for existing world/physics assets.
 - The source and decision UI already render `MissionData.sources`, each source's mapping/provenance, and the active event description generically. No UI change is needed for this bundled CME snapshot. Verify the resulting source card in the integrated browser flow.
-- The update is not yet merged into `main`; hand it to Himamshu for the normal serial feature-merge queue. Push only `feat/genius-missions`. The unverified `nasa-apis-extra-raw.json` and `donki-flr-sep-may2024-raw.json` remain untracked and intentionally excluded.
+- The update is not yet merged into `main`; hand it to Himamshu for the normal serial feature-merge queue. Push of `feat/genius-missions` was attempted after fetch and fast-forward verification, but failed because Git could not obtain a password (`fatal: unable to get password from user`). No remote update was made; the commits remain local. The unverified `nasa-apis-extra-raw.json` and `donki-flr-sep-may2024-raw.json` remain untracked and intentionally excluded.
 
 ### Cross-feature request — not implemented
 
