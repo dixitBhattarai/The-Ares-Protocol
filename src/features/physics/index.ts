@@ -112,7 +112,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
 
   const keyDown = (event: KeyboardEvent) => {
     if (isDisposed || isInputPaused) return;
-    if ((event.target as HTMLElement | null)?.closest?.('button, input, textarea, select, [contenteditable]')) return;
+    if ((event.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')) return;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) {
       event.preventDefault();
     }
