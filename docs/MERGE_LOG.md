@@ -7,8 +7,8 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 | Branch | Reported tip | Scope | State |
 | --- | --- | --- | --- |
 | `feat/himamshu-world` | `79b1d9b` | `src/features/world/**`, `src/App.vue`, `src/styles.css` | Initial `c235948`; continuation `0c4b2cd`; art direction & mission-control dashboard merged by `44365c5`; checks passed |
-| `feat/rohit-game` | `0901e36` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory & test exclusions merged by `72f8f65`; checks passed |
-| `feat/saurav-hud` | `3dd3ba7` | HUD component and notes | Initial `3f1419b`; hazards & delayed updates merged by `28b1dc5`; checks passed |
+| `feat/rohit-game` | `e08a858` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory `72f8f65`; audio synthesis, star badges, keyboard navigation merged by `b7c9c33`; checks passed |
+| `feat/saurav-hud` | `20c52af` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast merged by `76d163a`; checks passed |
 | `feat/anshu-physics` | `4108654` | `src/features/physics/**` | Grounded astronaut controller, reset and pause merged by `dfe1d24`; checks passed |
 | `feat/dixit-ui` | `0637603` | `src/features/ui/**` | Onboarding, decisions, pause, debrief replay & sources merged by `55799b3`; checks passed |
 | `feat/genius-missions` | `66a5322` | `src/features/missions/**` | Six teaching decisions & NASA CME evidence merged by `a8d9a39`; alert wording reconciled by `500c830`; checks passed |
@@ -94,6 +94,21 @@ Verify refs, scope and checks before a merge; this table is not authorization to
    - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (7 test files, 64 tests passed); `npm run build` passed cleanly.
 
 All six feature branches (`feat/himamshu-world`, `feat/genius-missions`, `feat/rohit-game`, `feat/saurav-hud`, `feat/anshu-physics`, `feat/dixit-ui`) are now fully merged and verified on `main`.
+
+### 14 Nov 2026 — Rohit (game) and Saurav (HUD) continuation integration
+
+1. **`feat/rohit-game` (tip `e08a858`)**:
+   - Merged as `b7c9c33`, preserving Rohit's commit `e08a858`.
+   - Scope: `src/App.vue`, `src/features/game/NOTES.md`, `src/features/game/audio.ts`, `src/features/game/game.test.ts`, `src/features/game/index.ts`. All paths owned by Rohit.
+   - Changes: Dynamic Web Audio synthesizer (`playStart`, `playRestart`, `playTransmission`, `playOxygen`, `playShield`, `playWarning`), star rating & outpost efficiency score calculation in debrief evaluation, keyboard navigation (1-4 choices, Enter/Space/S start, Enter/Space/R replay), station inspection badge with clear button, and idle pose proximity optimization.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (7 test files, 66 tests passed); `npm run build` passed cleanly.
+
+2. **`feat/saurav-hud` (tip `20c52af`)**:
+   - Merged as `76d163a`, preserving Saurav's commits `08724e9`, `6e31f6b`, `fa94cb4`, `1d7051e`, `a754f2a`, `20c52af`.
+   - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
+   - Changes: Transparent reserve dock positioned in the lower-left of the 3D viewport with line icons, translucent colored bars, and accessible tooltips on icon hover/focus. Animated hazard outcome toast with pulse and 5s auto-dismiss, respecting reduced-motion settings. Teleports directly into game viewport without altering shell files.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (7 test files, 66 tests passed); `npm run build` passed cleanly.
+   - Browser smoke check: Vite preview on `http://127.0.0.1:4173/` verified clean load with 0 console errors/exceptions, 3D Mars viewport and module inspection, mission start transition, sound toggle, pause/resume, keyboard choice shortcuts (1/2/3) across Shifts 1–4, CME hazard alert and shelter mitigation feedback, and live telemetry synchronization with lower-left HUD reserve bars.
 
 ### Updated open requests
 
