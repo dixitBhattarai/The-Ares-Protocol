@@ -20,13 +20,10 @@ let frame = 0;
 let disposed = false;
 let accumulator = 0;
 const showSplash = ref(true);
-const showLogin = ref(false);
 function onSplashDone() {
   showSplash.value = false;
-  showLogin.value = true;
 }
 function onLoginStart() {
-  showLogin.value = false;
   dispatch({ type: 'START' });
 }
 function dispatch(action: GameAction) {
@@ -83,15 +80,16 @@ onBeforeUnmount(() => {
 
 <template>
   <main>
+    <!-- Both components mounted simultaneously: SplashScreen overlays with smooth crossfade into LoginScreen -->
     <SplashScreen v-if="showSplash" @finished="onSplashDone" />
-    <LoginScreen v-else-if="showLogin" @start="onLoginStart" />
-    <template v-else>
+    <LoginScreen v-if="state.phase === 'ready'" @start="onLoginStart" />
+    <div v-show="state.phase !== 'ready'">
       <header><h1>The Ares Protocol</h1><p>Junior astronaut outpost lab · starter prototype</p></header>
       <HudOverlay :state="state" :mission="mission" />
       <div ref="host" class="viewport" role="img" aria-label="Mars outpost with a habitat, solar station, greenhouse and astronaut" />
       <p class="scene-status" role="status">{{ graphicsError || stationMessage }}</p>
       <MissionPanels :state="state" :mission="mission" :event="getCurrentEvent(mission, state)" @action="dispatch" />
-    </template>
+    </div>
   </main>
 </template>
 
