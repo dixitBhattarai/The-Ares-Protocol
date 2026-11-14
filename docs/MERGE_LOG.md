@@ -7,9 +7,11 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 | Branch | Reported tip | Scope | State |
 | --- | --- | --- | --- |
 | `feat/himamshu-world` | `7f156a5` | `src/features/world/**` | Initial `c235948`; continuation merged by `0c4b2cd`; checks passed |
-| `feat/rohit-game` | `2911ae0` | Game reducer/tests/audio/notes, contracts, app shell | First integrated by `c1a6f25`; follow-up by `932f930`; checks passed |
-| `feat/saurav-hud` | `999a70f` | HUD component and notes | Integrated locally by `3f1419b`; checks passed |
-| `feat/genius-missions` | `66a5322` | Mission branch discovered by fetch | Available remotely; not merged or validated in this task |
+| `feat/rohit-game` | `0901e36` | Game reducer/tests/audio/notes, contracts, app shell | Initial `c1a6f25`; follow-up `932f930`; hazard advisory & test exclusions merged by `72f8f65`; checks passed |
+| `feat/saurav-hud` | `3dd3ba7` | HUD component and notes | Initial `3f1419b`; hazards & delayed updates merged by `28b1dc5`; checks passed |
+| `feat/anshu-physics` | `4108654` | `src/features/physics/**` | Grounded astronaut controller, reset and pause merged by `dfe1d24`; checks passed |
+| `feat/dixit-ui` | `0637603` | `src/features/ui/**` | Onboarding, decisions, pause, debrief replay & sources merged by `55799b3`; checks passed |
+| `feat/genius-missions` | `66a5322` | `src/features/missions/**` | Discovered remotely; merge attempted but rolled back due to assertion mismatch in `game.test.ts` on Shift 3 hazard wording; queue stopped pending Rohit coordination |
 
 Verify refs, scope and checks before a merge; this table is not authorization to merge. Anshu and Dixit have no published branch recorded at this review.
 
@@ -49,6 +51,47 @@ Verify refs, scope and checks before a merge; this table is not authorization to
 - Production browser passed three station callbacks, sheltered win, research-only loss, pause/resume, reserve replay, event report display/clearing and 360px report/layout bounds with one canvas and no page exceptions. Feature browser additionally checked real movement/gait, reduced motion, canvas raycasts, keyboard selection, map-edge resize, repeated teardown/remount and initialization-failure cleanup. Screenshots inspected; artifacts stay ignored.
 - Fresh fetch discovered `origin/feat/genius-missions` at `66a5322`. It is queued separately; this entry neither validates nor authorizes its merge. Rohit remains at `2911ae0`; Saurav's branch now also contains the already integrated main baseline. No new Anshu/Dixit branch was observed.
 - Remaining requests are listed above and in world `NOTES.md`, including authored hazard wording for Rohit/Genius. No deploy or branch/worktree deletion was performed. Publication follows these checks; final pushed main hash is reported in the handoff.
+
+### 14 Nov 2026 — Rohit (game), Saurav (HUD), Anshu (physics), Dixit (UI) serial integration
+
+1. **`feat/rohit-game` (tip `0901e36`)**:
+   - Merged as `72f8f65`, preserving Rohit's commits `8332a93`, `d634c34`, `0901e36`.
+   - Scope: `docs/CONTRACTS.md`, `src/App.vue`, `src/contracts/index.ts`, `src/features/game/NOTES.md`, `src/features/game/game.test.ts`, `src/features/game/index.ts`, `vitest.config.ts`. All paths owned by Rohit.
+   - Changes: Upcoming hazard advisory notice, accessible viewport `role="region"`, centered HUD container layout, and `vitest.config.ts` excluding `.worktrees/**` to prevent duplicated test execution.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (24 tests); `npm run build` passed cleanly.
+
+2. **`feat/saurav-hud` (tip `3dd3ba7`)**:
+   - Merged as `28b1dc5`, preserving Saurav's commits `aa9ef29` and `3dd3ba7`.
+   - Scope: `src/features/hud/HudOverlay.vue`, `src/features/hud/NOTES.md`. All paths owned by Saurav.
+   - Changes: Surfaced space weather hazards, delayed mission updates, shift delta feedback, and aligned styles with app palette.
+   - Verification: `npm run typecheck` passed; `npm test` passed (24 tests); `npm run build` passed cleanly.
+
+3. **`feat/anshu-physics` (tip `4108654`)**:
+   - Merged as `dfe1d24`, preserving Anshu's commits `cc9f45d` and `4108654`.
+   - Scope: `src/features/physics/index.ts`, `src/features/physics/physics.test.ts`, `src/features/physics/NOTES.md`. All paths owned by Anshu.
+   - Changes: Rapier 3D dynamic body with capsule collider, character controller with ground snapping, Mars gravity ($3.72076\ \text{m/s}^2$ per NASA NSSDC), boundary clamping `[-18, 18]`, vector normalization ($3.0\ \text{m/s}$), `reset(pose?)`, `pauseInput()`, `resumeInput()`, focus/blur key clearing, and input target event suppression.
+   - Verification: `npm run typecheck` passed; `npm test` passed (42 tests, including 18 physics tests); `npm run build` passed cleanly.
+
+4. **`feat/dixit-ui` (tip `0637603`)**:
+   - Merged as `55799b3`, preserving Dixit's commits `3f66a5c` and `0637603`.
+   - Scope: `src/features/ui/**` (`DebriefPanel.vue`, `DecisionPanel.vue`, `MissionPanels.vue`, `OnboardingPanel.vue`, `PausePanel.vue`, `SourceCredits.vue`, `actions.ts`, `ui.test.ts`, `NOTES.md`). All paths owned by Dixit.
+   - Changes: Onboarding briefing for ages 7–12, decision panel with delta badges and delayed consequence banners, pause screen, debrief panel with supportive feedback, telemetry summary and turn timeline, and science sources attribution drawer with NASA non-endorsement caveat.
+   - Verification: `npm run typecheck` passed; `npm test` passed (55 tests, including 13 UI tests); `npm run build` passed cleanly.
+
+5. **`feat/genius-missions` (tip `66a5322`) — Attempted & Queue Stopped**:
+   - Attempted merge of `origin/feat/genius-missions`. Merge succeeded at git level, but verification check failed in `src/features/game/game.test.ts:78`:
+     `AssertionError: expected '⚠️ Space Weather Alert: Severe storm event active! Shielding of 15 required to mitigate damage.' to contain 'imminent'`
+   - Root cause: Rohit's `game.test.ts` expected `upcomingHazardNotice` on turn 2 to contain `'imminent'` from Rohit's fallback mock, whereas Genius's authored mission supplies a real `hazard` on Shift 3 (`turn 2`), causing `getUpcomingHazardNotice()` in `src/features/game/index.ts` to return the real active storm alert message (`'⚠️ Space Weather Alert: Severe storm event active!...'`).
+   - Action taken: Per protocol, rolled back the merge to preserve a 100% clean and verified `main` (commit `55799b3`). Stopped the queue for `feat/genius-missions`.
+   - Coordination request sent to Rohit (`src/features/game/**`) to update either `getUpcomingHazardNotice` wording or `game.test.ts` assertion to accommodate Genius's authored hazard.
+
+6. **`feat/himamshu-world`**:
+   - Tip remains `7f156a5`; no new unmerged commits.
+
+### Updated open requests
+
+- **Rohit**: In `src/features/game/game.test.ts` (or `src/features/game/index.ts`), adjust the Shift 3 hazard notice assertion/text (e.g. accept `'imminent'` or `'Severe storm event active'` / `'Space Weather Alert'`) so that Genius's authored Shift 3 hazard passes test suite upon merge.
+- **Rohit / Saurav / Dixit**: Verify overall HUD and UI visual balance in the browser once all panels are rendered together.
 
 For each completed merge, append:
 

@@ -70,9 +70,12 @@ describe('shelter hazard mechanics and eliminating research-only dominance', () 
     let state = reduceGame(createInitialState(mission), { type: 'START' }, mission);
     // Shift 1: Research (shielding remains 0)
     state = reduceGame(state, { type: 'CHOOSE', choiceId: 'research' }, mission);
+    expect(state.upcomingHazardNotice).toContain('approaching');
+
     // Shift 2: Research (shielding remains 0)
     state = reduceGame(state, { type: 'CHOOSE', choiceId: 'research' }, mission);
     expect(state.shielding).toBe(0);
+    expect(state.upcomingHazardNotice).toContain('imminent');
 
     // Shift 3: Research -> unshielded hazard damage (-22 P, -18 O, -10 S) plus choice cost (-8 P, -8 O, -5 S)
     state = reduceGame(state, { type: 'CHOOSE', choiceId: 'research' }, mission);

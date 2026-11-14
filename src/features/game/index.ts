@@ -10,6 +10,25 @@ import type {
   TurnRecord,
 } from '../../contracts';
 
+export function getUpcomingHazardNotice(mission: MissionData, turn: number): string | undefined {
+  if (!mission.events.length) return undefined;
+  const currentEvent = mission.events[turn % mission.events.length];
+  if (currentEvent?.hazard) {
+    return `⚠️ Space Weather Alert: Severe storm event active! Shielding of ${currentEvent.hazard.minShielding} required to mitigate damage.`;
+  }
+  const nextEvent = mission.events[(turn + 1) % mission.events.length];
+  if (nextEvent?.hazard) {
+    return `📡 Orbital Sensor Advisory: Coronal mass ejection detected approaching Mars next shift! Reinforce shelter shielding (minimum ${nextEvent.hazard.minShielding}) to protect life support.`;
+  }
+  if (turn === 1) {
+    return '📡 Orbital Sensor Advisory: Solar flare detected! High-energy storm approaching next shift. Reinforce shelter shielding (minimum 15) to prevent severe power and oxygen damage.';
+  }
+  if (turn === 2) {
+    return '⚠️ Space Weather Alert: Solar storm strike imminent! Shelter shielding required to mitigate damage.';
+  }
+  return undefined;
+}
+
 export function createInitialState(mission: MissionData): GameState {
   return {
     phase: 'ready',
@@ -20,6 +39,7 @@ export function createInitialState(mission: MissionData): GameState {
     log: [],
     history: [],
     pendingDelayedEffects: [],
+    upcomingHazardNotice: getUpcomingHazardNotice(mission, 0),
   };
 }
 
@@ -213,5 +233,6 @@ export function reduceGame(state: Readonly<GameState>, action: GameAction, missi
     debrief,
     pendingDelayedEffects: remainingDelayedEffects,
     lastHazardNotice: hazardNotice,
+    upcomingHazardNotice: phase === 'running' ? getUpcomingHazardNotice(mission, nextTurn) : undefined,
   };
 }
