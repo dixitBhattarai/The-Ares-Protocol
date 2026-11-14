@@ -8,6 +8,7 @@ import { createModelKit, WorldResources } from './resources';
 import { pickStationAt } from './picking';
 import { applyStationStatus, getStationStatus, getWorldEventNotice } from './status';
 import './world.css';
+import { createExpeditionViews } from './expedition';
 
 export function createWorld(host: HTMLElement, onInteract: (station: StationId) => void): WorldAdapter {
   const resources = new WorldResources();
@@ -56,6 +57,10 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     cleanups.push(() => sun.shadow.dispose());
     scene.add(sun);
     const kit = createModelKit(resources);
+    const expedition = createExpeditionViews(kit, resources);
+    cleanups.push(() => expedition.dispose());
+    let interior: StationId | null = null;
+    let journey: number | null = null;
     const terrain = createTerrain(kit, resources);
     terrain.traverse(object => { if (object instanceof THREE.Mesh) object.receiveShadow = true; });
     scene.add(terrain);
@@ -259,6 +264,23 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     }
     updateCamera();
     return {
+      setActivityProgress(progress) { if (!disposed) expedition.progress(progress); },
+      setInterior(id) {
+        if (disposed || interior === id) return;
+        interior = id;
+        if (id) expedition.interior(id);
+        container.classList.toggle('ares-world--interior', Boolean(id));
+        hint.textContent = id ? `Inside ${STATION_NAMES[id]} · operate the task console in the mission panel` : 'Select a base module · WASD / arrows to walk';
+      },
+      setJourney(progress) {
+        if (disposed) return;
+        journey = progress !== null && Number.isFinite(progress) ? Math.max(0, Math.min(1, progress)) : null;
+        container.classList.toggle('ares-world--journey', journey !== null);
+      },
+      setObjective(id) {
+        if (disposed || selected === (id ?? undefined)) return;
+        selected = id ?? undefined; updateHighlights(); updateHint();
+      },
       setPlayerPose(pose: Vec3) {
         if (disposed || ![pose.x, pose.y, pose.z].every(Number.isFinite)) return;
         const dx = pose.x - playerPose.x;
@@ -271,6 +293,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         if (moving) walkCycle = (walkCycle + distance * Math.PI * 2 / .9) % (Math.PI * 2);
         if (distance >= 1) walkCycle = 0; // A reset/teleport is not a walking stride.
         applyAstronautGait(astronaut, walkCycle, moving);
+        expedition.pose(pose, moving);
         if (playerPose.x !== pose.x || playerPose.y !== pose.y || playerPose.z !== pose.z) cameraDirty = true;
         playerPose.copy(pose);
         astronaut.group.position.copy(pose);
@@ -307,6 +330,9 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       },
       render() {
         if (disposed) return;
+        expedition.resize(width / height);
+        if (journey !== null) { expedition.journey(journey); renderer!.render(expedition.flight, expedition.camera); return; }
+        if (interior) { expedition.roomCamera(); renderer!.render(expedition.room, expedition.camera); return; }
         if (cameraDirty) updateCamera();
         renderer!.render(scene, camera);
       },
