@@ -48,7 +48,7 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
   cockpitFlight.background = cockpitBackground;
   cockpitFlight.add(new THREE.HemisphereLight('#e8f7ff', '#554840', 2.1));
   const cockpitSun = new THREE.DirectionalLight('#fff0ce', 3.2); cockpitSun.position.set(-9, 14, 10); cockpitFlight.add(cockpitSun);
-  const cockpitCamera = new THREE.PerspectiveCamera(58, 1, .1, 700);
+  const cockpitCamera = new THREE.PerspectiveCamera(58, 1, .1, 6000);
   const cockpitHomeY = 1.65;
   cockpitCamera.position.set(0, cockpitHomeY, 10);
   cockpitCamera.lookAt(0, -1.5, -100);
@@ -71,6 +71,14 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
   distantEarth.visible = false;
   const marsWindowPlanet = kit.sphere(cockpitFlight, mars, [20, 20, 20], [0, -12, -78]);
   marsWindowPlanet.visible = false;
+  const entryMaterial=resources.material(new THREE.MeshStandardMaterial({color:'#d6aa92',roughness:1,transparent:true}));
+  nasa.texture(new URL('./assets/mars.jpg',import.meta.url).href,entryMaterial);
+  const entryPlanet=new THREE.Mesh(resources.geometry(new THREE.SphereGeometry(1,64,40)),entryMaterial);entryPlanet.visible=false;entryMaterial.fog=false;entryMaterial.depthWrite=false;cockpitFlight.add(entryPlanet);
+  const entryLimbMaterial=resources.material(new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.BackSide,blending:THREE.AdditiveBlending,
+    uniforms:{alpha:{value:1}},vertexShader:'varying vec3 n;varying vec3 v;void main(){vec4 p=modelViewMatrix*vec4(position,1.);n=normalize(normalMatrix*normal);v=normalize(-p.xyz);gl_Position=projectionMatrix*p;}',
+    fragmentShader:'varying vec3 n;varying vec3 v;uniform float alpha;void main(){float a=pow(max(0.,1.-abs(dot(normalize(n),normalize(v)))),3.);gl_FragColor=vec4(1.,.43,.19,a*.28*alpha);}'
+  }));
+  const entryLimb=new THREE.Mesh(resources.geometry(new THREE.SphereGeometry(1,64,40)),entryLimbMaterial);entryLimb.visible=false;cockpitFlight.add(entryLimb);
 
   const starPositions = new Float32Array(320 * 3);
   for (let i = 0; i < 320; i++) {
@@ -102,6 +110,15 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
   const padLight=resources.material(new THREE.MeshBasicMaterial({color:'#b7f4cf'}));
   const padRing=new THREE.Mesh(resources.geometry(new THREE.TorusGeometry(4,.12,6,48)),padLight);padRing.rotation.x=Math.PI/2;padRing.position.set(0,-7.23,-38);marsLandingView.add(padRing);
   kit.flatBox(marsLandingView,padLight,[.18,.03,5],[0,-7.21,-38]);kit.flatBox(marsLandingView,padLight,[5,.03,.18],[0,-7.21,-38]);
+  // The destination is the outpost itself, not an isolated marker in empty terrain.
+  for(const [i,x,z,color] of [[0,-14,-70,'#f2cf91'],[1,15,-65,'#99d8ef'],[2,0,-94,'#a7e4b9']] as const){
+    const base=new THREE.Group();base.position.set(x,-7.4,z);marsLandingView.add(base);
+    kit.box(base,kit.materials.ivory,[8,3,6],[0,1.5,0]);kit.flatBox(base,kit.materials.trim,[8.4,.2,6.4],[0,3.1,0]);
+    const light=resources.material(new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:.6}));
+    kit.flatBox(base,light,[1.8,1.8,.1],[0,1.05,3.05]);kit.flatBox(base,light,[5,.35,.1],[0,2.65,3.06]);
+    if(i===1)for(const side of [-1,1])kit.flatBox(base,kit.materials.blue,[5,.12,4],[side*6,1.3,0]);
+    if(i===2)kit.sphere(base,kit.materials.glass,[3.8,1,2.8],[0,3.1,0]);
+  }
   const dustCanvas=document.createElement('canvas');dustCanvas.width=64;dustCanvas.height=64;
   const dc=dustCanvas.getContext('2d');if(dc){const g=dc.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(220,155,105,.5)');g.addColorStop(1,'rgba(220,155,105,0)');dc.fillStyle=g;dc.fillRect(0,0,64,64);}
   const landingDustMaterial=resources.material(new THREE.SpriteMaterial({map:resources.texture(new THREE.CanvasTexture(dustCanvas)),transparent:true,depthWrite:false,opacity:0}));
@@ -115,8 +132,9 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
     if (active && !reduced) cockpitTime += Math.min(.1, Math.max(0, seconds));
     cockpitCamera.position.set(0, cockpitHomeY, 10);
     cockpitCamera.lookAt(0, -1.5, -100);
-    cockpitFlight.fog=landing?landingFog:null;
+    cockpitFlight.fog=landing&&landing.altitude<12000?landingFog:null;
     landingDustMaterial.opacity=0;
+    entryPlanet.visible=false;entryLimb.visible=false;
     cockpitStarMaterial.opacity = landing ? 0 : reduced ? .68 : .78;
     cockpitStars.rotation.z = active && !reduced ? cockpitTime * .004 : 0;
     launchHorizon.visible = stage === 'launch';
@@ -145,10 +163,19 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
     } else {
       cockpitBackground.copy(marsSky).lerp(spaceSky, stage === 'touchdown' ? 0 : p * .08);
       if(landing){
+        const air=1-THREE.MathUtils.smoothstep(landing.altitude,1000,45000);
+        cockpitBackground.copy(spaceSky).lerp(marsSky,air);cockpitStarMaterial.opacity=Math.pow(1-air,4)*.78;
+        landingFog.near=100+landing.altitude*.3;landingFog.far=700+landing.altitude*1.5;
+        const radius=180+(1-THREE.MathUtils.smoothstep(landing.altitude,1500,80000))*1200;
+        const planetFade=THREE.MathUtils.smoothstep(landing.altitude,400,3000);
+        entryPlanet.visible=planetFade>0;entryLimb.visible=planetFade>0;
+        entryPlanet.position.set(-landing.offset*.02,-radius*.95,-350-radius*.1);entryPlanet.scale.setScalar(radius);
+        entryMaterial.opacity=planetFade;entryLimb.position.copy(entryPlanet.position);entryLimb.scale.setScalar(radius*1.035);entryLimbMaterial.uniforms.alpha.value=planetFade;
         // Same forward approach camera: terrain translates continuously with altitude/offset.
         marsLandingView.position.set(-landing.offset*.35,7-landing.altitude*.15,18-landing.altitude*.85);
         marsLandingView.scale.setScalar(1);landingBeacon.scale.setScalar(.7);
-        if(!reduced)cockpitCamera.rotateZ(-landing.pitch*Math.PI/180*.35);
+        cockpitCamera.rotateX(landing.pitch*Math.PI/180*.65);
+        if(!reduced)cockpitCamera.rotateZ(-landing.bank*Math.PI/180*.35);
         padLight.color.set(landing.status==='retry'?'#ffb28e':Math.abs(landing.offset)<=12?'#b7f4cf':'#ffda93');
         landingDustMaterial.opacity=landing.status==='flying'?Math.max(0,1-landing.altitude/45)*landing.throttle*.6:0;
         landingDust.forEach((sprite,i)=>{const age=(cockpitTime*.65+i/16)%1;sprite.position.set(landing.offset*.35+Math.sin(i*2.4)*(2+age*11),-6+age*2,-34+Math.cos(i*2.4)*(2+age*11));sprite.scale.setScalar(2+age*9);});

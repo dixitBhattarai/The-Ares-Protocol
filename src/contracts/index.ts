@@ -179,6 +179,10 @@ export interface LaunchFlightSnapshot {
   spaceReached: boolean;
 }
 export interface LandingFlightSnapshot {
+  phase:'space'|'entry'|'approach';
+  bank:number;
+  forwardSpeed:number;
+  heat:number;
   altitude:number;
   verticalSpeed:number;
   offset:number;
@@ -191,7 +195,7 @@ export interface LandingFlightSnapshot {
   status:'flying'|'landed'|'retry';
   result:string;
 }
-export type FlightControlKey = 'KeyW' | 'KeyA' | 'KeyS' | 'KeyD' | 'Space';
+export type FlightControlKey = 'KeyW' | 'KeyA' | 'KeyS' | 'KeyD' | 'KeyQ' | 'KeyE' | 'Space';
 export interface FlightControlStep { key: FlightControlKey; action: string; explanation: string }
 export interface GravityInfo {
   body: GravityBody;

@@ -776,8 +776,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       },
       setLandingFlight(snapshot){
         if(disposed)return;landingSnapshot=snapshot;
-        if(snapshot){container.style.setProperty('--lander-pitch',`${snapshot.pitch}deg`);container.style.setProperty('--lander-thrust',`${snapshot.throttle*230-115}deg`);}
-        else{container.style.removeProperty('--lander-pitch');container.style.removeProperty('--lander-thrust');}
+        if(snapshot){container.style.setProperty('--lander-pitch',`${snapshot.pitch}deg`);container.style.setProperty('--lander-thrust',`${snapshot.throttle*230-115}deg`);container.style.setProperty('--entry-heat',String(snapshot.heat*.45));}
+        else{container.style.removeProperty('--lander-pitch');container.style.removeProperty('--lander-thrust');container.style.removeProperty('--entry-heat');}
       },
       setObjective(id) {
         if (disposed || selected === (id ?? undefined)) return;

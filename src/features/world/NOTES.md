@@ -288,3 +288,9 @@ Coordinated App/physics/UI scope: manual thrust/steering, Space legs, optional a
   - **Alien Rock Formations & Boulder Fields**: Towering wind-carved yardang spires, precariously balancing hoodoos, natural monolithic rock arches, and over 150 scattered weathered basalt boulders and icosahedral iron meteorites.
   - **Physics & Gameplay Compatibility**: Central research station plaza ($r < 18$) remains level at $y = 0$, guaranteeing zero obstacle clipping, 100% collision integrity for the Rapier 3D character controller, and seamless station door transitions.
 - Validation: `npm run typecheck`, 151 passing tests across all 25 test suites in Vitest, and production build passing in 717ms.
+
+### Space-to-Mars approach with HUD — latest update
+Same cockpit scene now begins with a growing textured Mars globe against stars, adds atmospheric limb/haze and authored heat glow, blends into terrain, then reveals the base's habitat/solar/greenhouse around the pad. Nose pitch rotates the forward view (W down/S up); bank is independent and respects reduced motion. No new download/package/loop. Existing Mars imagery reused with credits unchanged. Physical telemetry controls phase/terrain motion; scene scale/depth, entry drag and heat are authored approximations.
+Validation kept focused: four landing tests, typecheck, Vite build; actual browser space/atmosphere/base phase progression, W changes pitch without changing thrust, desktop/mobile HUD and no runtime/console errors. Captures: ignored output/playwright/mars-space-approach.png, mars-atmospheric-entry.png, mars-base-approach-mobile.png. Full mission suite not repeated.
+
+Full entry-to-soft-touchdown handoff also passed in the same browser run. Final visual-only polish after captures: distance-scaled approach fog reveals the outpost sooner, Mars-to-terrain fade avoids depth occlusion, and daylight stars fade faster. Reviewed without repeating the full flight.

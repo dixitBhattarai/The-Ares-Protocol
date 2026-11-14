@@ -98,3 +98,6 @@ User-authorized launch UI: compact LaunchControls overlay leaves the rocket visi
 
 ### Live landing controls — 14 November
 Added compact LandingControls telemetry, pad alignment/tilt, thrust slider, held/tap W/S/A/D controls, Space legs, optional assist, pause and retry. Existing forward cockpit stays visible; no modal checklist or text wall during descent. Uses shell-supplied guidance, no sibling physics import or simulation writes. Controller releases held buttons on pointer cancel/lost capture/unmount. Successful contact transitions to Mars; rough contact provides a clear retry. Desktop/mobile visual/control checks passed; final scene polish noted by world.
+
+### Entry HUD and corrected landing input
+Landing HUD now stays through space approach, atmospheric entry and base approach, with km/m altitude, descent, non-negative forward speed, fuel, heat, pitch and bank. W/S explicitly say Nose down/up. Separate Q/E thrust buttons and slider remain keyboard/touch operable. Engine standby/active and 800m leg gate explain current controls compactly. Earth launch bindings unchanged. Retry in final approach uses a short checkpoint. Desktop/mobile browser pass checked W changes pitch without changing throttle and all entry phases retain HUD.
