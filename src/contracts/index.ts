@@ -157,6 +157,8 @@ export interface WorldAdapter {
   setObjective?(station: StationId | null): void;
   setActivityProgress?(progress: number): void;
   setFlightStage?(stage: FlightStage | null, progress: number): void;
+  setLaunchFlight?(snapshot: Readonly<LaunchFlightSnapshot> | null): void;
+  setLandingFlight?(snapshot: Readonly<LandingFlightSnapshot> | null): void;
   setPlayerPose(pose: Vec3): void;
   setState(state: Readonly<GameState>): void;
   render(): void;
@@ -164,6 +166,31 @@ export interface WorldAdapter {
 }
 export type GravityBody = 'earth' | 'orbit' | 'mars';
 export type FlightStage = 'launch' | 'orbit-autopilot' | 'transfer' | 'landing' | 'touchdown';
+export interface LaunchFlightSnapshot {
+  altitude: number;
+  verticalSpeed: number;
+  downrange: number;
+  horizontalSpeed: number;
+  pitch: number;
+  throttle: number;
+  fuel: number;
+  elapsed: number;
+  ignited: boolean;
+  spaceReached: boolean;
+}
+export interface LandingFlightSnapshot {
+  altitude:number;
+  verticalSpeed:number;
+  offset:number;
+  horizontalSpeed:number;
+  pitch:number;
+  throttle:number;
+  fuel:number;
+  legs:boolean;
+  assist:boolean;
+  status:'flying'|'landed'|'retry';
+  result:string;
+}
 export type FlightControlKey = 'KeyW' | 'KeyA' | 'KeyS' | 'KeyD' | 'Space';
 export interface FlightControlStep { key: FlightControlKey; action: string; explanation: string }
 export interface GravityInfo {

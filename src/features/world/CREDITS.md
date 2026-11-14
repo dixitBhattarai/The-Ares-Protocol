@@ -78,3 +78,5 @@ Optimized in a separate Blender process: textures capped at 1024, JPEG quality 8
 
 - Source SHA-256: 2efcc2938d9fe8024d4651a368afbd0c08d0d7becc995842628f586b022bf31f
 - Output SHA-256: feed1392cdfec47fe7df8e07f4e16eeaa98012cc1ef5dae4d6f4e737cde7434c
+
+Continuous Ares launch: rocket, pad, tower, exhaust and cloud sprites authored in code for this project. Earth uses the existing src/assets/earth_atmos_2048.jpg imagery already bundled with the game; no new downloads or third-party model license introduced. Scene scale, booster staging and 8x time compression are authored presentation.
