@@ -50,6 +50,18 @@ function onRestart() {
   >
     <!-- Header / Outcome -->
     <header class="debrief-header" :class="isWon ? 'header-won' : 'header-lost'">
+      <!-- Animated badge banner -->
+      <div v-if="isWon" class="celebration-badge-container">
+        <div class="medal-glow" aria-hidden="true"></div>
+        <div class="medal-ring">
+          <span class="medal-icon">🎖️</span>
+        </div>
+        <span class="medal-title">ARES OUTPOST COMMANDER HONOR</span>
+        <div class="stars-row" v-if="debrief?.stars">
+          <span v-for="s in debrief.stars" :key="s" class="star-icon">⭐</span>
+        </div>
+      </div>
+
       <div class="status-pill">
         {{ isWon ? '🏆 Mission Success' : '📡 Mission Review' }}
       </div>
@@ -206,8 +218,86 @@ function onRestart() {
 }
 
 .header-won {
-  background: linear-gradient(180deg, #123428 0%, #0c201a 100%);
+  background: linear-gradient(180deg, #134233 0%, #0b221a 100%);
   border-color: #22c55e;
+  box-shadow: 0 0 25px rgba(34, 197, 94, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.celebration-badge-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.medal-ring {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fde047 30%, #ca8a04 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgba(250, 204, 21, 0.6);
+  border: 2px solid #fef08a;
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+.medal-icon {
+  font-size: 32px;
+}
+
+.medal-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #fde047;
+  text-shadow: 0 0 10px rgba(250, 204, 21, 0.4);
+}
+
+.stars-row {
+  display: flex;
+  gap: 4px;
+}
+
+.star-icon {
+  font-size: 16px;
+  animation: starTwinkle 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes popIn {
+  from {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 15px rgba(250, 204, 21, 0.5);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 0 26px rgba(250, 204, 21, 0.85);
+  }
+}
+
+@keyframes starTwinkle {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-3px) scale(1.1);
+  }
 }
 
 .header-lost {
