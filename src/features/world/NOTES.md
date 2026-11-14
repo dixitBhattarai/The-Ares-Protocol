@@ -259,3 +259,22 @@ Focused validation: typecheck, 21 station-game/minigame tests, Vite build, one a
   - Kept all documented station footprints (`habitat`, `solar`, `greenhouse`) and launch pad at exact coordinates with a perfectly level central campus basin ($y = 0$) ensuring smooth player movement and zero collision clipping.
 - Preserved 100% backward compatibility with `installLaunchVehicleModel`, `setLaunchProgress`, `resetLaunch`, `labDoor`, and existing interaction handlers.
 - Validation: `npm run typecheck`, 151 passed tests across all 25 test files in Vitest (including expanded `earth.test.ts`), and clean production build in 1.26s.
+
+### Realistic Martian Landscape & Atmospheric Immersion — 14 November 2026
+
+- User requested: "Make Mars in our existing game extremely realistic, visually stunning, and eye-catching. Add vast red-orange deserts, rugged rocky mountains, massive impact craters, sand dunes, deep valleys, cliffs, realistic Martian soil, and scattered rocks. Create a beautiful reddish-pink sky with Phobos and Deimos visible, dramatic sunsets, glowing sunrises, distant planetary horizons, dust storms, flying dust particles, and cinematic lighting. Add realistic NASA rover tracks, astronaut footprints, research stations, solar panels, abandoned exploration equipment, and mysterious alien-looking rock formations. Include breathtaking panoramic landscapes, dramatic camera views, atmospheric depth, realistic shadows, and detailed 3D textures. Add visually impressive environmental effects and memorable cinematic scenes that make players feel they are actually exploring Mars. Ensure smooth exploration, proper physics, collisions, optimized performance, and compatibility with all existing game features. Work directly on the existing project, preserve teammates' contributions, and implement everything without asking for permission."
+- Built an expansive, cinematic 320m × 320m sculpted Martian landscape and atmospheric environment:
+  - **Sculpted Martian Wilderness**: 80 × 80 segment terrain mesh featuring rolling barchan sand dunes, dual impact craters (primary caldera with central depression and raised rim at (-42, 36) and secondary crater at (46, -34)), deep rift valleys, and rugged mountain caldera walls (elevation up to 35m) for distant planetary horizons.
+  - **Procedural Iron-Oxide Soil & Vertex Shading**: Custom 128×128 DataTexture with micro-dune ripples and mineral grain noise, combined with multi-layer vertex color blending (iron-oxide red `#b44d32`, butterscotch dune crests `#d68656`, dark volcanic basalt `#46221a`, and oxidized ridge rock `#783827`).
+  - **Authentic Martian Atmosphere & Sky**: Custom shader skydome with vertical twilight gradient (`#4c323c` zenith to `#e0987c` peach horizon) and authentic NASA blue Rayleigh sunset glow centered on the solar vector; directional sun with twilight halo sprite.
+  - **Martian Moons in Orbit**: Both natural Martian satellites visible in the sky: Phobos (irregular asteroid potato with cratering and slow orbit animation) and distant bright Deimos, with faint celestial background stars.
+  - **Dynamic Martian Dust Storms & Particles**: 520 flying atmospheric dust particles swirling with procedural wind vectors and turbulence simulation in the render loop.
+  - **NASA Exploration Equipment & Surface Details**:
+    - Distinct dual chevron-ribbed rover tire tracks curving out from the Curiosity station into the deep desert.
+    - Paired astronaut EVA bootprints connecting the habitat, solar station, and greenhouse pathways.
+    - Weathered retro lander descent stage wreckage wrapped in thermal gold foil with heat shield rim and folded avionics petals.
+    - Meteorological sensor tripod mast with spinning anemometer cups and active telemetry beacon.
+    - Deep-regolith seismic sensor pod.
+  - **Alien Rock Formations & Boulder Fields**: Towering wind-carved yardang spires, precariously balancing hoodoos, natural monolithic rock arches, and over 150 scattered weathered basalt boulders and icosahedral iron meteorites.
+  - **Physics & Gameplay Compatibility**: Central research station plaza ($r < 18$) remains level at $y = 0$, guaranteeing zero obstacle clipping, 100% collision integrity for the Rapier 3D character controller, and seamless station door transitions.
+- Validation: `npm run typecheck`, 151 passing tests across all 25 test suites in Vitest, and production build passing in 717ms.
