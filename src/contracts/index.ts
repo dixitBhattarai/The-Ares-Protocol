@@ -144,6 +144,8 @@ export type GameAction =
   | { type: 'RESTART' }
   | { type: 'CHOOSE'; choiceId: string };
 export interface WorldAdapter {
+  setPlayerMotion?(motion: import('./exploration').PlayerMotion): void;
+  setAvatarActivity?(activity: import('./exploration').AvatarActivity): void;
   setHabitatAccess?(access: import('./habitat').HabitatAccess): void;
   setAvailableTasks?(stations: readonly StationId[], offerId: string): void;
   setEarthOutside?(outside: boolean): void;
@@ -210,6 +212,8 @@ export interface GravityInfo {
   canJump: boolean;
 }
 export interface PhysicsAdapter {
+  getMotionState?(): import('./exploration').PlayerMotion;
+  requestJump?(): void;
   setHabitatAccess?(access: import('./habitat').HabitatAccess): void;
   setGravityBody?(body: GravityBody): void;
   getGravityInfo?(): GravityInfo;
