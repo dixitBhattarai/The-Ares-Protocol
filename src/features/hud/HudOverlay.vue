@@ -16,12 +16,13 @@ const resourceInfo: Record<ResourceId, { label: string }> = {
   supplies: { label: 'Supplies' },
 };
 
-type ReserveMotion = { direction: 'up' | 'down' | ''; key: number };
+type ReserveMotion = { direction: 'up' | 'down' | ''; key: number; fullKey: number; reachedFull: boolean };
 const reserveMotion = ref<Record<ResourceId, ReserveMotion>>({
-  power: { direction: '', key: 0 },
-  oxygen: { direction: '', key: 0 },
-  supplies: { direction: '', key: 0 },
+  power: { direction: '', key: 0, fullKey: 0, reachedFull: false },
+  oxygen: { direction: '', key: 0, fullKey: 0, reachedFull: false },
+  supplies: { direction: '', key: 0, fullKey: 0, reachedFull: false },
 });
+const reserveTimers: Partial<Record<ResourceId, ReturnType<typeof setTimeout>>> = {};
 
 const resources = computed(() => (Object.keys(resourceInfo) as ResourceId[]).map(id => {
   const value = Math.max(0, Math.min(100, props.state.resources[id]));
@@ -74,23 +75,25 @@ watch(
       ['supplies', supplies, previous[4]],
     ];
     const motion = { ...reserveMotion.value };
-    let hasReserveChange = false;
     for (const [id, now, before] of reserveChanges) {
       if (now === before) continue;
-      hasReserveChange = true;
-      motion[id] = { direction: now > before ? 'up' : 'down', key: motion[id].key + 1 };
-    }
-    if (hasReserveChange) {
-      reserveMotion.value = motion;
-      if (reserveTimer) clearTimeout(reserveTimer);
-      reserveTimer = setTimeout(() => {
+      const reachedFull = before < 100 && now >= 100;
+      motion[id] = {
+        direction: now > before ? 'up' : 'down',
+        key: motion[id].key + 1,
+        fullKey: motion[id].fullKey + Number(reachedFull),
+        reachedFull,
+      };
+      if (reserveTimers[id]) clearTimeout(reserveTimers[id]);
+      reserveTimers[id] = setTimeout(() => {
         reserveMotion.value = {
-          power: { ...reserveMotion.value.power, direction: '' },
-          oxygen: { ...reserveMotion.value.oxygen, direction: '' },
-          supplies: { ...reserveMotion.value.supplies, direction: '' },
+          ...reserveMotion.value,
+          [id]: { ...reserveMotion.value[id], direction: '', reachedFull: false },
         };
-      }, 820);
+        delete reserveTimers[id];
+      }, reachedFull ? 900 : 620);
     }
+    reserveMotion.value = motion;
 
     if (phase === 'ready' && turn === 0 && logLength === 0) {
       feedback.value = 'Mission reset. Your reserves are ready for a new plan.';
@@ -134,7 +137,7 @@ watch(
 
 onUnmounted(() => {
   if (feedbackTimer) clearTimeout(feedbackTimer);
-  if (reserveTimer) clearTimeout(reserveTimer);
+  for (const timer of Object.values(reserveTimers)) if (timer) clearTimeout(timer);
   if (hazardTimer) clearTimeout(hazardTimer);
 });
 
@@ -174,7 +177,7 @@ function meterText(value: number, level: string): string {
         v-for="resource in resources"
         :key="resource.id"
         class="reserve-card"
-        :class="[`resource-${resource.id}`, `level-${resource.level.toLowerCase()}`, `motion-${resource.motion.direction}`]"
+        :class="[`resource-${resource.id}`, `level-${resource.level.toLowerCase()}`, `motion-${resource.motion.direction}`, { 'low-pulse': resource.value <= 20 }]"
       >
         <div class="reserve-icon-wrap">
           <span class="reserve-icon" tabindex="0" role="img" :aria-label="resource.label">
@@ -194,9 +197,9 @@ function meterText(value: number, level: string): string {
           :aria-valuetext="meterText(resource.value, resource.level)"
         >
           <span
-            :key="`${resource.id}-${resource.motion.key}`"
+            :key="`${resource.id}-${resource.motion.key}-${resource.motion.fullKey}`"
             class="reserve-fill"
-            :class="`fill-${resource.motion.direction}`"
+            :class="[`fill-${resource.motion.direction}`, { 'fill-full': resource.motion.reachedFull }]"
             :style="{ width: `${resource.value}%` }"
           />
         </div>
@@ -268,11 +271,9 @@ function meterText(value: number, level: string): string {
   box-sizing: border-box;
   position: absolute;
   z-index: 5;
-  left: 14px;
-  bottom: 42px;
-  display: grid;
-  gap: .3rem;
-  width: min(230px, calc(100% - 28px));
+  inset: 0;
+  width: auto;
+  height: auto;
   padding: 0;
   color: var(--hud-ink);
   background: transparent;
@@ -283,19 +284,19 @@ function meterText(value: number, level: string): string {
   font: 600 .78rem/1.3 system-ui, sans-serif;
   pointer-events: none;
 }
-.hud-header, .shift-track, .secondary-grid, .delayed-effects, .feedback, .units-note { display: none; }
+.hud-header, .brand, .secondary-heading { display: flex; align-items: center; }
 .brand, .secondary-heading { display: flex; align-items: center; }
-.hud-header { justify-content: space-between; gap: .35rem; margin: 0 0 .1rem; }
+.hud-header { position: absolute; top: 56px; left: 14px; justify-content: space-between; gap: .35rem; margin: 0; }
 .brand { min-width: 0; gap: .35rem; }
 .brand-mark { display: none; }
 .mission-heading { display: grid; gap: .02rem; }
-.eyebrow { color: #fff1cf; font-size: .49rem; font-weight: 850; letter-spacing: .12em; text-shadow: 0 1px 5px #21191c; }
+.eyebrow { display: none; }
 .mission-heading strong { color: #fff8e9; font-size: .72rem; letter-spacing: .05em; text-shadow: 0 1px 5px #21191c; }
 .mission-heading strong span { color: #e8ddca; font-size: .72em; }
 .unit-tag { display: none; }
-.shift-track { display: block; height: .18rem; overflow: hidden; margin: 0 0 .12rem; border: 1px solid rgb(255 245 220 / 45%); border-radius: 999px; background: rgb(10 19 24 / 22%); }
+.shift-track { position: absolute; top: 78px; left: 14px; display: block; width: min(135px, calc(100% - 28px)); height: .18rem; overflow: hidden; margin: 0; border: 1px solid rgb(255 245 220 / 45%); border-radius: 999px; background: rgb(10 19 24 / 22%); }
 .shift-track > span { display: block; height: 100%; border-radius: inherit; background: #f4c86d; box-shadow: 0 0 7px #efb4539c; transition: width 260ms ease; }
-.reserve-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: .34rem; }
+.reserve-grid { position: absolute; left: 14px; bottom: 42px; display: grid; grid-template-columns: minmax(0, 1fr); gap: .34rem; width: min(230px, calc(100% - 28px)); }
 .reserve-card { --reserve-color: #ffd36f; display: grid; grid-template-columns: 22px minmax(0, 1fr) 27px; align-items: center; gap: .48rem; min-width: 0; min-height: 21px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .resource-power { --reserve-color: #ffd36f; }
 .resource-oxygen { --reserve-color: #8ce8ff; }
@@ -313,10 +314,12 @@ function meterText(value: number, level: string): string {
 .motion-up { animation: reserve-pop .45s cubic-bezier(.2,.8,.2,1); }
 .motion-down { animation: reserve-shimmy .38s ease-in-out; }
 .fill-up::after { animation: reserve-shine .55s ease-out; }
+.fill-full::after { animation: reserve-shine .72s cubic-bezier(.2,.8,.2,1); }
 .fill-down { filter: saturate(1.3) brightness(1.18); }
+.low-pulse .reserve-meter { animation: reserve-critical-pulse 1.1s ease-in-out infinite; }
 .level-watch .reserve-fill { background: color-mix(in srgb, #ffe18a, transparent 12%); }
 .level-low .reserve-fill, .level-empty .reserve-fill { background: color-mix(in srgb, #ff9d7e, transparent 12%); }
-.secondary-grid { display: flex; justify-content: space-between; gap: .5rem; margin: .12rem 0 0; }
+.secondary-grid { position: absolute; right: 14px; bottom: 42px; display: grid; gap: .28rem; width: min(150px, calc(100% - 28px)); margin: 0; text-align: right; }
 .secondary-card { min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
 .secondary-heading { gap: .23rem; }
 .secondary-icon { width: .8rem; flex: 0 0 auto; text-align: center; font-size: .62rem; filter: drop-shadow(0 1px 3px rgb(0 0 0 / 65%)); }
@@ -327,16 +330,15 @@ function meterText(value: number, level: string): string {
 .secondary-heading strong span { color: #e4dac9; font-size: .72em; }
 .science-track { display: none; }
 .shelter-note { display: none; }
-.feedback { display: flex; align-items: flex-start; gap: .32rem; margin: .1rem 0 0; color: #fff0db; font-size: .58rem; text-shadow: 0 1px 4px #171317; }
+.feedback { position: absolute; top: 88px; left: 14px; display: flex; align-items: flex-start; gap: .32rem; width: min(240px, calc(100% - 28px)); margin: 0; color: #fff0db; font-size: .58rem; text-shadow: 0 1px 4px #171317; }
 .feedback > span:last-child { display: grid; gap: .06rem; }
 .feedback strong { color: #ffcf91; font-size: .49rem; letter-spacing: .06em; }
 .feedback-mark { width: .75rem; height: .75rem; display: grid; place-items: center; flex: 0 0 auto; color: #ffd28c; font-weight: 900; }
-.delayed-effects { margin-top: .1rem; color: #fff1cf; text-shadow: 0 1px 4px #171317; }
+.delayed-effects { position: absolute; top: 132px; left: 14px; width: min(240px, calc(100% - 28px)); margin: 0; color: #fff1cf; text-shadow: 0 1px 4px #171317; }
 .delayed-heading { color: #f4d28f; font-size: .49rem; font-weight: 850; letter-spacing: .08em; }
 .delayed-item { display: grid; grid-template-columns: auto 1fr; gap: .3rem; margin: .12rem 0 0; color: #fff8e9; font-size: .56rem; }
 .delayed-timing { color: #f4d28f; font-weight: 800; white-space: nowrap; }
 .units-note { display: none; }
-.hud > .hud-header, .hud > .shift-track, .hud > .secondary-grid, .hud > .delayed-effects, .hud > .feedback, .hud > .units-note { display: none; }
 .achievement-toast { --toast-gold: #f3c76f; box-sizing: border-box; position: fixed; z-index: 1000; top: 48%; left: 50%; display: grid; grid-template-columns: 3.1rem minmax(0, 1fr) 1rem; align-items: center; gap: .85rem; width: min(440px, calc(100vw - 2rem)); min-height: 104px; padding: .8rem 1rem; border: 2px solid #f4d48e; border-radius: 12px; background: linear-gradient(110deg, rgb(60 48 34 / 98%), rgb(35 43 42 / 98%) 45%, rgb(30 37 40 / 98%)); color: #fff8e8; box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 24px rgb(244 196 104 / 25%), inset 0 1px 0 rgb(255 248 220 / 22%); font: 650 .9rem/1.4 system-ui, sans-serif; animation: toast-in .52s cubic-bezier(.16,1.35,.4,1) both, toast-pulse .95s .55s 3 ease-in-out, toast-out .42s 4.75s ease-in forwards; }
 .achievement-toast::before, .achievement-toast::after { position: absolute; width: 9px; height: 9px; border: 1px solid var(--toast-gold); background: #624b31; content: ''; transform: rotate(45deg); }
 .achievement-toast::before { top: -6px; left: 18%; }
@@ -349,12 +351,19 @@ function meterText(value: number, level: string): string {
 @keyframes reserve-pop { 0% { transform: scaleY(.8); } 45% { transform: scaleY(1.28); filter: brightness(1.45); } 100% { transform: scaleY(1); } }
 @keyframes reserve-shimmy { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
 @keyframes reserve-shine { 0% { opacity: .9; transform: translateX(-120%); } 100% { opacity: 0; transform: translateX(150%); } }
+@keyframes reserve-critical-pulse { 0%, 100% { box-shadow: inset 0 1px 2px rgb(0 0 0 / 20%); } 50% { box-shadow: 0 0 12px color-mix(in srgb, var(--reserve-color), transparent 35%), inset 0 1px 2px rgb(0 0 0 / 20%); } }
 @keyframes toast-in { 0% { opacity: 0; transform: translate(-50%, -45%) scale(.68); } 68% { opacity: 1; transform: translate(-50%, -51%) scale(1.045); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 @keyframes toast-pulse { 0%, 100% { box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 24px rgb(244 196 104 / 25%), inset 0 1px 0 rgb(255 248 220 / 22%); } 50% { box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 35px rgb(255 215 133 / 58%), inset 0 1px 0 rgb(255 248 220 / 35%); } }
 @keyframes toast-out { to { opacity: 0; transform: translate(-50%, -46%) scale(.92); } }
 @keyframes spark-spin { 50% { transform: rotate(40deg) scale(1.25); } }
 @media (max-width: 420px) {
-  .hud { left: 10px; bottom: 38px; width: min(215px, calc(100% - 20px)); }
+  .hud-header { top: 50px; left: 10px; }
+  .shift-track { top: 72px; left: 10px; width: 120px; }
+  .reserve-grid { left: 10px; bottom: 38px; width: min(215px, calc(100% - 20px)); }
+  .secondary-grid { top: 34px; right: 10px; bottom: auto; width: min(118px, calc(100% - 20px)); gap: .16rem; }
+  .feedback, .delayed-effects { left: 10px; width: min(215px, calc(100% - 20px)); }
+  .feedback { top: 90px; }
+  .delayed-effects { top: 128px; }
   .reserve-grid { gap: .3rem; }
   .reserve-card { min-height: 20px; padding: 0; }
   .reserve-meter { height: 7px; }
@@ -365,6 +374,6 @@ function meterText(value: number, level: string): string {
 }
 @media (prefers-reduced-motion: reduce) {
   .shift-track > span, .reserve-fill, .science-track > span, .icon-tooltip { transition: none; }
-  .motion-up, .motion-down, .fill-up::after, .achievement-toast, .toast-spark { animation: none; }
+  .motion-up, .motion-down, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
 }
 </style>
