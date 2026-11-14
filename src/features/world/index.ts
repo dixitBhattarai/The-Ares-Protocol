@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { STATIONS } from '../../contracts';
 import type { GameState, StationId, Vec3, WorldAdapter } from '../../contracts';
 import { frameOutpost } from './camera';
-import { createAstronaut, createStation, createTerrain, STATION_NAMES } from './models';
+import { createGroundShadow, createStation, createTerrain, STATION_NAMES } from './models';
+import { applyAstronautGait, createAstronaut } from './astronaut';
 import { createModelKit, WorldResources } from './resources';
 import { pickStationAt } from './picking';
 import { applyStationStatus, getStationStatus } from './status';
@@ -48,8 +49,21 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     const kit = createModelKit(resources);
     scene.add(createTerrain(kit, resources));
     const astronaut = createAstronaut(kit);
-    astronaut.position.copy(playerPose);
-    scene.add(astronaut);
+    astronaut.group.position.copy(playerPose);
+    scene.add(astronaut.group);
+    const playerShadow = createGroundShadow(resources, .42, .32);
+    playerShadow.name = 'astronaut-shadow';
+    playerShadow.position.set(playerPose.x, .014, playerPose.z);
+    scene.add(playerShadow);
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let reduceMotion = motionPreference.matches;
+    let walkCycle = 0;
+    const motionChanged = () => {
+      reduceMotion = motionPreference.matches;
+      if (reduceMotion) applyAstronautGait(astronaut, 0, false);
+    };
+    motionPreference.addEventListener('change', motionChanged);
+    cleanups.push(() => motionPreference.removeEventListener('change', motionChanged));
     const heading = document.createElement('p');
     heading.className = 'ares-world__heading';
     heading.textContent = 'ARES / OUTPOST 01';
@@ -80,6 +94,10 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       visual.group.position.copy(station.position);
       visual.selection.position.copy(station.position);
       scene.add(visual.group, visual.selection);
+      const shadow = createGroundShadow(resources, 1.8, 1.5);
+      shadow.name = `${station.id}-shadow`;
+      shadow.position.set(station.position.x, .014, station.position.z);
+      scene.add(shadow);
       const label = document.createElement('button');
       label.type = 'button';
       label.className = 'ares-world__label';
@@ -207,14 +225,22 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         if (disposed || ![pose.x, pose.y, pose.z].every(Number.isFinite)) return;
         const dx = pose.x - playerPose.x;
         const dz = pose.z - playerPose.z;
-        if (Math.hypot(dx, dz) > .0001) astronaut.rotation.y = Math.atan2(dx, dz);
+        const distance = Math.hypot(dx, dz);
+        const moving = distance > .0001 && distance < 1 && lastState?.phase === 'running' && !reduceMotion;
+        if (distance > .0001) astronaut.group.rotation.y = Math.atan2(dx, dz);
+        if (moving) walkCycle = (walkCycle + distance * Math.PI * 2 / .9) % (Math.PI * 2);
+        if (distance >= 1) walkCycle = 0; // A reset/teleport is not a walking stride.
+        applyAstronautGait(astronaut, walkCycle, moving);
         if (playerPose.x !== pose.x || playerPose.y !== pose.y || playerPose.z !== pose.z) cameraDirty = true;
         playerPose.copy(pose);
-        astronaut.position.copy(pose);
+        astronaut.group.position.copy(pose);
+        playerShadow.position.set(pose.x, .014, pose.z);
       },
       setState(state) {
         if (disposed || state === lastState) return;
         lastState = state;
+        if (state.phase !== 'running') applyAstronautGait(astronaut, 0, false);
+        if (state.phase === 'ready') walkCycle = 0;
         stations.forEach(station => {
           const status = getStationStatus(station.id, state);
           station.readout.textContent = status.readout;

@@ -88,24 +88,14 @@ export function createStation(id: StationId, kit: ModelKit, resources: WorldReso
   return { group, windows, indicator, shelterPanels, selection };
 }
 
-export function createAstronaut(kit: ModelKit): THREE.Group {
-  const astronaut = new THREE.Group();
-  astronaut.name = 'astronaut';
-  const { ivory, dark, orange, trim } = kit.materials;
-  kit.sphere(astronaut, ivory, [.235, .4, .2], [0, -.12, 0]);
-  kit.box(astronaut, trim, [.32, .4, .13], [0, -.05, -.15]);
-  kit.sphere(astronaut, ivory, [.29, .29, .29], [0, .43, 0]);
-  kit.sphere(astronaut, dark, [.25, .18, .16], [0, .44, .12]);
-  kit.box(astronaut, orange, [.18, .14, .04], [0, -.04, .195]);
-  for (const x of [-.13, .13]) {
-    kit.box(astronaut, ivory, [.16, .36, .18], [x, -.48, 0]);
-    kit.box(astronaut, dark, [.18, .14, .26], [x, -.72, .02]);
-  }
-  for (const x of [-.23, .23]) {
-    kit.sphere(astronaut, ivory, [.065, .29, .08], [x, -.15, 0]);
-    kit.sphere(astronaut, orange, [.065, .09, .075], [x, -.39, .02]);
-  }
-  return astronaut;
+export function createGroundShadow(resources: WorldResources, width: number, depth: number): THREE.Mesh {
+  const geometry = resources.geometry(new THREE.CircleGeometry(1, 24));
+  const material = resources.material(new THREE.MeshBasicMaterial({ color: '#352c32', transparent: true, opacity: .16, depthWrite: false }));
+  const shadow = new THREE.Mesh(geometry, material);
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.scale.set(width, depth, 1);
+  shadow.position.y = .014;
+  return shadow;
 }
 
 export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.Group {

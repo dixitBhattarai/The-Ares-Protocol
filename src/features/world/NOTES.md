@@ -1,7 +1,7 @@
 # World handoff — Himamshu
 
 Branch: `feat/himamshu-world`, isolated worktree `.worktrees/himamshu`.
-Baseline: `710e015` on main. No shared files or dependencies changed.
+Original baseline: `710e015`. Continuation baseline: checked main `097f63f`, brought into this clean feature worktree by fast-forward after team integration. New authored changes stay within the world folder; no shared engineering files or dependencies edited.
 
 ## Milestone 1 — readable base
 
@@ -26,10 +26,18 @@ Baseline: `710e015` on main. No shared files or dependencies changed.
 
 ## Handoff
 
-- Ready for Rohit's serial merge of `feat/himamshu-world`. Milestone 1 is `9fc1290`; the final status/selection commit hash is supplied in the completion message.
-- Changed paths only under `src/features/world/`: `index.ts`, `models.ts`, `resources.ts`, `camera.ts`, `picking.ts`, `status.ts`, `world.css`, `world.test.ts`, `CREDITS.md`, `NOTES.md`.
-- No App/contracts/physics/game/UI/HUD/mission/package/lockfile edits; no push or merge to main.
+- Initial milestones `9fc1290` and `95a03b3` were integrated by Himamshu's coordinator task as `c235948`. Rohit's game and Saurav's HUD are now on the continuation baseline; they were not authored by this world feature task.
+- Changed paths only under `src/features/world/`; movement adds `astronaut.ts` and `astronaut.test.ts` beside the existing scene/model/resource/camera/picking/status/style files.
+- No App/contracts/physics/game/UI/HUD/mission/package/lockfile edits by the new world milestone. The coordinator publishes main separately; feature commits publish on `feat/himamshu-world`.
 - Remaining integration request: replace shell viewport's `role="img"` with a labeled `region`/`group`. World labels have native keyboard semantics but the current ancestor image role hides them from the accessibility tree.
+
+## Milestone 3 — movement-driven astronaut
+
+- Added a lightweight procedural limb rig. Strides use distance between supplied poses, not a new frame loop, timer or physical simulation. Facing and root position still come directly from physics.
+- Still/paused/non-running snapshots return the limbs to neutral; teleports/reset-sized deltas do not produce giant strides. A tracked reduced-motion media preference disables gait while the astronaut still follows its real position; its listener is removed on cleanup.
+- Added flat contact shadows under the astronaut and modules. They are non-solid visual decals with tracked GPU resources; no collision/terrain coordinates changed.
+- Validation: `npm run typecheck`, `npm test` (22 passing) and `npm run build` passed. Three additional rig tests check opposite limbs without root-motion changes, envelope/ground clearance through a complete stride, and neutral/finite behavior.
+- Browser used real controller input: position advanced with opposite leg swings, the shadow followed, idle and pause reset gait, and reduced-motion still allowed walking with neutral limbs. No page exceptions. Inspected desktop/mobile captures.
 
 ## Integration requests / limits
 
