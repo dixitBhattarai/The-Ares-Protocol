@@ -8,7 +8,19 @@ Build a browser game for children ages 7–12 managing a small Mars outpost. Tea
 
 Stack: Vue 3 + TypeScript for screens; Three.js for the world; Rapier for movement/collisions; Vite; npm with the committed lockfile. No backend, login, multiplayer, extra state library or engine migration for the MVP.
 
-## Exclusive ownership
+## Current gameplay direction — 14 November update
+
+This user-approved direction supersedes the original card-first task ordering below. Earth/orbit introduce controls; Mars offers a small freely explorable level. Present 2–3 available station jobs, let the player choose, complete a short interactive minigame, apply its explicit base outcome once, then offer three optional trade-off cards. Resolve one card at most per completed job. Cards modify later play or grant a clearly priced benefit; they are not the prerequisite for walking into a building. Never apply the same reward both at task completion and card selection.
+
+Keep essential jobs available, with seeded/random optional job variants and small capped exploration finds. No mandatory cooldown, unbounded loot farming or sprawling open world. Six completed jobs/shifts still lead to a cause-and-effect debrief. Target three reusable minigame families (air leak, power connections, greenhouse balance), not copies of another game's artwork. Preserve a keyboard/touch alternative to each interaction. This direction is an implementation target, not a claim that the existing reducer already implements it; Rohit coordinates additive contracts and migration.
+
+Use a cohesive brighter space palette, recognizable station colors, large illustrated controls, short friendly instructions and restrained success effects. Keep danger legible through icons/text, respect reduced motion, and do not obscure navigation with the card panel. Show explicit door state; allow exploration entry without selecting a job, and support open/close plus an easy exit.
+
+Prefer well-made lightweight rigged models and coherent materials. Free downloads are authorized when their actual license permits incorporation into this game. Verify source/usage rights, keep credits and hashes, optimize textures/mesh size, bundle locally, retain load-failure fallbacks and never assume "free" means unrestricted. No new package or paid asset purchase is implied.
+
+For this update only, Himamshu is explicitly assigned edits to root and all six feature AGENTS.md files and coordination task/prompt docs. His door integration may edit App.vue, additive world contracts and world files under the user's requested coordinated gameplay/door scope. Record the exact handoff in world/NOTES.md; Rohit retains subsequent engineering ownership. This does not transfer other feature implementation ownership or authorize editing another agent's dirty checkout. Antigravity retains the serial merge queue in main.
+
+## Exclusive ownership (unchanged)
 
 | Person | Primary task | Allowed feature files | Branch |
 | --- | --- | --- | --- |

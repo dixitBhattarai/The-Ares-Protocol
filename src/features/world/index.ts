@@ -65,6 +65,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     let interior: StationId | null = null;
     let journey: number | null = null;
     let level: 'earth' | 'space' | null = null;
+    let motionPaused = false;
+    const doorStates: Record<StationId, boolean> = { habitat: false, solar: false, greenhouse: false };
     let consoleHandler: ((index: number) => void) | null = null;
     const terrain = createTerrain(kit, resources);
     terrain.traverse(object => { if (object instanceof THREE.Mesh) object.receiveShadow = true; });
@@ -281,6 +283,15 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     updateCamera();
     let previousAnimationTime = performance.now();
     return {
+      setMotionPaused(paused) { motionPaused = paused; },
+      setDoorState(id, open) {
+        if (disposed) return;
+        doorStates[id] = open;
+        stations.find(station => station.id === id)?.visual.door.setOpen(open);
+        if (interior === id) expedition.setDoor(open);
+        renderer!.shadowMap.needsUpdate = true;
+      },
+      isDoorOpen(id) { return interior === id ? expedition.isDoorOpen() : stations.find(station => station.id === id)?.visual.door.isOpen() ?? false; },
       setConsoleHandler(handler) { if (!disposed) consoleHandler = handler; },
       setLevel(id) {
         if (disposed || level === id) return;
@@ -296,9 +307,10 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         if (disposed || interior === id) return;
         interior = id;
         if (id) expedition.interior(id);
+        if (id) expedition.setDoor(doorStates[id], true);
         container.classList.toggle('ares-world--interior', Boolean(id));
         heading.childNodes[0].textContent = id ? `ARES / ${STATION_NAMES[id].toUpperCase()} INTERIOR` : 'ARES / OUTPOST 01';
-        hint.textContent = id ? `Inside ${STATION_NAMES[id]} · operate the task console in the mission panel` : 'Select a base module · WASD / arrows to walk';
+        hint.textContent = id ? `Inside ${STATION_NAMES[id]} · explore with WASD · E opens/closes the front exit` : 'Walk to a striped door · E opens/closes · walk through to enter';
       },
       setJourney(progress) {
         if (disposed) return;
@@ -361,7 +373,12 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         const now = performance.now();
         const delta = (now - previousAnimationTime) / 1000;
         previousAnimationTime = now;
-        const active = !document.hidden && lastState?.phase !== 'paused' && lastState?.phase !== 'won' && lastState?.phase !== 'lost';
+        const active = !motionPaused && !document.hidden && lastState?.phase !== 'paused' && lastState?.phase !== 'won' && lastState?.phase !== 'lost';
+        stations.forEach(station => {
+          const before = station.visual.door.group.userData.openProgress;
+          station.visual.door.update(active ? delta : 0, reduceMotion);
+          if (before !== station.visual.door.group.userData.openProgress) renderer!.shadowMap.needsUpdate = true;
+        });
         expedition.resize(width / height);
         if (journey !== null) { expedition.journey(journey); renderer!.render(expedition.flight, expedition.camera); return; }
         if (interior || level) { expedition.animate(delta, active, reduceMotion); expedition.roomCamera(); renderer!.render(expedition.room, expedition.camera); return; }

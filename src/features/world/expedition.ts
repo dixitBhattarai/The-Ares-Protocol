@@ -4,6 +4,7 @@ import { createAstronaut, applyAstronautGait, updateAstronautAnimation } from '.
 import type { ModelKit, WorldResources } from './resources';
 import { dressRoom, furnishRoom } from './interiors';
 import type { createNasaLoader } from './nasa-assets';
+import { createSlidingDoor } from './doors';
 
 export function createExpeditionViews(kit: ModelKit, resources: WorldResources, nasa: ReturnType<typeof createNasaLoader>) {
   const flight = new THREE.Scene();
@@ -34,6 +35,7 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
   kit.box(room, kit.materials.ivory, [6, 2.3, .15], [0, 1.15, -3]);
   kit.box(room, kit.materials.ivory, [.15, 2.3, 6], [-3, 1.15, 0]);
   const { steel } = dressRoom(room, kit, resources);
+  const door = createSlidingDoor(kit, 'interior', false); door.group.position.set(0, .92, 2.88); room.add(door.group);
   const observationWindow = new THREE.Group(); room.add(observationWindow);
   const windowRim = new THREE.Mesh(resources.geometry(new THREE.TorusGeometry(.7, .07, 8, 32)), steel);
   windowRim.position.set(0,1.6,-2.78); observationWindow.add(windowRim);
@@ -59,7 +61,9 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
   const rooms = new Map<string, THREE.Group>();
   return {
     flight, room, camera,
-    animate(seconds: number, active: boolean, reduced: boolean) { updateAstronautAnimation(astronaut, seconds, active, reduced); },
+    setDoor(open: boolean, instant = false) { door.setOpen(open); if (instant) door.update(0, true); },
+    isDoorOpen() { return door.isOpen(); },
+    animate(seconds: number, active: boolean, reduced: boolean) { updateAstronautAnimation(astronaut, seconds, active, reduced); door.update(active ? seconds : 0, reduced); },
     pickControl(pointer: THREE.Vector2) {
       room.updateMatrixWorld(true); camera.updateMatrixWorld();
       const ray = new THREE.Raycaster(); ray.setFromCamera(pointer, camera);

@@ -19,10 +19,7 @@ export function dressRoom(room: THREE.Scene, kit: ModelKit, resources: WorldReso
     const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(-2.75,y,2.5),new THREE.Vector3(-2.75,y,-2.7),new THREE.Vector3(2.6,y,-2.7)]);
     room.add(new THREE.Mesh(resources.geometry(new THREE.TubeGeometry(curve, 18, .035, 6, false)), steel));
   }
-  // Airlock surround and pressure door sit behind the room's movement boundary.
-  kit.box(room, steel, [1.35, 2, .12], [-2.82, 1.05, 1.8]).rotation.y = Math.PI / 2;
-  kit.box(room, kit.materials.dark, [.08, 1.65, .9], [-2.7, 1, 1.8]);
-  kit.box(room, light, [.04, .35, .22], [-2.64, 1.25, 1.8]);
+  // The interactive exit is placed at the front (+Z), aligned with room movement.
   return { steel, light };
 }
 

@@ -9,8 +9,8 @@ defineEmits<{ control: [value: string]; travel: []; enter: []; exit: []; cancel:
     <h2>{{ title }}</h2>
     <p class="impact">On completion: {{ impact }}</p>
     <template v-if="!inside">
-      <p>Walk to the {{ station }}, then select its module or press E at the door. Finish the procedure inside to apply this shift’s choice.</p>
-      <button @click="$emit('enter')">Enter nearby module (E)</button>
+      <p>Walk to the {{ station }} door. Press E to open it, then walk through or use Enter room. Finish the procedure inside to apply this shift’s choice.</p>
+      <button @click="$emit('enter')">Enter nearby module</button>
       <button @click="$emit('travel')">Accessible travel to task door</button>
     </template>
     <template v-else>
