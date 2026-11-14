@@ -68,8 +68,22 @@ Status: Tested milestones complete; audio synthesis, station proximity, star rat
   - Added "Direct Decisions / 3D Procedures" mode toggle in header controls for players, screen readers, and mobile users who prefer immediate decision execution.
   - Added keyboard shortcuts `KeyT` (accessible travel to task door) and `Escape` (cancel task).
 
+## Milestone 5: Full-Reserve Chime, In-Viewport Command Deck & Roguelike Choice Cards (`feat(game): full-reserve sound, in-viewport deck overlay, and roguelike choice cards`)
+
+- Full-Reserve Synthesizer Sound (`src/features/game/audio.ts`, `src/App.vue`):
+  - Added `playFullReserve()`: sparkling ascending chime ($D5 \to A5 \to D6$) when any resource crosses from below 100 to full (100%).
+  - Integrated into `dispatch` in `App.vue`, preserving priority order (victory > loss > hazard > full reserve > choice type).
+- In-Viewport Command Deck Host (`src/App.vue`):
+  - Moved `aside.command-panel` into `section.world-panel` as an in-viewport cockpit overlay.
+  - Viewport expands to full width on desktop while command panel floats on the right with translucent backdrop blur.
+  - Added deck toggle control (`KeyC` / `◨ Hide Deck`) allowing unobstructed full-screen surface exploration.
+- Roguelike Choice Cards & Typed Metadata (`src/contracts/index.ts`, `src/features/game/index.ts`, `src/App.vue`):
+  - Added additive `ChoiceRarity` (`vital`, `hazard-response`, `experimental`, `standard`) and `ChoicePresentation` to `src/contracts/index.ts`.
+  - Added `getChoicePresentation(choice, event)` helper in `src/features/game/index.ts` supplying default child-friendly icons, badges, and summaries.
+  - Styled `.choice-card` with roguelike draft aesthetics: tactile hover lift, glowing gradient borders, and distinct multi-channel impact pills.
+
 ## Validation
 
 - `npm run typecheck`: passed with zero type errors.
-- `npm test`: 72 tests passing cleanly across all 8 test suites (15 game tests, 4 activities tests, 8 missions tests, 20 physics tests, 13 UI tests, 12 world tests).
-- `npm run build`: production build passed cleanly in 571ms.
+- `npm test`: 75 tests passing cleanly across all 10 test suites (16 game tests, 4 activities tests, 8 missions tests, 20 physics tests, 13 UI tests, 14 world tests).
+- `npm run build`: production build passed cleanly in 704ms.

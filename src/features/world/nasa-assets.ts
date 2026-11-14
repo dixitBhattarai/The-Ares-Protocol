@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import type { WorldResources } from './resources';
+import { rigSuit } from './suit-rig';
 
 export const NASA_ASSETS = {
   astronaut: new URL('./assets/astronaut.glb', import.meta.url).href,
@@ -43,7 +44,10 @@ export function createNasaLoader(resources: WorldResources) {
         const center = fitted.getCenter(new THREE.Vector3());
         scene.position.sub(new THREE.Vector3(center.x, fitted.min.y, center.z));
         scene.name = `nasa-${key}`;
-        parent.add(scene);
+        if (key === 'astronaut') {
+          const rig = rigSuit(scene, resources, height);
+          parent.add(rig.group); parent.userData.animateSuit = rig.animate;
+        } else parent.add(scene);
         if (fallback) fallback.visible = false;
         parent.userData.assetLoaded = key;
       } catch { if (alive) parent.userData.assetFailed = key; else draco.dispose(); }

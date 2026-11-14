@@ -276,6 +276,7 @@ describe('SoundFX synthesizer', () => {
     expect(soundFX.enabled).toBe(false);
     expect(() => soundFX.playStart()).not.toThrow();
     expect(() => soundFX.playRestart()).not.toThrow();
+    expect(() => soundFX.playFullReserve()).not.toThrow();
     expect(() => soundFX.playDecision()).not.toThrow();
     expect(() => soundFX.playTransmission()).not.toThrow();
     expect(() => soundFX.playOxygen()).not.toThrow();
@@ -287,5 +288,27 @@ describe('SoundFX synthesizer', () => {
     soundFX.enabled = true;
     const custom = new SoundFX();
     expect(custom.enabled).toBe(true);
+  });
+});
+
+describe('choice presentation & roguelike card metadata', () => {
+  it('provides typed presentation metadata for choices', async () => {
+    const { getChoicePresentation } = await import('./index');
+    const oxygenPres = getChoicePresentation({ id: 'oxygen', label: 'Make Oxygen', explanation: '', effect: {} });
+    expect(oxygenPres.rarity).toBe('vital');
+    expect(oxygenPres.badge).toBe('LIFE SUPPORT');
+    expect(oxygenPres.icon).toBe('💨');
+
+    const shieldPres = getChoicePresentation({ id: 'shield', label: 'Bunker', explanation: '', effect: {} });
+    expect(shieldPres.rarity).toBe('hazard-response');
+    expect(shieldPres.icon).toBe('🛡️');
+
+    const commsPres = getChoicePresentation({ id: 'comms', label: 'DSN', explanation: '', effect: {} });
+    expect(commsPres.rarity).toBe('experimental');
+    expect(commsPres.icon).toBe('📡');
+
+    const researchPres = getChoicePresentation({ id: 'research', label: 'Survey', explanation: '', effect: {} });
+    expect(researchPres.rarity).toBe('standard');
+    expect(researchPres.icon).toBe('🔬');
   });
 });
