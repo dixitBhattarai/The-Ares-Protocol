@@ -274,9 +274,12 @@ onBeforeUnmount(() => {
         <p class="credits-team">The Ares Protocol Outpost Lab</p>
         
         <ul class="credits-list">
-          <li><strong>UI, Navigation & Onboarding:</strong> Dixit</li>
-          <li><strong>Outpost Simulation & Systems:</strong> Team Ares</li>
-          <li><strong>Planetary Data:</strong> NASA Visible Earth & JPL Open Assets</li>
+          <li><strong>Himamshu</strong> — 3D World & Engine Lead</li>
+          <li><strong>Saurav</strong> — HUD</li>
+          <li><strong>Dixit</strong> — UI Lead</li>
+          <li><strong>Anshu</strong> — Physics & Controls Engineer</li>
+          <li><strong>Genius</strong> — NASA Data & Mission Architect</li>
+          <li><strong>Rohit</strong> — Game Loop & Pitch</li>
         </ul>
 
         <div class="modal-actions">
