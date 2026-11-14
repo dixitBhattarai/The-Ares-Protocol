@@ -11,7 +11,7 @@ Owner: Himamshu. Feature owners submit handoffs; only the coordinator updates th
 | `feat/saurav-hud` | `c5973b1` | HUD component and notes | Initial `3f1419b`; hazards `28b1dc5`; transparent reserve dock and hazard toast `76d163a`; per-resource reserve animations `4d07adf`; in-game status polish `86c1beb`; science & shelter readout softening `44ff31e`; expandable science and shelter buttons `f994aa7`; stat icon spin and numerator progress roll `667ae75`; gentle cursor parallax and motion polish `afff7e4`; viewport event toast details merged by `94ce20e`; checks passed |
 | `feat/anshu-physics` | `4108654` | `src/features/physics/**` | Grounded astronaut controller, reset and pause merged by `dfe1d24`; checks passed |
 | `feat/dixit-ui` | `0637603` | `src/features/ui/**` | Onboarding, decisions, pause, debrief replay & sources merged by `55799b3`; checks passed |
-| `feat/genius-missions` | `66a5322` | `src/features/missions/**` | Six teaching decisions & NASA CME evidence merged by `a8d9a39`; alert wording reconciled by `500c830`; checks passed |
+| `feat/genius-missions` | `2ecab55` | `src/features/missions/**` | Six teaching decisions & NASA CME evidence merged by `a8d9a39`; alert wording reconciled by `500c830`; refreshable DONKI snapshot and raw NASA datasets merged by `e4abf24`; checks passed |
 
 Verify refs, scope and checks before a merge; this table is not authorization to merge. Anshu and Dixit have no published branch recorded at this review.
 
@@ -237,6 +237,15 @@ Himamshu issued a standing mandate authorizing the merge coordinator to automati
    - Scope: `docs/CONTRACTS.md`, `src/App.vue`, `src/contracts/index.ts`, `src/features/world/ActivityPanel.vue`, `src/features/world/NOTES.md`, `src/features/world/StationMinigame.vue`, `src/features/world/index.ts`, `src/features/world/minigame.test.ts`, `src/features/world/minigame.ts`, `src/features/world/world.css`. All paths within Himamshu's assigned feature and coordinated gameplay/door integration scope.
    - Changes: Accessible station-computer minigames for all three modules (Habitat air leak patch panel, Solar power-cell circuit alignment, Greenhouse hydroponic leaf inspection and root watering) with keyboard/touch alternative buttons; floating 3D station status labels with gentle bob and hover lift; task availability cues ('!' exclamation badges on stations offering tasks, and a 5s dismissible banner notification with synthesized audio chime); additive contract `setAvailableTasks` on `WorldAdapter`; unit tests in `minigame.test.ts`.
    - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (15 test files, 91 tests passed); `npm run build` passed cleanly in 943ms.
+
+### 14 Nov 2026 — Genius (missions) refreshable DONKI snapshot and raw NASA datasets integration
+
+1. **`feat/genius-missions` (tip `2ecab55`)**:
+   - Merged as `e4abf24`, preserving Genius's commits `4a9315f`, `45a8eab`, `8d59925`, `d45957a`, `ebe9358`, and `2ecab55`.
+   - Scope: `src/features/missions/**` (`NOTES.md`, `data/PROVENANCE.md`, `data/donki-cme-snapshot.json`, `data/donki-flr-sep-may2024-raw.json`, `data/insight-mars-weather-raw.json`, `data/nasa-apis-extra-raw.json`, `index.ts`, `missions.test.ts`, `scripts/refresh-donki-snapshot.mjs`, `scripts/refresh-donki-snapshot.test.mjs`). All paths owned by Genius.
+   - Changes: Maintainer script `scripts/refresh-donki-snapshot.mjs` for date-bounded NASA DONKI CME queries; local bundled snapshot for 2026-11-07 through 2026-11-14 with selected observation `2026-11-13T21:24:00-CME-001` (analysis speed 474 km/s); provenance documentation in `data/PROVENANCE.md`; raw NASA API dataset fixtures; updated source descriptions distinguishing authored shelter drill / reserve loss from measured Mars crew dose; unit tests in `scripts/refresh-donki-snapshot.test.mjs` and `missions.test.ts`.
+   - Cross-feature request recorded: Genius requests Rohit (game) consider a 1% once-per-expedition pre-flight launch safety abort with Dixit (UI) presenting the non-graphic stop and retry action.
+   - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (16 test files, 95 tests passed); `npm run build` passed cleanly in 818ms.
 
 ### Updated open requests
 
