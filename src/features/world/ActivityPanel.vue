@@ -14,7 +14,7 @@ defineEmits<{ control: [value: string]; travel: []; enter: []; exit: []; cancel:
       <button @click="$emit('travel')">Accessible travel to task door</button>
     </template>
     <template v-else>
-      <p>Move around with WASD / arrows. Operate the console in this order:</p>
+      <p>Move with WASD / arrows. Click the numbered 3D console screens or use these controls in order:</p>
       <ol><li v-for="(step, i) in steps" :key="step" :class="{ done: i < progress }">{{ i < progress ? '✓ ' : '' }}{{ step }}</li></ol>
       <div class="controls"><button v-for="step in [...steps].reverse()" :key="step" :disabled="paused || progress >= steps.length" @click="$emit('control', step)">{{ step }}</button></div>
       <button @click="$emit('exit')">Exit module</button>

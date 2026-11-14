@@ -46,7 +46,7 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
   let aspect = 1;
   let cycle = 0;
   const previous = new THREE.Vector3();
-  const screens = [0, 1, 2].map(() => resources.material(new THREE.MeshStandardMaterial({ color: '#315d7c', emissive: '#18374e', emissiveIntensity: .5 })));
+  const screens = [0, 1, 2].map(() => resources.material(new THREE.MeshStandardMaterial({ color: '#a6cddd', emissive: '#18374e', emissiveIntensity: .5 })));
   screens.forEach((screen, i) => {
     const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 64;
     const context = canvas.getContext('2d');
@@ -90,7 +90,7 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
       }
       equipment.add(set);
     },
-    progress(value: number) { screens.forEach((screen, i) => { screen.color.set(i < value ? '#96d8a8' : '#315d7c'); screen.emissive.set(i < value ? '#478e60' : '#18374e'); }); },
+    progress(value: number) { screens.forEach((screen, i) => { screen.color.set(i < value ? '#96d8a8' : '#a6cddd'); screen.emissive.set(i < value ? '#478e60' : '#18374e'); }); },
     pose(pose: Vec3, moving: boolean) {
       const d = previous.distanceTo(new THREE.Vector3(pose.x, pose.y, pose.z));
       if (d > .001 && d < 1) { cycle += d * 7; astronaut.group.rotation.y = Math.atan2(pose.x - previous.x, pose.z - previous.z); }
