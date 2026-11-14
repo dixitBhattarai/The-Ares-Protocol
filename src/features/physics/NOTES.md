@@ -57,3 +57,9 @@ Status: Complete and validated.
 ## Camera-heading handoff from Himamshu — 14 Nov 2026
 
 User explicitly requested controllable third-person exploration. This coordinated slice adds only optional setCameraYaw and a pure rotateMovement helper; existing input, gravity, collider footprints, bounds and lifecycle stay owned by physics. App supplies world camera heading before fixed stepping. Tests verify a quarter-turn forward vector, preserved diagonal speed and invalid-heading fallback. Anshu retains subsequent physics ownership. No Three.js dependency/import enters physics.
+
+## User-authorized continuous building handoff — 14 Nov 2026
+
+Himamshu's user explicitly authorized the coordinated App/contracts/world/physics slice to remove Earth/Mars doorway teleports. Physics keeps exclusive pose ownership. Hollow station colliders now match the 3.2m half-size shared buildings at (-7,0), (7,0), (0,-9). Real walls/furniture and enabled closed-door colliders replace full solid boxes. Optional setDoorOpen and collision-respecting walkPath support animated door readiness and guided entry/exit. Manual input, blur, pause and reset cancel guided walking. The orbit cabin retains the legacy saved-pose hooks; Earth/Mars entry does not use them.
+
+Tests: 101 project tests pass, including all three station open/closed round trips, bounded per-step movement, sidewall blocking and pause cancellation. Typecheck/build pass. Browser confirms same-scene Earth/Mars entry and all three Mars exits, maximum sampled step approximately .05m. Guided routes use a central waypoint, not general pathfinding around furniture. Owner handoff: Anshu retains physics ownership after this slice; shared spatial constants/App wiring remain Rohit's. Integrate together with world meshes/docs to avoid mismatched colliders. No gravity or movement-speed redesign and no package changes.

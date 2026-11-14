@@ -5,6 +5,9 @@ import { createDustTexture, createSurfaceDetails } from './landscape';
 import { createSlidingDoor } from './doors';
 
 export interface StationVisual {
+  screens: THREE.MeshStandardMaterial[];
+  roof: THREE.Group;
+  walls: THREE.Mesh[];
   door: ReturnType<typeof createSlidingDoor>;
   group: THREE.Group;
   windows: THREE.MeshStandardMaterial;
@@ -18,106 +21,7 @@ export const STATION_NAMES: Record<StationId, string> = {
   habitat: 'Habitat', solar: 'Solar station', greenhouse: 'Greenhouse',
 };
 
-export function createStation(id: StationId, kit: ModelKit, resources: WorldResources): StationVisual {
-  const group = new THREE.Group();
-  group.name = id;
-  group.userData.stationId = id;
-  const { ivory, trim, dark, orange, blue, green, soil } = kit.materials;
-  const windows = resources.material(new THREE.MeshStandardMaterial({
-    color: '#93d8db', emissive: '#76c5cf', emissiveIntensity: .2, roughness: .35,
-  }));
-  const indicator = resources.material(new THREE.MeshStandardMaterial({
-    color: '#bce9b3', emissive: '#8ab982', emissiveIntensity: .3,
-  }));
-  const beacon = resources.material(new THREE.MeshStandardMaterial({
-    color: '#91d0a3', emissive: '#91d0a3', emissiveIntensity: .2,
-  }));
-  const shelterPanels: THREE.Mesh[] = [];
-  // All solid geometry remains within local X/Z +/-1.5, Y +/-1.
-  kit.box(group, trim, [2.98, .16, 2.98], [0, -.91, 0]);
-  if (id === 'habitat') {
-    for (const x of [-1.32, 1.32]) kit.box(group, ivory, [.16, 1.5, 2.8], [x, -.08, 0]);
-    kit.box(group, ivory, [2.8, 1.5, .16], [0, -.08, -1.32]);
-    for (const x of [-1.04, 1.04]) kit.box(group, ivory, [.72, 1.5, .16], [x, -.08, 1.32]);
-    kit.box(group, trim, [2.88, .18, 2.88], [0, .73, 0]);
-    kit.box(group, ivory, [2.6, .12, 2.6], [0, .88, 0]);
-    for (const x of [-.75, .75]) {
-      kit.box(group, trim, [.46, .045, .8], [x, .965, -.35]);
-      for (let z = -.6; z <= -.1; z += .16) kit.box(group, ivory, [.36, .02, .05], [x, .99, z]);
-    }
-    for (const x of [-1.35, 1.35]) kit.box(group, orange, [.08, 1.25, .045], [x, -.12, 1.44]);
-    for (const x of [-.91, .91]) {
-      kit.box(group, trim, [.63, .67, .06], [x, .04, 1.43]);
-      kit.box(group, windows, [.49, .5, .025], [x, .07, 1.475]);
-      const panel = kit.box(group, blue, [.65, .58, .025], [x, .07, 1.487]);
-      panel.scale.y = .01;
-      shelterPanels.push(panel);
-    }
-    kit.box(group, windows, [.04, .5, 1.1], [1.425, .1, 0]);
-    kit.box(group, indicator, [.42, .08, .04], [0, .49, 1.48]);
-  } else if (id === 'solar') {
-    // A solid battery plinth makes the existing full box collider readable.
-    kit.box(group, ivory, [2.8, 1.3, 2.8], [0, -.18, 0]);
-    kit.box(group, trim, [2.9, .13, 2.9], [0, .48, 0]);
-    kit.box(group, blue, [2.78, .14, 2.65], [0, .73, 0]);
-    for (let x = -1.1; x <= 1.11; x += .55) {
-      for (let z = -.99; z <= 1; z += .66) {
-        kit.box(group, windows, [.48, .025, .58], [x, .815, z]);
-      }
-    }
-    for (let x = -.95; x <= .96; x += .38) kit.box(group, trim, [.12, .65, .06], [x, -.14, 1.43]);
-    kit.box(group, orange, [.6, .3, .06], [.8, .17, 1.44]);
-    kit.box(group, indicator, [.36, .09, .025], [.8, .2, 1.485]);
-  } else {
-    kit.box(group, ivory, [2.85, .48, 2.85], [0, -.62, 0]);
-    const glass = resources.material(new THREE.MeshStandardMaterial({
-      color: '#8ed7c0', transparent: true, opacity: .18, depthWrite: false, roughness: .3,
-    }));
-    const profile = new THREE.Shape();
-    profile.moveTo(-1.4, -.38);
-    profile.lineTo(1.4, -.38);
-    profile.lineTo(1.4, .1);
-    profile.absellipse(0, .1, 1.4, .8, 0, Math.PI, false, 0);
-    profile.closePath();
-    const shell = new THREE.Mesh(resources.geometry(new THREE.ExtrudeGeometry(profile, {
-      depth: 2.8, bevelEnabled: false, curveSegments: 16,
-    })), glass);
-    shell.position.z = -1.4;
-    group.add(shell);
-    for (const z of [-1.42, 0, 1.42]) {
-      const points = Array.from({ length: 25 }, (_, i) => {
-        const angle = i / 24 * Math.PI;
-        return new THREE.Vector3(Math.cos(angle) * 1.4, .1 + Math.sin(angle) * .8, z);
-      });
-      const rib = new THREE.Mesh(resources.geometry(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 24, .035, 6, false)), ivory);
-      group.add(rib);
-      for (const x of [-1.4, 1.4]) kit.box(group, ivory, [.07, .48, .07], [x, -.14, z]);
-    }
-    kit.box(group, trim, [.08, .08, 2.9], [0, .9, 0]);
-    for (const x of [-.75, .75]) {
-      kit.box(group, soil, [.8, .24, 2.3], [x, -.23, 0]);
-      for (const z of [-.7, 0, .7]) {
-        kit.cylinder(group, trim, [.025, .45, .025], [x, .04, z]);
-        const leaf = kit.sphere(group, green, [.3, .12, .19], [x + .1, .2, z]);
-        leaf.rotation.z = .4;
-        const other = kit.sphere(group, green, [.27, .12, .2], [x - .13, .04, z]);
-        other.rotation.z = -.4;
-      }
-    }
-    kit.box(group, windows, [2.4, .045, .07], [0, .79, .8]);
-    kit.box(group, indicator, [.45, .09, .04], [0, -.5, 1.46]);
-  }
-  kit.cylinder(group, trim, [.035, .12, .035], [1.4, .86, 1.4]);
-  const lamp = kit.cylinder(group, beacon, [.07, .08, .07], [1.4, .94, 1.4]);
-  lamp.name = `${id}-beacon`;
-  const envelope = resources.geometry(new THREE.BoxGeometry(3.15, 2.1, 3.15));
-  const outline = resources.geometry(new THREE.EdgesGeometry(envelope));
-  const selection = new THREE.LineSegments(outline, resources.material(new THREE.LineBasicMaterial({ color: '#ffe0a2' })));
-  selection.visible = false;
-  // Selection is a non-solid annotation, not part of the collision/pick group.
-  const door = createSlidingDoor(kit, id); door.group.position.set(0, -.08, 1.44); door.group.scale.set(.95, .95, .6); group.add(door.group);
-  return { group, windows, indicator, beacon, shelterPanels, selection, door };
-}
+export { createBuilding as createStation } from './buildings';
 
 export function createGroundShadow(resources: WorldResources, width: number, depth: number): THREE.Mesh {
   const geometry = resources.geometry(new THREE.CircleGeometry(1, 24));
@@ -140,8 +44,8 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
   kit.flatBox(terrain, dust, [40, .2, 40], [0, -.1, 0]);
   kit.box(terrain, path, [12, .008, 2.1], [0, .004, 0]);
   kit.box(terrain, path, [2.1, .008, 11.8], [0, .004, -.1]);
-  const padGeometry = resources.geometry(new THREE.CircleGeometry(2.45, 48));
-  const rimGeometry = resources.geometry(new THREE.RingGeometry(2.35, 2.4, 48));
+  const padGeometry = resources.geometry(new THREE.CircleGeometry(4.5, 48));
+  const rimGeometry = resources.geometry(new THREE.RingGeometry(4.4, 4.45, 48));
   const rimMaterial = resources.material(new THREE.MeshBasicMaterial({ color: '#b9c9bd' }));
   for (const station of STATIONS) {
     const pad = new THREE.Mesh(padGeometry, path);

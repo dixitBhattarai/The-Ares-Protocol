@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { ModelKit, WorldResources } from './resources';
 
-export function dressRoom(room: THREE.Scene, kit: ModelKit, resources: WorldResources) {
+export function dressRoom(room: THREE.Object3D, kit: ModelKit, resources: WorldResources) {
   const steel = resources.material(new THREE.MeshStandardMaterial({ color: '#536973', metalness: .65, roughness: .4 }));
   const light = resources.material(new THREE.MeshBasicMaterial({ color: '#c2ede6' }));
   for (let x = -2.5; x <= 2.5; x++) for (let z = -2.5; z <= 2.5; z++) {

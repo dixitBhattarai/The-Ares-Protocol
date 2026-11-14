@@ -13,7 +13,7 @@ import { getActivity, advanceActivity, type Activity } from './features/game/act
 import PreparationPanel from './features/world/PreparationPanel.vue';
 import AssetCredits from './features/world/AssetCredits.vue';
 import DoorPanel from './features/world/DoorPanel.vue';
-import { atDoorThreshold, atRoomExit, doorApproach, nearbyDoor } from './features/world/doors';
+import { doorApproach, doorwayOccupied, insideStation, nearbyDoor } from './features/world/doors';
 import { advancePreparation, PREPARATION, type PreparationLevel } from './features/world/preflight';
 import { createMusic } from './features/world/music';
 
@@ -50,7 +50,7 @@ function beginPreparation(level: PreparationLevel) {
   preparation.value = level; preparationProgress.value = 0; preparationFeedback.value = ''; preparationPaused.value = false; nearConsole.value = false; remoteConsole = false;
   earthOutside.value = level === 'earth';
   world?.setLevel?.(level); world?.setEarthOutside?.(earthOutside.value); world?.setActivityProgress?.(0);
-  if (earthOutside.value) { physics?.reset?.({x:-5,y:.8,z:4}); setDoor('habitat',true); }
+  if (earthOutside.value) { const spawn=doorApproach('habitat');physics?.reset?.({...spawn,z:spawn.z+1});setDoor('habitat',true); }
   else physics?.enterInterior?.();
   physics?.resumeInput?.();
   stationMessage.value = level === 'earth' ? 'Earth preparation lab: walk to the console and complete your departure checks.' : 'Orbital cabin: establish the navigation link before continuing to Mars.';
@@ -58,14 +58,13 @@ function beginPreparation(level: PreparationLevel) {
 }
 function enterEarthLab(accessible = true) {
   if (preparation.value !== 'earth' || preparationPaused.value || !earthOutside.value) return;
-  if (accessible) { physics?.reset?.(doorApproach('habitat')); setDoor('habitat',true); }
-  physics?.enterInterior?.(); earthOutside.value = false; world?.setEarthOutside?.(false);
-  preparationFeedback.value = 'Inside the training lab. Walk to the numbered back-wall console.';
+  if (accessible) {setDoor('habitat',true);physics?.resumeInput?.();const station=STATIONS.find(station=>station.id==='habitat')!;physics?.walkPath?.([doorApproach('habitat'),{x:station.position.x,y:.8,z:station.position.z}]);}
+  preparationFeedback.value = 'Walking into the training lab. Manual movement cancels guided walking.';
 }
 function leaveEarthLab() {
   if (preparation.value !== 'earth' || preparationPaused.value || earthOutside.value) return;
-  physics?.exitInterior?.(); physics?.reset?.(doorApproach('habitat')); earthOutside.value = true; world?.setEarthOutside?.(true);
-  preparationFeedback.value = 'Outside on Earth. Drag to look around; the striped lab door is behind you.';
+  setDoor('habitat',true);physics?.resumeInput?.();const station=STATIONS.find(station=>station.id==='habitat')!;physics?.walkPath?.([{x:station.position.x,y:.8,z:station.position.z+2},doorApproach('habitat')]);
+  preparationFeedback.value = 'Walking back outdoors through the same doorway.';
 }
 function togglePreparationPause() { preparationPaused.value = !preparationPaused.value; music?.setPaused(preparationPaused.value); if (preparationPaused.value) physics?.pauseInput?.(); else physics?.resumeInput?.(); }
 function operatePreparation(control: string) {
@@ -87,21 +86,23 @@ function operatePreparation(control: string) {
 function finishArrival() {
   flightProgress.value = null; world?.setJourney?.(null);
   if (!orbitComplete) { beginPreparation('space'); return; }
-  arrivalComplete = true; music?.select('mars'); stationMessage.value = 'Landed on Mars. Choose a shift job, then walk to its module.'; dispatch({ type: 'START' });
+  arrivalComplete = true;physics?.reset?.({x:0,y:.8,z:6});music?.select('mars'); stationMessage.value = 'Landed on Mars. Choose a shift job, then walk to its module.'; dispatch({ type: 'START' });
 }
 function setDoor(id: StationId, open: boolean) { doorsOpen.value = { ...doorsOpen.value, [id]: open }; doorReady.value = false; world?.setDoorState?.(id, open); }
 function toggleDoor() {
   if (state.value.phase !== 'running') return;
   const id = interior.value ?? nearby.value;
   if (!id) return;
+  if(doorsOpen.value[id] && doorwayOccupied(physics!.getPlayerPose(),id)) {stationMessage.value='Step clear of the doorway before closing it.';return;}
   setDoor(id, !doorsOpen.value[id]);
   stationMessage.value = `${id} door ${doorsOpen.value[id] ? 'opening — walk through when ready' : 'closed'}.`;
 }
 function leaveModule() {
   const id = interior.value;
-  physics?.exitInterior?.(); world?.setInterior?.(null); interior.value = null;
-  if (id) { setDoor(id, true); physics?.reset?.(doorApproach(id)); nearby.value = id; }
-  if (state.value.phase === 'running') physics?.resumeInput?.();
+  if(!id || state.value.phase!=='running')return;
+  setDoor(id,true);physics?.resumeInput?.();const station=STATIONS.find(station=>station.id===id)!;
+  physics?.walkPath?.([{x:station.position.x,y:.8,z:station.position.z+2},doorApproach(id)]);
+  stationMessage.value='Walking out through the door. Use WASD to take control.';
 }
 function travelToDoor(id: StationId) {
   if (state.value.phase !== 'running') return;
@@ -111,7 +112,6 @@ function travelToDoor(id: StationId) {
 }
 function cancelActivity() {
   soundFX.playRestart();
-  leaveModule();
   activeActivity.value = null;
   activityProgress.value = 0;
   world?.setActivityProgress?.(0);
@@ -121,9 +121,9 @@ function enterModule(id: StationId | null = nearby.value) {
   if (state.value.phase !== 'running' || interior.value) return;
   if (!id || nearby.value !== id) { activityFeedback.value = 'Walk closer to the door first, or use accessible travel.'; return; }
   if (!doorsOpen.value[id] || !(world?.isDoorOpen?.(id) ?? true)) { stationMessage.value = 'Open the door and let it finish sliding first.'; return; }
-  interior.value = id; physics?.enterInterior?.(); world?.setInterior?.(id); activityFeedback.value = 'Use the station computer to play the three minigame checks.';
-  if (!activeActivity.value) deckVisible.value = false;
-  stationMessage.value = `Inside the ${id}. Explore freely; open the front door and walk out, or use Exit room.`;
+  physics?.resumeInput?.();const station=STATIONS.find(station=>station.id===id)!;
+  physics?.walkPath?.([doorApproach(id),{x:station.position.x,y:.8,z:station.position.z}]);
+  stationMessage.value=`Walking through the ${id} doorway.`;
 }
 function travelToTask() {
   if (!activeActivity.value || state.value.phase !== 'running') return;
@@ -194,7 +194,7 @@ function dispatch(action: GameAction, procedureComplete = false) {
     world?.setObjective?.(activeActivity.value.station);
     return;
   }
-  if (action.type === 'RESTART') { cancelActivity(); for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; orbitComplete = false; arrivalComplete = false; flightProgress.value = null; world?.setJourney?.(null); world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
+  if (action.type === 'RESTART') { cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; orbitComplete = false; arrivalComplete = false; flightProgress.value = null; world?.setJourney?.(null); world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
   if (action.type === 'PAUSE' && state.value.phase === 'running') music?.setPaused(true);
   if (action.type === 'RESUME' && state.value.phase === 'paused') music?.setPaused(false);
   const previousState = state.value;
@@ -259,14 +259,14 @@ function pauseWhenHidden() {
 let lastCheckedPose = { x: 999, y: 999, z: 999 };
 function checkStationProximity(pose: Vec3) {
   if (preparation.value || flightProgress.value !== null || state.value.phase !== 'running') return;
-  if (interior.value) {
-    const id = interior.value;
-    nearby.value = null;
-    if (doorsOpen.value[id] && (world?.isDoorOpen?.(id) ?? true) && atRoomExit(pose)) leaveModule();
-    return;
+  const inside=insideStation(pose);
+  if(inside!==interior.value) {
+    interior.value=inside;world?.setInterior?.(inside);
+    if(inside && !activeActivity.value)deckVisible.value=false;
+    stationMessage.value=inside?`Inside the ${inside}. Walk back through the same door to leave.`:'Outside on Mars. Your position stays in the same world.';
   }
+  if(inside){nearby.value=null;return;}
   nearby.value = nearbyDoor(pose);
-  if (nearby.value && doorsOpen.value[nearby.value] && atDoorThreshold(pose, nearby.value)) enterModule(nearby.value);
   if (currentSelectedStation) return;
   const dx = pose.x - lastCheckedPose.x;
   const dz = pose.z - lastCheckedPose.z;
@@ -294,7 +294,10 @@ function handleGlobalKeydown(event: KeyboardEvent) {
   if (preparation.value && event.code === 'KeyP') { togglePreparationPause(); return; }
   if (preparation.value === 'earth' && event.code === 'KeyE') {
     event.preventDefault();
-    if (!event.repeat && !preparationPaused.value && (!earthOutside.value || nearbyDoor(physics!.getPlayerPose()) === 'habitat')) setDoor('habitat',!doorsOpen.value.habitat);
+    if (!event.repeat && !preparationPaused.value && (!earthOutside.value || nearbyDoor(physics!.getPlayerPose()) === 'habitat')) {
+      if(doorsOpen.value.habitat && doorwayOccupied(physics!.getPlayerPose(),'habitat'))preparationFeedback.value='Step clear of the doorway before closing it.';
+      else setDoor('habitat',!doorsOpen.value.habitat);
+    }
     return;
   }
   if (event.code === 'KeyE') { event.preventDefault(); if (!event.repeat) toggleDoor(); return; }
@@ -398,13 +401,14 @@ onMounted(async () => {
         accumulator = 0;
       }
       let pose = physics!.getPlayerPose();
-      nearConsole.value = !earthOutside.value && pose.z < -.4;
-      if (preparation.value === 'earth' && !preparationPaused.value && doorsOpen.value.habitat && (world!.isDoorOpen?.('habitat') ?? true)) {
-        if (earthOutside.value && atDoorThreshold(pose,'habitat')) enterEarthLab(false);
-        else if (!earthOutside.value && atRoomExit(pose)) leaveEarthLab();
-      }
+      if (preparation.value === 'earth') {
+        const outside=insideStation(pose)!=='habitat';
+        if(outside!==earthOutside.value){earthOutside.value=outside;world!.setEarthOutside?.(outside);}
+        const lab=STATIONS.find(station=>station.id==='habitat')!;
+        nearConsole.value=!outside && Math.abs(pose.x-lab.position.x)<2.6 && pose.z<lab.position.z-1;
+      } else nearConsole.value=pose.z<-.4;
       checkStationProximity(pose);
-      pose = physics!.getPlayerPose(); // A doorway transition may have changed the physics-owned pose.
+      pose = physics!.getPlayerPose();
       world!.setPlayerPose(pose);
       world!.setState(state.value);
       if (state.value.phase === 'running') {
@@ -414,6 +418,7 @@ onMounted(async () => {
       } else if (state.value.phase !== 'paused') {world!.setAvailableTasks?.([], '');lastTaskNotice='';}
       world!.setMotionPaused?.(preparationPaused.value || state.value.phase === 'paused');
       world!.render();
+      for(const station of STATIONS)physics!.setDoorOpen?.(station.id,doorsOpen.value[station.id] && (world!.isDoorOpen?.(station.id) ?? true));
       const doorId = interior.value ?? nearby.value;
       doorReady.value = !!doorId && (world!.isDoorOpen?.(doorId) ?? doorsOpen.value[doorId]);
       frame = requestAnimationFrame(tick);
