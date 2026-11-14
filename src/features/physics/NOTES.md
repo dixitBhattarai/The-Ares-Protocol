@@ -67,3 +67,19 @@ Tests: 101 project tests pass, including all three station open/closed round tri
 ## Keyboard focus fix — 14 Nov 2026
 
 Movement keys are ignored only in text-entry controls, not on focused buttons. This keeps WASD/arrows usable while focus remains on station or command-deck buttons, while retaining protection against typing into inputs, textareas, selects and editable content. Added a focused regression test for WASD on a focused button. Validation: `npm run typecheck`, `npm test` (119 tests) and `npm run build` passed; the build retains the existing large-chunk warning. Manual browser checks were not run for this small input-routing change.
+
+## Spacecraft flight sim port — 14 Nov 2026
+
+Added `src/features/physics/spacecraft/` (orbit/attitude/propulsion/power/thermal/life-support/comms/landing simulation, ported from the standalone backend; no server code). Separate from the astronaut controller; `PhysicsAdapter` is unchanged. Full usage, folder map and replacement guide: `spacecraft/INTEGRATION.md`. Entry point `createSpacecraftSim()` in `spacecraft/index.ts`; typings via `simulation/SimulationEngine.d.ts` (no `allowJs`). Tests: `spacecraft/spacecraft.test.ts` (written, not yet run).
+
+Wired (user-requested coordinated edit to Rohit's `App.vue`): Earth ascent, compressed transfer and Mars powered descent create/step/dispose the sim and show a live flight-computer readout. Launch and landing prompts send throttle and attitude commands; stage progress remains authored and time-based. An additive optional `WorldAdapter.setFlightStage` drives the launch and landing visuals. Rohit to review/own. Further request: optionally pass `getSnapshot()` to the HUD/world for richer instrumentation. Gaps: Rapier contact backend untested and needs a dependency (analytic backend is the default); leftover `RoguelikeDirector`/`OutpostSystem` are removable.
+
+## Earth ascent and Mars powered-descent presets — 14 Nov 2026
+
+- Added `EARTH_LAUNCH_ASCENT` and `MARS_POWERED_DESCENT` profiles to the bundled deterministic flight sim. The App's launch/landing prompts send authored throttle and attitude commands and display the sim's propellant, altitude, speed and delta-v snapshot.
+- Completed the sim wiring needed by the new profiles: preset propulsion factories now reach the spacecraft, the RK4 derivative context matches the current spacecraft API, the event bus receives a callable simulation clock, and surface inertia/contact torque use the spacecraft's actual dimensions and attitude APIs.
+- These presets are tuned for a short demo sequence, not a verified launch vehicle, real Mars trajectory, parachute deployment or operational landing. The existing optional contact/Rapier backend remains out of scope; landing completion is the game sequence's authored touchdown.
+- User-requested coordinated slice also changes shell/contracts/world/game/UI paths; this is a recorded temporary integration handoff. Anshu retains subsequent physics ownership.
+- Validation: all five `spacecraft.test.ts` checks pass, including caller-stepped simulation, finite burn telemetry, Earth ascent propellant use and Mars descent preset initialization. `npm run typecheck` and `npm run build` pass. Full `npm test`: 118 passed, with one unrelated existing `jump.test.ts` failure (`window` is undefined in Vitest's Node environment). Live browser verification was blocked before navigation by unsupported URL policy enforcement in the Windows browser tool. Rapier contact remains disabled by default; the game's final touchdown remains an authored sequence.
+
+Backup integration: Earth/Mars jump test now runs with a complete mock performance clock (141 total tests pass). Space ignores button/summary/link activation, WASD remains active on focused buttons, blur/pause clears jump requests. Orbit gravity is effective cabin-controller acceleration. See docs/MERGE_LOG.md for spacecraft validation limits.

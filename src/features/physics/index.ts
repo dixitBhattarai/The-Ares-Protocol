@@ -1,10 +1,30 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import { BUILDING_HALF_SIZE, DOOR_HALF_WIDTH, STATIONS } from '../../contracts';
-import type { PhysicsAdapter, StationId, Vec3 } from '../../contracts';
+import type { GravityBody, GravityInfo, PhysicsAdapter, StationId, Vec3 } from '../../contracts';
 
 // Documented Mars surface gravity: 3.72076 m/s² ~ 3.72 m/s² downward.
 // Citation: Williams, D. R. (2024), "Mars Fact Sheet", NASA Goddard Space Flight Center / NSSDC.
 export const MARS_GRAVITY = 3.72076;
+// Standard gravity (CGPM 1901): 9.80665 m/s². Orbit cabin: free fall, so no weight (0 m/s²).
+export const EARTH_GRAVITY = 9.80665;
+export const GRAVITY_BY_BODY: Readonly<Record<GravityBody, number>> = { earth: EARTH_GRAVITY, orbit: 0, mars: MARS_GRAVITY };
+// Same leg-push take-off speed everywhere, so only gravity changes the height.
+// Tune the whole jump feel here: Earth jump height in metres. The astronaut is ~1.55 m tall (world attaches the model at 1.55 m;
+// collider is 1.6 m). 0.3 m is a heavy-spacesuit jump (a bare-handed standing jump is ~0.5 m), which also keeps Mars (~0.8 m,
+// about half the body height) believable next to the character.
+export const EARTH_JUMP_HEIGHT_M = 0.3;
+export const JUMP_SPEED = Math.sqrt(2 * EARTH_GRAVITY * EARTH_JUMP_HEIGHT_M);
+
+export function describeGravity(body: GravityBody): GravityInfo {
+  const g = GRAVITY_BY_BODY[body];
+  return {
+    body,
+    gravityMS2: g,
+    relativeToEarth: g / EARTH_GRAVITY,
+    jumpHeightM: g > 0 ? (JUMP_SPEED * JUMP_SPEED) / (2 * g) : 0,
+    canJump: g > 0,
+  };
+}
 
 export const BOUNDARY_MIN = -18;
 export const BOUNDARY_MAX = 18;
@@ -109,12 +129,20 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   let outsidePose: Vec3 | undefined;
   let cameraYaw = 0;
   let walkingPath: Vec3[] = [];
+  let gravityBody: GravityBody = 'mars';
+  let jumpRequested = false;
 
   const keyDown = (event: KeyboardEvent) => {
     if (isDisposed || isInputPaused) return;
     if ((event.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')) return;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) {
       event.preventDefault();
+    }
+    if (event.code === 'Space') {
+      if((event.target as HTMLElement|null)?.closest?.('button,summary,a'))return;
+      event.preventDefault();
+      if (!event.repeat) jumpRequested = true;
+      return;
     }
     if (MOVEMENT_KEY_CODES.has(event.code)) {
       walkingPath=[];
@@ -130,6 +158,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   const clearKeys = () => {
     pressed.clear();
     walkingPath=[];
+    jumpRequested=false;
   };
 
   const visibilityChange = () => {
@@ -151,6 +180,13 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   }
 
   return {
+    setGravityBody(next) {
+      if (isDisposed || !(next in GRAVITY_BY_BODY)) return;
+      gravityBody = next;
+      world.gravity = { x: 0, y: -GRAVITY_BY_BODY[next], z: 0 };
+      jumpRequested = false;
+    },
+    getGravityInfo() { return describeGravity(gravityBody); },
     setDoorOpen(station,open) { if(isDisposed||doorStates.get(station)===open)return;doorStates.set(station,open);doors.get(station)?.setEnabled(!open); },
     walkPath(points) { if(isDisposed||isInputPaused)return;pressed.clear();walkingPath=points.filter(point=>[point.x,point.y,point.z].every(Number.isFinite)).map(point=>({...point})); },
     setCameraYaw(yaw) { cameraYaw = Number.isFinite(yaw) ? yaw : 0; },
@@ -166,7 +202,11 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       }
       const { vx, vz } = isInputPaused ? { vx: 0, vz: 0 } : movement;
       const curLinvel = body.linvel();
-      body.setLinvel({ x: vx, y: curLinvel.y, z: vz }, true);
+      let vy = curLinvel.y;
+      const onGround = body.translation().y <= GROUND_Y + 0.03 && Math.abs(curLinvel.y) < 0.1;
+      if (jumpRequested && onGround && !isInputPaused && !walkingPath.length && GRAVITY_BY_BODY[gravityBody] > 0) vy = JUMP_SPEED;
+      jumpRequested = false;
+      body.setLinvel({ x: vx, y: vy, z: vz }, true);
 
       world.timestep = dt;
       world.step();
@@ -206,6 +246,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
     },
     pauseInput() {
       walkingPath=[];
+      jumpRequested = false;
       if (isDisposed) return;
       isInputPaused = true;
       clearKeys();

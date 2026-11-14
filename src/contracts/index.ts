@@ -154,12 +154,26 @@ export interface WorldAdapter {
   setJourney?(progress: number | null): void;
   setObjective?(station: StationId | null): void;
   setActivityProgress?(progress: number): void;
+  setFlightStage?(stage: FlightStage | null, progress: number): void;
   setPlayerPose(pose: Vec3): void;
   setState(state: Readonly<GameState>): void;
   render(): void;
   dispose(): void;
 }
+export type GravityBody = 'earth' | 'orbit' | 'mars';
+export type FlightStage = 'launch' | 'orbit-autopilot' | 'transfer' | 'landing' | 'touchdown';
+export type FlightControlKey = 'KeyW' | 'KeyA' | 'KeyS' | 'KeyD' | 'Space';
+export interface FlightControlStep { key: FlightControlKey; action: string; explanation: string }
+export interface GravityInfo {
+  body: GravityBody;
+  gravityMS2: number;
+  relativeToEarth: number;
+  jumpHeightM: number;
+  canJump: boolean;
+}
 export interface PhysicsAdapter {
+  setGravityBody?(body: GravityBody): void;
+  getGravityInfo?(): GravityInfo;
   setDoorOpen?(station: StationId, open: boolean): void;
   walkPath?(points: readonly Vec3[]): void;
   setCameraYaw?(yaw: number): void;
