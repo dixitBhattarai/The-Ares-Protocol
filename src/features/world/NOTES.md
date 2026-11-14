@@ -337,3 +337,12 @@ Make the entire Mars colony breathtaking, immersive, realistic, and professional
   - **Life-Support & Environmental Hazards**: Real-time outdoor suit safety and oxygen depletion simulation, accelerated during active dust/radiation hazards. Entering the pressurized airlock triggers rapid suit pressure replenishment and oxygen recovery.
   - **Non-Obtrusive EVA HUD**: Accessible HUD status bar displaying tether length, tension, suit integrity %, and oxygen levels with dynamic alert animations.
 - Validation: 28 test suites, 162 passing tests in Vitest including dedicated `tether.test.ts`. `npm run typecheck` and `npm run build` pass with zero errors. All building envelope constraints ($x, z \in [-3.3001, 3.3001], y \in [-1.1001, 2.3001]$) and door interactions preserved.
+
+## Rocket cabin and outside-window scenery handoff — 14 November 2026
+
+- `src/features/world/interiors.ts`: authored capsule ribs, lockers, NAV / TRAJ / COMMS stations, pilot seat, harness and seat marker.
+- `src/features/world/expedition.ts`: added a wide forward cabin window with a locally rendered starfield and Earth, Moon, Sun, Mars, Venus and Jupiter. The bodies drift slowly while the cabin is active, including while the astronaut is seated with engines idle. Pause, hidden-tab inactivity and reduced-motion settings freeze the view. Expanded the existing forward cockpit orbit/transfer view to show 2,200 stars plus moving Earth, Moon, Sun, Mars and neighboring planets as the vehicle travels.
+- `src/features/world/index.ts` and `src/contracts/index.ts`: expose the additive cabin seat state and shared seat position; App still owns progression and proximity.
+- `src/features/world/preflight.ts`: identifies the existing space tasks as Ares flight-cabin work. `src/features/world/ROCKET_CABIN_HANDOFF.md` records the explicit handoff.
+- Seat completion does not launch transfer automatically: after buckling in, the player may watch the window and uses the separate “Begin Mars transfer” action when ready.
+- Validation: not run at the user's request; user will test. No new package or external asset was added. Planet sizes, arrangement and drift are authored scenery; the view is educational illustration, not a physically scaled trajectory. Rohit retains subsequent App/contracts integration ownership; Anshu retains physics ownership; Dixit retains UI ownership; Himamshu retains world ownership.
