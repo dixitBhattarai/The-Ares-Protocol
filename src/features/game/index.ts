@@ -14,7 +14,7 @@ export function getUpcomingHazardNotice(mission: MissionData, turn: number): str
   if (!mission.events.length) return undefined;
   const currentEvent = mission.events[turn % mission.events.length];
   if (currentEvent?.hazard) {
-    return `⚠️ Space Weather Alert: Severe storm event active! Shielding of ${currentEvent.hazard.minShielding} required to mitigate damage.`;
+    return `⚠️ Space Weather Alert: Severe storm event active! Solar storm strike imminent; shielding of ${currentEvent.hazard.minShielding} required to mitigate damage.`;
   }
   const nextEvent = mission.events[(turn + 1) % mission.events.length];
   if (nextEvent?.hazard) {
