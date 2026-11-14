@@ -35,7 +35,7 @@ export function createGroundShadow(resources: WorldResources, width: number, dep
 
 export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.Group {
   const terrain = new THREE.Group();
-  const dust = resources.material(new THREE.MeshStandardMaterial({ map: createDustTexture(resources), color: '#b8a797', roughness: 1 }));
+  const dust = resources.material(new THREE.MeshStandardMaterial({ map: createDustTexture(resources), color: '#d5b4a0', roughness: 1 }));
   const desert = resources.material(new THREE.MeshStandardMaterial({ color: '#985039', roughness: 1 }));
   const path = resources.material(new THREE.MeshStandardMaterial({ color: '#495351', roughness: .95 }));
   const paint = resources.material(new THREE.MeshBasicMaterial({ color: '#e5cfaa', transparent: true, opacity: .65 }));

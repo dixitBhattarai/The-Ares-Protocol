@@ -4,9 +4,10 @@ import type { StationVisual } from './models';
 import type { ModelKit, WorldResources } from './resources';
 import { createSlidingDoor } from './doors';
 import { dressRoom, furnishRoom } from './interiors';
+import { createWorkMachines } from './work-machines';
 
 /** Hollow, furnished buildings in world coordinates; no separate room scene is needed. */
-export function createBuilding(id:StationId,kit:ModelKit,resources:WorldResources):StationVisual {
+export function createBuilding(id:StationId,kit:ModelKit,resources:WorldResources,work=true):StationVisual {
   const group=new THREE.Group();group.name=id;group.userData.stationId=id;
   const room=new THREE.Group();room.position.y=-1;group.add(room);
   const windows=resources.material(new THREE.MeshStandardMaterial({color:'#96dcca',emissive:'#76c5cf',emissiveIntensity:.2,roughness:.4}));
@@ -35,10 +36,23 @@ export function createBuilding(id:StationId,kit:ModelKit,resources:WorldResource
     }
   });
   const equipment=new THREE.Group();room.add(equipment);furnishRoom(equipment,id,kit,screens,steel);
+  if(work)createWorkMachines(id,room,kit,resources);
+  const accent={habitat:'#ffbd78',solar:'#a8dfff',greenhouse:'#94edac'}[id];
+  const practical=new THREE.PointLight(accent,7,7,2);practical.position.set(0,2.2,.4);room.add(practical);
+  const lamp=resources.material(new THREE.MeshBasicMaterial({color:accent}));
+  for(const x of [-2.4,2.4])kit.flatBox(room,lamp,[.08,.05,5.2],[x,2.36,0]);
+  if(typeof document!=='undefined'){
+    const canvas=document.createElement('canvas');canvas.width=512;canvas.height=96;const ctx=canvas.getContext('2d');
+    if(ctx){ctx.fillStyle='#162b36';ctx.fillRect(0,0,512,96);ctx.font='bold 40px sans-serif';ctx.textAlign='center';ctx.fillStyle=accent;ctx.fillText({habitat:'01  HABITAT',solar:'02  SOLAR',greenhouse:'03  GREENHOUSE'}[id],256,62);
+      const texture=resources.texture(new THREE.CanvasTexture(canvas));texture.colorSpace=THREE.SRGBColorSpace;
+      kit.flatBox(room,resources.material(new THREE.MeshBasicMaterial({map:texture})),[2.8,.48,.035],[0,2.45,h+.025]);
+    }
+  }
   const roof=new THREE.Group();room.add(roof);
   kit.flatBox(roof,kit.materials.trim,[6.45,.16,6.45],[0,2.7,0]);
+  const panelMaterial=id==='solar'?resources.material(new THREE.MeshStandardMaterial({color:'#23475d',metalness:.65,roughness:.24})):kit.materials.blue;
   if(id==='solar')for(const x of [-1.6,1.6]) {
-    kit.box(roof,kit.materials.blue,[2.8,.08,5.7],[x,2.83,0]);
+    kit.box(roof,panelMaterial,[2.8,.08,5.7],[x,2.83,0]);
     for(let z=-2.5;z<2.6;z+=.6)kit.flatBox(roof,windows,[2.65,.02,.48],[x,2.89,z]);
   }
   if(id==='greenhouse')kit.sphere(roof,windows,[2.8,.38,2.8],[0,2.85,0]);
