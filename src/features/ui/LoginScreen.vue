@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import * as THREE from 'three';
 import earthTextureUrl from '../../assets/earth_atmos_2048.jpg';
 import cloudsTextureUrl from '../../assets/earth_clouds_1024.png';
 import moonTextureUrl from '../../assets/moon_1024.jpg';
+import { soundFX } from '../game/audio';
 
 const emit = defineEmits<{ start: [] }>();
 
@@ -12,7 +13,29 @@ const showSettings = ref(false);
 const showCredits = ref(false);
 
 const soundVolume = ref(80);
+const soundMuted = ref(!soundFX.enabled);
 const highQuality = ref(true);
+
+watch(soundVolume, (newVol) => {
+  if (newVol === 0) {
+    soundMuted.value = true;
+    soundFX.enabled = false;
+  } else {
+    soundMuted.value = false;
+    soundFX.enabled = true;
+  }
+});
+
+watch(soundMuted, (muted) => {
+  soundFX.enabled = !muted;
+  if (!muted && soundVolume.value === 0) {
+    soundVolume.value = 80;
+  }
+});
+
+function testAudioBeep() {
+  soundFX.playDecision();
+}
 
 let renderer: THREE.WebGLRenderer | null = null;
 let scene: THREE.Scene | null = null;
@@ -207,14 +230,30 @@ onBeforeUnmount(() => {
         <h2 class="modal-title">MISSION SETTINGS</h2>
         
         <div class="setting-row">
-          <label for="volumeRange">Comm Audio Volume: {{ soundVolume }}%</label>
+          <div class="setting-header-row">
+            <label for="volumeRange">Comm Audio Volume: {{ soundMuted ? 'Muted' : `${soundVolume}%` }}</label>
+            <button
+              type="button"
+              class="test-sound-btn"
+              title="Test audio beacon"
+              @click="testAudioBeep"
+            >
+              🔊 Test Tone
+            </button>
+          </div>
           <input
             id="volumeRange"
-            v-model="soundVolume"
+            v-model.number="soundVolume"
             type="range"
             min="0"
             max="100"
+            :disabled="soundMuted"
           />
+        </div>
+
+        <div class="setting-row checkbox-row">
+          <input id="muteCheck" v-model="soundMuted" type="checkbox" />
+          <label for="muteCheck">Mute All Outpost Synthesizer Audio</label>
         </div>
 
         <div class="setting-row checkbox-row">
@@ -429,6 +468,30 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 0.6rem;
   color: #e2e8f0;
+}
+
+.setting-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.test-sound-btn {
+  padding: 4px 10px;
+  background: #1c303c;
+  border: 1px solid #4a6677;
+  border-radius: 6px;
+  color: #d0e4ee;
+  font-family: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.test-sound-btn:hover {
+  background: #284455;
+  color: #ffffff;
+  border-color: #ff9800;
 }
 
 .setting-row input[type="range"] {
