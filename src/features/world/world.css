@@ -8,7 +8,13 @@
 .ares-world__label[data-level='low'] { border-bottom: 3px solid #f1b45d; }
 .ares-world__label[data-level='critical'] { border-bottom: 3px solid #ef8d72; }
 .ares-world__readout { display: block; margin-top: 2px; font-size: 10px; font-weight: 400; white-space: normal; }
-.ares-world__phase { position: absolute; top: 12px; right: 16px; padding: 4px 7px; border: 1px solid #edce9c50; border-radius: 4px; background: #26333bdd; color: #f7dfb8; font: 600 9px/1.3 system-ui, sans-serif; letter-spacing: .06em; pointer-events: none; }
+.ares-world__status { position: absolute; top: 12px; right: 16px; display: flex; align-items: flex-start; gap: 5px; z-index: 2; }
+.ares-world__phase { padding: 4px 7px; border: 1px solid #edce9c50; border-radius: 4px; background: #26333bdd; color: #f7dfb8; font: 600 9px/1.3 system-ui, sans-serif; letter-spacing: .06em; pointer-events: none; }
+.ares-world__event { position: relative; color: #ffe1ad; }
+.ares-world__event summary { list-style: none; padding: 4px 7px; border: 1px solid #efbd7d; border-radius: 4px; background: #3a302a; cursor: pointer; font: 700 9px/1.3 system-ui, sans-serif; }
+.ares-world__event summary::-webkit-details-marker { display: none; }
+.ares-world__event summary:focus-visible { outline: 3px solid #fff0af; outline-offset: 3px; }
+.ares-world__event p { position: absolute; right: 0; top: calc(100% + 6px); width: min(280px, calc(100vw - 32px)); margin: 0; padding: 12px; border: 1px solid #efbd7d; border-radius: 8px; background: #26333bf8; box-shadow: 0 4px 15px #241e2440; color: #fff1cf; font: 12px/1.5 system-ui, sans-serif; overflow-wrap: anywhere; }
 .ares-world--compact-labels .ares-world__label { width: calc(33.333% - 8px); }
 .ares-world--compact-labels .ares-world__label::after { display: none; }
 .ares-world__you { position: absolute; padding: 2px 4px; transform: translate(-50%, -100%); border: 1px solid #ffe4a2; border-radius: 4px; background: #26333bed; color: #ffe4a2; font: 700 10px/1.2 system-ui, sans-serif; pointer-events: none; }
@@ -20,6 +26,7 @@
   .ares-world__heading { top: 8px; left: 10px; font-size: 9px; }
   .ares-world__heading span { font-size: 8px; }
   .ares-world__label { padding: 4px; font-size: 11px; }
-  .ares-world__phase { top: 8px; right: 10px; font-size: 8px; }
+  .ares-world__status { top: 8px; right: 10px; }
+  .ares-world__phase, .ares-world__event summary { font-size: 8px; }
   .ares-world__hint { left: 10px; font-size: 11px; }
 }
