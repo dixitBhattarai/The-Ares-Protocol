@@ -15,8 +15,7 @@ defineEmits<{ control: [value: string]; travel: []; enter: []; exit: []; cancel:
       <button @click="$emit('travel')">Accessible travel to task door</button>
     </template>
     <template v-else>
-      <p>Use the station computer to finish three short checks. Every control works with keyboard or touch.</p>
-      <StationMinigame :station="station" :progress="progress" :paused="paused" @complete="stage => stage === progress && $emit('control', steps[stage])" />
+      <StationMinigame :station="station" :title="title" :progress="progress" :paused="paused" @complete="stage => stage === progress && $emit('control', steps[stage])" />
       <details><summary>Procedure notes</summary><ol><li v-for="(step, i) in steps" :key="step" :class="{ done: i < progress }">{{ i < progress ? '✓ ' : '' }}{{ step }}</li></ol></details>
       <button @click="$emit('exit')">Exit module</button>
     </template>
