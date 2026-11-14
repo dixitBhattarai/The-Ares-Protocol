@@ -4,10 +4,37 @@ import type { GameState, MissionData, ResourceId } from '../../contracts';
 
 const props = defineProps<{ state: Readonly<GameState>; mission: MissionData }>();
 const hudTarget = ref<string | HTMLElement>('body');
+const hazardToastElement = ref<HTMLElement | null>(null);
+let gameViewport: HTMLElement | null = null;
+let driftFrame = 0;
+let targetDriftX = 0;
+let targetDriftY = 0;
+let currentDriftX = 0;
+let currentDriftY = 0;
+let reduceMotionQuery: MediaQueryList | null = null;
+
+const driftLayers = [
+  { name: 'header', x: .08, y: .1 },
+  { name: 'shift', x: .16, y: .13 },
+  { name: 'reserves', x: -.12, y: .2 },
+  { name: 'science', x: .08, y: -.1 },
+  { name: 'shelter', x: .14, y: .07 },
+  { name: 'feedback', x: -.11, y: .08 },
+  { name: 'delayed', x: .06, y: -.12 },
+];
 
 onMounted(() => {
-  const gameScreen = document.querySelector<HTMLElement>('.world-panel .viewport');
-  if (gameScreen) hudTarget.value = gameScreen;
+  gameViewport = document.querySelector<HTMLElement>('.world-panel .viewport');
+  if (!gameViewport) return;
+  hudTarget.value = gameViewport;
+  if (typeof window.matchMedia === 'function') {
+    reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    reduceMotionQuery.addEventListener('change', onMotionPreferenceChange);
+  }
+  if (!reduceMotionQuery?.matches) {
+    gameViewport.addEventListener('pointermove', onViewportPointerMove, { passive: true });
+    gameViewport.addEventListener('pointerleave', resetViewportPointer, { passive: true });
+  }
 });
 
 const resourceInfo: Record<ResourceId, { label: string }> = {
@@ -163,10 +190,85 @@ onUnmounted(() => {
   for (const timer of Object.values(reserveTimers)) if (timer) clearTimeout(timer);
   for (const timer of Object.values(statPopTimers)) if (timer) clearTimeout(timer);
   if (hazardTimer) clearTimeout(hazardTimer);
+  if (gameViewport) {
+    gameViewport.removeEventListener('pointermove', onViewportPointerMove);
+    gameViewport.removeEventListener('pointerleave', resetViewportPointer);
+    for (const layer of driftLayers) {
+      gameViewport.style.removeProperty(`--hud-${layer.name}-x`);
+      gameViewport.style.removeProperty(`--hud-${layer.name}-y`);
+    }
+  }
+  reduceMotionQuery?.removeEventListener('change', onMotionPreferenceChange);
+  if (driftFrame) window.cancelAnimationFrame(driftFrame);
+  if (hazardToastElement.value) hazardToastElement.value.style.translate = '';
 });
 
 function meterText(value: number, level: string): string {
   return `${value} of 100 simplified game units. ${level} reserve.`;
+}
+
+function onViewportPointerMove(event: PointerEvent): void {
+  if (!gameViewport || reduceMotionQuery?.matches) return;
+  const rect = gameViewport.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  targetDriftX = ((event.clientX - rect.left) / rect.width - .5) * 8;
+  targetDriftY = ((event.clientY - rect.top) / rect.height - .5) * 6;
+  startDriftFrame();
+}
+
+function resetViewportPointer(): void {
+  targetDriftX = 0;
+  targetDriftY = 0;
+  startDriftFrame();
+}
+
+function startDriftFrame(): void {
+  if (!driftFrame) driftFrame = window.requestAnimationFrame(updateHudDrift);
+}
+
+function updateHudDrift(): void {
+  currentDriftX += (targetDriftX - currentDriftX) * .12;
+  currentDriftY += (targetDriftY - currentDriftY) * .12;
+  const style = gameViewport?.style;
+  if (style) {
+    for (const layer of driftLayers) {
+      style.setProperty(`--hud-${layer.name}-x`, `${(currentDriftX * layer.x).toFixed(2)}px`);
+      style.setProperty(`--hud-${layer.name}-y`, `${(currentDriftY * layer.y).toFixed(2)}px`);
+    }
+  }
+  if (hazardToastElement.value) {
+    hazardToastElement.value.style.translate = `${(currentDriftX * .06).toFixed(2)}px ${(currentDriftY * .06).toFixed(2)}px`;
+  }
+
+  if (Math.abs(targetDriftX - currentDriftX) > .015 || Math.abs(targetDriftY - currentDriftY) > .015) {
+    driftFrame = window.requestAnimationFrame(updateHudDrift);
+  } else {
+    currentDriftX = targetDriftX;
+    currentDriftY = targetDriftY;
+    driftFrame = 0;
+  }
+}
+
+function onMotionPreferenceChange(event: MediaQueryListEvent): void {
+  if (!gameViewport) return;
+  gameViewport.removeEventListener('pointermove', onViewportPointerMove);
+  gameViewport.removeEventListener('pointerleave', resetViewportPointer);
+  if (event.matches) {
+    if (driftFrame) window.cancelAnimationFrame(driftFrame);
+    driftFrame = 0;
+    currentDriftX = 0;
+    currentDriftY = 0;
+    targetDriftX = 0;
+    targetDriftY = 0;
+    for (const layer of driftLayers) {
+      gameViewport.style.removeProperty(`--hud-${layer.name}-x`);
+      gameViewport.style.removeProperty(`--hud-${layer.name}-y`);
+    }
+    if (hazardToastElement.value) hazardToastElement.value.style.translate = '';
+  } else {
+    gameViewport.addEventListener('pointermove', onViewportPointerMove, { passive: true });
+    gameViewport.addEventListener('pointerleave', resetViewportPointer, { passive: true });
+  }
 }
 
 function openStat(id: ProgressStat): void {
@@ -317,7 +419,7 @@ function toggleStat(id: ProgressStat): void {
   </section>
   </Teleport>
   <Teleport to="body">
-    <div v-if="hazardToast && state.phase === 'running'" :key="hazardToast.key" class="achievement-toast" role="status" aria-live="polite" aria-atomic="true">
+    <div v-if="hazardToast && state.phase === 'running'" ref="hazardToastElement" :key="hazardToast.key" class="achievement-toast" role="status" aria-live="polite" aria-atomic="true">
       <span class="toast-medal" aria-hidden="true"><span>!</span></span>
       <span class="toast-copy">
         <strong>✦ MISSION UPDATE ✦</strong>
@@ -351,6 +453,7 @@ function toggleStat(id: ProgressStat): void {
 .hud-header, .brand, .secondary-heading { display: flex; align-items: center; }
 .brand, .secondary-heading { display: flex; align-items: center; }
 .hud-header { position: absolute; top: 56px; left: 14px; justify-content: space-between; gap: .35rem; margin: 0; }
+.hud-header { translate: var(--hud-header-x, 0px) var(--hud-header-y, 0px); }
 .brand { min-width: 0; gap: .35rem; }
 .brand-mark { display: none; }
 .mission-heading { display: grid; gap: .02rem; }
@@ -359,8 +462,10 @@ function toggleStat(id: ProgressStat): void {
 .mission-heading strong span { color: #e8ddca; font-size: .72em; }
 .unit-tag { display: none; }
 .shift-track { position: absolute; top: 78px; left: 14px; display: block; width: min(135px, calc(100% - 28px)); height: .18rem; overflow: hidden; margin: 0; border: 1px solid rgb(255 245 220 / 45%); border-radius: 999px; background: rgb(10 19 24 / 22%); }
+.shift-track { translate: var(--hud-shift-x, 0px) var(--hud-shift-y, 0px); }
 .shift-track > span { display: block; height: 100%; border-radius: inherit; background: #f4c86d; box-shadow: 0 0 7px #efb4539c; transition: width 260ms ease; }
 .reserve-grid { position: absolute; left: 14px; bottom: 42px; display: grid; grid-template-columns: minmax(0, 1fr); gap: .34rem; width: min(230px, calc(100% - 28px)); }
+.reserve-grid { translate: var(--hud-reserves-x, 0px) var(--hud-reserves-y, 0px); }
 .reserve-card { --reserve-color: #ffd36f; display: grid; grid-template-columns: 22px minmax(0, 1fr) 27px; align-items: center; gap: .48rem; min-width: 0; min-height: 21px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .resource-power { --reserve-color: #ffd36f; }
 .resource-oxygen { --reserve-color: #8ce8ff; }
@@ -383,10 +488,12 @@ function toggleStat(id: ProgressStat): void {
 .fill-up::after { animation: reserve-shine .55s ease-out; }
 .fill-full::after { animation: reserve-shine .72s cubic-bezier(.2,.8,.2,1); }
 .fill-down { filter: saturate(1.3) brightness(1.18); }
-.low-pulse .reserve-meter { animation: reserve-critical-pulse 1.1s ease-in-out infinite; }
+.low-pulse .reserve-meter { animation: reserve-critical-pulse 2.35s ease-in-out infinite; }
 .level-watch .reserve-fill { background: color-mix(in srgb, #ffe18a, transparent 12%); }
 .level-low .reserve-fill, .level-empty .reserve-fill { background: color-mix(in srgb, #ff9d7e, transparent 12%); }
 .secondary-grid { position: absolute; right: 18px; bottom: 42px; display: grid; justify-items: end; gap: .34rem; width: auto; margin: 0; }
+.science-widget { translate: var(--hud-science-x, 0px) var(--hud-science-y, 0px); }
+.shelter-widget { translate: var(--hud-shelter-x, 0px) var(--hud-shelter-y, 0px); }
 .stat-widget { position: relative; box-sizing: border-box; display: flex; align-items: center; justify-content: flex-end; gap: .28rem; width: 2.4rem; min-height: 2.4rem; overflow: visible; color: #f1eee5; transition: width 420ms cubic-bezier(.2,.85,.25,1); }
 .stat-widget.is-expanded { width: min(190px, calc(100vw - 34px)); }
 .stat-detail { box-sizing: border-box; display: grid; justify-items: end; align-content: center; gap: .12rem; width: 0; overflow: hidden; opacity: 0; text-align: right; transform: translateX(8px); transition: width 380ms cubic-bezier(.2,.85,.25,1), opacity 180ms ease, transform 380ms cubic-bezier(.2,.85,.25,1); pointer-events: none; }
@@ -406,7 +513,7 @@ function toggleStat(id: ProgressStat): void {
 .stat-icon-button:focus-visible { outline: 2px solid #fff1ba; outline-offset: 2px; }
 .science-icon { color: #bfd5e8; }
 .shelter-icon { color: #dfcba9; }
-.progress-pop { position: absolute; z-index: 3; top: -.92rem; right: .28rem; display: flex; align-items: center; gap: .02rem; color: #f4f0e7; font-size: .76rem; font-weight: 800; line-height: 1; white-space: nowrap; text-shadow: 0 1px 4px rgb(0 0 0 / 85%); transform-origin: 85% 100%; animation: progress-pop-in .32s cubic-bezier(.18,1.4,.42,1) both, progress-pop-away .24s 1.22s ease-in forwards; pointer-events: none; }
+.progress-pop { position: absolute; z-index: 3; top: 50%; right: 2.62rem; display: flex; align-items: center; gap: .02rem; color: #f4f0e7; font-size: .76rem; font-weight: 800; line-height: 1; white-space: nowrap; text-shadow: 0 1px 4px rgb(0 0 0 / 85%); translate: 0 -50%; transform-origin: 85% 100%; animation: progress-pop-in .32s cubic-bezier(.18,1.4,.42,1) both, progress-pop-away .24s 1.22s ease-in forwards; pointer-events: none; }
 .progress-numerator { position: relative; display: grid; min-width: .62em; height: 1em; overflow: hidden; place-items: center; font-variant-numeric: tabular-nums; }
 .count-old, .count-new { grid-area: 1 / 1; }
 .count-old { animation: count-roll-away .3s .22s cubic-bezier(.4,0,.7,.2) both; }
@@ -415,11 +522,13 @@ function toggleStat(id: ProgressStat): void {
 .science-pop { color: #d9ebfa; }
 .shelter-pop { color: #eee1c9; }
 .feedback { position: absolute; top: 88px; left: 14px; display: flex; align-items: flex-start; gap: .32rem; width: min(240px, calc(100% - 28px)); margin: 0; padding: 0; border: 0; background: transparent; color: #fff0db; font-size: .58rem; line-height: 1.3; text-shadow: 0 1px 4px #171317; }
+.feedback { translate: var(--hud-feedback-x, 0px) var(--hud-feedback-y, 0px); }
 .feedback-copy { display: grid; gap: .08rem; min-width: 0; }
 .feedback-copy > span { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .feedback strong { color: #ffcf91; font-size: .49rem; letter-spacing: .06em; }
 .feedback-mark { width: .75rem; height: .75rem; display: grid; place-items: center; flex: 0 0 auto; color: #ffd28c; font-weight: 900; }
 .delayed-effects { position: absolute; top: 132px; left: 14px; width: min(240px, calc(100% - 28px)); margin: 0; color: #fff1cf; text-shadow: 0 1px 4px #171317; }
+.delayed-effects { translate: var(--hud-delayed-x, 0px) var(--hud-delayed-y, 0px); }
 .delayed-heading { color: #f4d28f; font-size: .49rem; font-weight: 850; letter-spacing: .08em; }
 .delayed-item { display: grid; grid-template-columns: auto 1fr; gap: .3rem; margin: .12rem 0 0; color: #fff8e9; font-size: .56rem; }
 .delayed-timing { color: #f4d28f; font-weight: 800; white-space: nowrap; }
@@ -443,7 +552,7 @@ function toggleStat(id: ProgressStat): void {
 @keyframes reserve-pop { 0% { transform: scaleY(.8); } 45% { transform: scaleY(1.28); filter: brightness(1.45); } 100% { transform: scaleY(1); } }
 @keyframes reserve-shimmy { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
 @keyframes reserve-shine { 0% { opacity: .9; transform: translateX(-120%); } 100% { opacity: 0; transform: translateX(150%); } }
-@keyframes reserve-critical-pulse { 0%, 100% { box-shadow: inset 0 1px 2px rgb(0 0 0 / 20%); } 50% { box-shadow: 0 0 12px color-mix(in srgb, var(--reserve-color), transparent 35%), inset 0 1px 2px rgb(0 0 0 / 20%); } }
+@keyframes reserve-critical-pulse { 0%, 100% { box-shadow: inset 0 1px 2px rgb(0 0 0 / 20%); } 50% { box-shadow: 0 0 7px color-mix(in srgb, var(--reserve-color), transparent 52%), inset 0 1px 2px rgb(0 0 0 / 20%); } }
 @keyframes toast-in { 0% { opacity: 0; transform: translate(-50%, -45%) scale(.68); } 68% { opacity: 1; transform: translate(-50%, -51%) scale(1.045); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 @keyframes toast-pulse { 0%, 100% { box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 24px rgb(244 196 104 / 25%), inset 0 1px 0 rgb(255 248 220 / 22%); } 50% { box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 35px rgb(255 215 133 / 58%), inset 0 1px 0 rgb(255 248 220 / 35%); } }
 @keyframes toast-out { to { opacity: 0; transform: translate(-50%, -46%) scale(.92); } }
@@ -469,6 +578,8 @@ function toggleStat(id: ProgressStat): void {
 }
 @media (prefers-reduced-motion: reduce) {
   .shift-track > span, .reserve-fill, .science-track > span, .icon-tooltip, .stat-widget, .stat-detail, .stat-icon-button { transition: none; }
+  .hud-header, .shift-track, .reserve-grid, .science-widget, .shelter-widget, .feedback, .delayed-effects, .achievement-toast { translate: none !important; }
+  .progress-pop { translate: 0 -50% !important; }
   .motion-up, .motion-down, .reserve-icon-wrap:hover, .reserve-icon:focus-visible, .reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap, .stat-icon-button:hover > span, .stat-icon-button:focus-visible > span, .progress-pop, .count-old, .count-new, .progress-denominator, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
 }
 </style>
