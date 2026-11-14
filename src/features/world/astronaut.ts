@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import type { ModelKit } from './resources';
+import type { AvatarActivity, PlayerMotion } from '../../contracts/exploration';
+import { createAvatarActionLayer } from './avatar-action';
 
 export interface AstronautVisual {
   group: THREE.Group;
@@ -7,6 +9,10 @@ export interface AstronautVisual {
   legs: readonly THREE.Group[];
   arms: readonly THREE.Group[];
 }
+
+const fallbackActions = new WeakMap<AstronautVisual, {
+  layer: ReturnType<typeof createAvatarActionLayer>; cycle: number; moving: boolean;
+}>();
 
 export function createAstronaut(kit: ModelKit): AstronautVisual {
   const group = new THREE.Group();
@@ -38,12 +44,24 @@ export function createAstronaut(kit: ModelKit): AstronautVisual {
   const fallback = new THREE.Group();
   for (const child of [...group.children]) fallback.add(child);
   group.add(fallback);
-  return { group, fallback, legs, arms };
+  const visual = { group, fallback, legs, arms };
+  fallbackActions.set(visual, {layer:createAvatarActionLayer(fallback),cycle:0,moving:false});
+  return visual;
 }
 
 /** Animate only the visual rig. The caller supplies distance-based cycle and pose. */
 export function applyAstronautGait(visual: AstronautVisual, cycle: number, moving: boolean): void {
   for (const child of visual.group.children) if (typeof child.userData.animateSuit === 'function') child.userData.animateSuit(cycle, moving);
+  const state = fallbackActions.get(visual);
+  if (state) {
+    state.cycle = cycle; state.moving = moving;
+    if (state.layer.getState().mode !== 'idle') return;
+    state.layer.beforeMixer();
+  }
+  applyFallbackGait(visual, cycle, moving);
+}
+
+function applyFallbackGait(visual: AstronautVisual, cycle: number, moving: boolean): void {
   const swing = moving && Number.isFinite(cycle) ? Math.sin(cycle) : 0;
   visual.legs.forEach((leg, index) => {
     const side = index ? -1 : 1;
@@ -53,7 +71,30 @@ export function applyAstronautGait(visual: AstronautVisual, cycle: number, movin
   visual.arms.forEach((arm, index) => { arm.rotation.x = (index ? 1 : -1) * swing * .12; });
 }
 
+export function setAstronautMotion(visual: AstronautVisual, motion: PlayerMotion): void {
+  fallbackActions.get(visual)?.layer.setMotion(motion);
+  for (const child of visual.group.children) child.userData.setMotion?.(motion);
+}
+
+export function setAstronautActivity(visual: AstronautVisual, activity: AvatarActivity): void {
+  fallbackActions.get(visual)?.layer.setActivity(activity);
+  for (const child of visual.group.children) child.userData.setActivity?.(activity);
+}
+
+export function resetAstronautActions(visual: AstronautVisual): void {
+  const state = fallbackActions.get(visual);
+  if (state) { state.layer.reset(); state.cycle = 0; state.moving = false; }
+  applyFallbackGait(visual,0,false);
+  for (const child of visual.group.children) child.userData.resetActions?.();
+}
+
 export function updateAstronautAnimation(visual: AstronautVisual, seconds: number, active: boolean, reduced: boolean): void {
+  const state = fallbackActions.get(visual);
+  if (state && visual.fallback.visible && active) {
+    state.layer.beforeMixer();
+    applyFallbackGait(visual,reduced?0:state.cycle,!reduced&&state.moving);
+    state.layer.update(seconds,active,reduced);
+  }
   for (const child of visual.group.children) {
     if (typeof child.userData.updateSuit === 'function') child.userData.updateSuit(seconds, active, reduced);
   }
