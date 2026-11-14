@@ -176,13 +176,13 @@ watch(
   <section
     class="visual-minigame"
     role="region"
-    :aria-label="level === 'earth' ? 'Earth Preflight Minigame' : 'Space Station Minigame'"
+    :aria-label="level === 'earth' ? 'Earth Preflight Minigame' : 'Rocket Cabin Minigames'"
   >
     <!-- Top Progress Ribbon: Stage Dots and Level Badge -->
     <header class="minigame-ribbon">
       <div class="mission-badge">
         <span class="live-dot" aria-hidden="true" />
-        <span class="badge-title">{{ level === 'earth' ? '🚀 EARTH LAUNCH PAD' : '🛰️ ORBITAL CABIN' }}</span>
+        <span class="badge-title">{{ level === 'earth' ? '🚀 EARTH LAUNCH PAD' : '🚀 ARES FLIGHT CABIN' }}</span>
       </div>
       <div class="stage-stepper" aria-label="Minigame stages">
         <div
@@ -673,6 +673,7 @@ watch(
       </button>
 
       <button
+        v-if="level === 'earth'"
         type="button"
         class="secondary-chip skip-chip"
         aria-label="Fast-Forward preparation"

@@ -70,7 +70,7 @@ describe('VisualPreflightMinigame Component', () => {
     });
     const html = await renderToString(app);
 
-    expect(html).toContain('ORBITAL CABIN');
+    expect(html).toContain('ARES FLIGHT CABIN');
     expect(html).toContain('Earth Base');
     expect(html).toContain('LOCK');
     expect(html).toContain('Rotate Left');
