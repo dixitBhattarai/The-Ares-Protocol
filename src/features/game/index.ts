@@ -137,18 +137,18 @@ export function reduceGame(state: Readonly<GameState>, action: GameAction, missi
       verdict: 'depleted',
       title: 'Mission Terminated: Reserves Depleted',
       primaryCause: `${primary.toUpperCase()} reached 0 on Shift ${nextTurn}.`,
-      summary: `The outpost ran out of critical ${primary} during Shift ${nextTurn}. On Mars, power, air, and supplies must all stay above zero to survive.`,
+      summary: `Score: ${score} · The outpost ran out of critical ${primary} during Shift ${nextTurn}. On Mars, power, air, and supplies must all stay above zero to survive.`,
       recommendations: [
         primary === 'oxygen'
-          ? 'Prioritize running the oxygen maker before life-support reserves drop below 25%.'
+          ? 'Prioritize running the oxygen maker (electrolysis) before life-support reserves drop below 25%.'
           : primary === 'power'
             ? 'Conserve battery power and reinforce shelter before solar hazards strike.'
-            : 'Monitor supplies closely; repairs and construction consume reserves.',
+            : 'Monitor supplies closely; repairs, aerating, and construction consume reserves.',
         'Prepare shelter in Shift 2 to avoid severe storm damage in Shift 3.',
       ],
       lessons: [
         'All life-support subsystems are interconnected; a failure in any reserve ends the mission.',
-        'Greedy research strategies without infrastructure preparation are unsustainable.',
+        'Greedy research strategies without infrastructure preparation are unsustainable on Mars.',
       ],
       stars: 0,
       score,
@@ -163,10 +163,11 @@ export function reduceGame(state: Readonly<GameState>, action: GameAction, missi
       } else if (score >= 160) {
         stars = 2;
       }
+      const starIcons = '⭐'.repeat(stars);
       debrief = {
         verdict: 'won',
         title: 'Outpost Mission Accomplished!',
-        summary: `Your crew maintained all life-support reserves across all ${mission.maxTurns} shifts and gathered ${science} / ${mission.scienceTarget} science points!`,
+        summary: `${starIcons} ${stars}-Star Rating (Score: ${score}) · Your crew maintained all life-support reserves across all ${mission.maxTurns} shifts and gathered ${science} / ${mission.scienceTarget} science points!`,
         recommendations: [
           'Outstanding mission planning! You balanced survival maintenance with scientific goals.',
           'Try another run with different decision paths to explore alternative outpost strategies.',
@@ -185,7 +186,7 @@ export function reduceGame(state: Readonly<GameState>, action: GameAction, missi
         verdict: 'low_science',
         title: 'Reserves Survived, But Science Goals Incomplete',
         primaryCause: `Collected ${science} / ${mission.scienceTarget} science points.`,
-        summary: `Your outpost survived all ${mission.maxTurns} shifts, but did not collect enough scientific data (${science} gathered, ${mission.scienceTarget} required).`,
+        summary: `Score: ${score} · Your outpost survived all ${mission.maxTurns} shifts, but did not collect enough scientific data (${science} gathered, ${mission.scienceTarget} required).`,
         recommendations: [
           'Conduct scientific research during shifts when reserves are safely above 40%.',
           'Strengthening shelter early minimizes hazard damage later, leaving surplus energy for science.',

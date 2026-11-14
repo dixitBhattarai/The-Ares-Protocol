@@ -43,17 +43,31 @@ function dispatch(action: GameAction) {
     void nextTick(() => { if (commandPanel.value) commandPanel.value.scrollTop = 0; });
   }
 
-  if (action.type === 'CHOOSE') {
+  if (action.type === 'START') {
+    soundFX.playStart();
+  } else if (action.type === 'CHOOSE') {
     if (state.value.phase === 'won') {
       soundFX.playVictory();
     } else if (state.value.phase === 'lost') {
       soundFX.playDepleted();
     } else if (state.value.lastHazardNotice) {
       soundFX.playHazard();
+    } else if (action.choiceId === 'comms') {
+      soundFX.playTransmission();
+    } else if (action.choiceId === 'oxygen') {
+      soundFX.playOxygen();
+    } else if (action.choiceId === 'shield') {
+      soundFX.playShield();
     } else {
       soundFX.playDecision();
     }
+
+    const { power, oxygen, supplies } = state.value.resources;
+    if (state.value.phase === 'running' && (power <= 20 || oxygen <= 20 || supplies <= 20)) {
+      setTimeout(() => soundFX.playWarning(), 180);
+    }
   } else if (action.type === 'RESTART') {
+    soundFX.playRestart();
     if (physics?.reset) {
       physics.reset();
       stationMessage.value = 'Outpost and astronaut reset to spawn. Plan your shifts carefully.';
@@ -73,8 +87,14 @@ function pauseWhenHidden() {
   if (document.hidden) dispatch({ type: 'PAUSE' });
 }
 
+let lastCheckedPose = { x: 999, y: 999, z: 999 };
 function checkStationProximity(pose: Vec3) {
   if (currentSelectedStation) return;
+  const dx = pose.x - lastCheckedPose.x;
+  const dz = pose.z - lastCheckedPose.z;
+  if (dx * dx + dz * dz < 0.0025) return;
+  lastCheckedPose = { x: pose.x, y: pose.y, z: pose.z };
+
   for (const station of STATIONS) {
     const dist = Math.hypot(pose.x - station.position.x, pose.z - station.position.z);
     if (dist < 4.0) {
@@ -97,6 +117,13 @@ function handleGlobalKeydown(event: KeyboardEvent) {
     toggleSound();
     return;
   }
+  if (state.value.phase === 'ready') {
+    if (['Space', 'Enter', 'KeyS'].includes(event.code)) {
+      event.preventDefault();
+      dispatch({ type: 'START' });
+    }
+    return;
+  }
   if (state.value.phase === 'running') {
     const currentEvent = getCurrentEvent(mission, state.value);
     if (!currentEvent) return;
@@ -106,15 +133,20 @@ function handleGlobalKeydown(event: KeyboardEvent) {
       dispatch({ type: 'CHOOSE', choiceId: currentEvent.choices[1].id });
     } else if (['Digit3', 'Numpad3'].includes(event.code) && currentEvent.choices[2]) {
       dispatch({ type: 'CHOOSE', choiceId: currentEvent.choices[2].id });
-    } else if (event.code === 'KeyP') {
+    } else if (['Digit4', 'Numpad4'].includes(event.code) && currentEvent.choices[3]) {
+      dispatch({ type: 'CHOOSE', choiceId: currentEvent.choices[3].id });
+    } else if (event.code === 'KeyP' || event.code === 'Space') {
+      event.preventDefault();
       dispatch({ type: 'PAUSE' });
     }
   } else if (state.value.phase === 'paused') {
-    if (event.code === 'KeyP' || event.code === 'Space') {
+    if (['KeyP', 'Space', 'Enter'].includes(event.code)) {
+      event.preventDefault();
       dispatch({ type: 'RESUME' });
     }
   } else if (['won', 'lost'].includes(state.value.phase)) {
-    if (event.code === 'KeyR') {
+    if (['KeyR', 'Space', 'Enter'].includes(event.code)) {
+      event.preventDefault();
       dispatch({ type: 'RESTART' });
     }
   }
@@ -217,7 +249,19 @@ onBeforeUnmount(() => {
           role="region"
           aria-label="Interactive 3D Mars Outpost Viewport"
         />
-        <p class="scene-status" role="status">{{ graphicsError || stationMessage }}</p>
+        <p class="scene-status" role="status">
+          <span v-if="currentSelectedStation" class="selected-badge">
+            MODULE: {{ currentSelectedStation.toUpperCase() }}
+            <button
+              type="button"
+              class="clear-station-btn"
+              title="Clear station inspection"
+              aria-label="Clear station inspection"
+              @click="currentSelectedStation = null; stationMessage = 'Outpost view. Click modules or walk near them.'"
+            >×</button>
+          </span>
+          {{ graphicsError || stationMessage }}
+        </p>
         <div class="surface-footer"><span>STYLIZED MARS OUTPOST</span><span>WASD / ARROWS <span aria-hidden="true">·</span> SELECT A MODULE</span></div>
       </section>
       <aside ref="commandPanel" class="command-panel" aria-label="Mission command panel" tabindex="0" @keydown.stop @focusin="physics?.pauseInput?.()" @focusout="state.phase === 'running' && physics?.resumeInput?.()">
@@ -257,6 +301,9 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
 .live-dot { display: inline-block; width: 5px; height: 5px; margin-right: 7px; border-radius: 50%; background: #9ac5b5; box-shadow: 0 0 0 3px #9ac5b514; }
 .viewport { min-height: 0; overflow: hidden; background: #765040; }
 .scene-status { margin: 0; padding: 11px 16px; color: #becbd0; font-size: 11px; line-height: 1.5; }
+.selected-badge { display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; padding: 2px 7px; background: #263e48; border: 1px solid #486877; border-radius: 4px; font-size: 10px; font-weight: 700; color: #bde0ea; }
+.clear-station-btn { font-size: 11px; padding: 0 4px; background: transparent; border: none; color: #a4c4cf; cursor: pointer; line-height: 1; }
+.clear-station-btn:hover { color: #ffffff; }
 .command-panel { min-width: 0; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: #49606a transparent; border: 1px solid #34434c; border-radius: 14px; background: linear-gradient(145deg, #182731, #111d26); }
 .command-heading { position: sticky; top: 0; z-index: 3; background: #1b2c35; border-bottom: 1px solid #34434c; font-size: 8px; }
 .command-panel :deep(.mission-panels-root) { padding: 16px; gap: 18px; }

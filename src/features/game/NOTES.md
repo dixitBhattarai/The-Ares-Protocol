@@ -33,8 +33,26 @@ Status: Tested milestones complete; audio synthesis, station proximity, star rat
   - Test suite optimization: `vitest.config.ts` excludes `.worktrees/**` from test discovery.
   - Documentation: updated `docs/CONTRACTS.md` with all additive methods and state fields.
 
+## Milestone 3: Dynamic Audio Synthesis, Star Badges & Shell Ergonomics (`feat(game): dynamic audio synthesis, star badges, and keyboard navigation`)
+
+- Enriched Audio Synthesis (`src/features/game/audio.ts`):
+  - Added `playStart()`: uplifting ascending arpeggio when mission starts.
+  - Added `playRestart()`: soft reset tone when returning to mission briefing.
+  - Added `playTransmission()`: synthesized high-tech dual-frequency chirp for interplanetary DSN telemetry.
+  - Added `playOxygen()`: soothing harmonic sine pulse for MOXIE gas generation cycles.
+  - Added `playShield()`: resonant low-frequency impact for regolith shelter construction.
+  - Added `playWarning()`: low-frequency pulse alert when any resource drops to <= 20%.
+- Game Evaluation & Debrief Presentation (`src/features/game/index.ts`):
+  - Enhanced debrief summary with star rating icons and efficiency score (`⭐⭐⭐ 3-Star Rating (Score: 232)`).
+  - Rewards strategic mastery: 3 stars requires score >= 230, science >= 4, and shielding >= 15 (e.g. DSN interplanetary comms strategy).
+- App Shell Ergonomics & Shortcuts (`src/App.vue`):
+  - Added support for 4th decision option via `Digit4` and `Numpad4` on Shift 5.
+  - Added keyboard triggers for mission start (`Enter`, `Space`, `S`) and replay (`Enter`, `Space`, `R`).
+  - Added module inspection badge with clear button (`✕`) when stations are clicked in the 3D surface view.
+  - Cached player pose delta to avoid unnecessary proximity distance calculations when astronaut is idle.
+
 ## Validation
 
 - `npm run typecheck`: passed with zero type errors.
-- `npm test`: 28 tests passing cleanly (13 game tests, 6 world tests, 9 astronaut unit tests without worktree duplication).
-- `npm run build`: production build passed cleanly in 430ms.
+- `npm test`: 66 tests passing cleanly across all 7 test suites (15 game tests, 8 missions tests, 18 physics tests, 13 UI tests, 12 world tests).
+- `npm run build`: production build passed cleanly in 495ms.
