@@ -148,7 +148,7 @@ function meterText(value: number, level: string): string {
 
 <template>
   <Teleport :to="hudTarget">
-  <section class="hud" aria-label="Outpost status">
+  <section v-if="state.phase === 'running'" class="hud" aria-label="Outpost status">
     <header class="hud-header">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">✦</span>
@@ -211,8 +211,10 @@ function meterText(value: number, level: string): string {
       <div class="secondary-card science-card">
         <div class="secondary-heading">
           <span class="secondary-icon science-icon" aria-hidden="true">✦</span>
-          <span class="secondary-label">SCIENCE</span>
-          <strong>{{ state.science }} <span>/ {{ mission.scienceTarget }}</span></strong>
+          <span class="secondary-copy">
+            <span class="secondary-label">SCIENCE GOAL</span>
+            <strong>{{ state.science }} <span>/ {{ mission.scienceTarget }}</span></strong>
+          </span>
         </div>
         <div
           class="science-track"
@@ -229,10 +231,21 @@ function meterText(value: number, level: string): string {
       <div class="secondary-card shelter-card">
         <div class="secondary-heading">
           <span class="secondary-icon shelter-icon" aria-hidden="true">⬟</span>
-          <span class="secondary-label">SHELTER</span>
-          <strong>{{ state.shielding }}<span>/100</span></strong>
+          <span class="secondary-copy">
+            <span class="secondary-label">SHELTER</span>
+            <strong>{{ state.shielding }}<span> / 100</span></strong>
+          </span>
         </div>
-        <span class="shelter-note">{{ state.shielding >= 60 ? 'Ready for a storm' : state.shielding >= 25 ? 'Some protection' : 'Needs protection' }}</span>
+        <div
+          class="shelter-track"
+          role="meter"
+          aria-label="Shelter protection"
+          :aria-valuemin="0"
+          :aria-valuemax="100"
+          :aria-valuenow="state.shielding"
+          :aria-valuetext="`${state.shielding} of 100 protection. ${state.shielding >= 60 ? 'Ready for a storm' : state.shielding >= 25 ? 'Some protection' : 'Needs protection'}`"
+        ><span :style="{ width: `${state.shielding}%` }" /></div>
+        <span class="shelter-note">{{ state.shielding >= 60 ? 'Storm ready' : state.shielding >= 25 ? 'Some protection' : 'Needs protection' }}</span>
       </div>
     </div>
 
@@ -253,7 +266,7 @@ function meterText(value: number, level: string): string {
   </section>
   </Teleport>
   <Teleport to="body">
-    <div v-if="hazardToast" :key="hazardToast.key" class="achievement-toast" role="status" aria-live="polite" aria-atomic="true">
+    <div v-if="hazardToast && state.phase === 'running'" :key="hazardToast.key" class="achievement-toast" role="status" aria-live="polite" aria-atomic="true">
       <span class="toast-medal" aria-hidden="true"><span>!</span></span>
       <span class="toast-copy">
         <strong>✦ MISSION UPDATE ✦</strong>
@@ -301,13 +314,16 @@ function meterText(value: number, level: string): string {
 .resource-power { --reserve-color: #ffd36f; }
 .resource-oxygen { --reserve-color: #8ce8ff; }
 .resource-supplies { --reserve-color: #b8ec91; }
-.reserve-icon-wrap { position: relative; display: grid; place-items: center; width: 22px; height: 22px; background: transparent; border: 0; border-radius: 0; pointer-events: auto; }
+.reserve-icon-wrap { position: relative; display: grid; place-items: center; width: 22px; height: 22px; background: transparent; border: 0; border-radius: 0; pointer-events: auto; transform-origin: center; }
 .reserve-icon { display: grid; place-items: center; width: 100%; height: 100%; color: var(--reserve-color); cursor: help; filter: drop-shadow(0 1px 3px rgb(0 0 0 / 65%)); }
+.reserve-icon-wrap:hover, .reserve-icon:focus-visible { animation: reserve-hover-bop .38s cubic-bezier(.2,.8,.2,1); }
 .reserve-icon svg { display: block; width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.65; }
 .reserve-icon:focus-visible { outline: 2px solid #fff1ba; outline-offset: 2px; }
 .icon-tooltip { position: absolute; z-index: 12; left: 50%; bottom: calc(100% + .35rem); padding: .2rem .42rem; border: 1px solid color-mix(in srgb, var(--reserve-color), transparent 35%); border-radius: 5px; background: rgb(22 31 37 / 92%); color: #fff8e9; box-shadow: 0 3px 10px rgb(0 0 0 / 28%); font-size: .66rem; font-weight: 800; white-space: nowrap; opacity: 0; transform: translate(-50%, .2rem) scale(.94); pointer-events: none; transition: opacity 120ms ease, transform 120ms ease; }
 .reserve-icon-wrap:hover .icon-tooltip, .reserve-icon:focus-visible + .icon-tooltip { opacity: 1; transform: translate(-50%, 0) scale(1); }
-.reserve-meter { grid-column: 2; grid-row: 1; height: 8px; overflow: hidden; border: 1px solid rgb(255 255 255 / 34%); border-radius: 999px; background: rgb(6 14 18 / 22%); box-shadow: inset 0 1px 2px rgb(0 0 0 / 20%); }
+.reserve-meter { grid-column: 2; grid-row: 1; height: 8px; overflow: hidden; border: 1px solid rgb(255 255 255 / 34%); border-radius: 999px; background: rgb(6 14 18 / 22%); box-shadow: inset 0 1px 2px rgb(0 0 0 / 20%); pointer-events: auto; transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
+.reserve-card:has(.reserve-meter:hover) .reserve-meter { transform: scaleY(1.35); border-color: color-mix(in srgb, var(--reserve-color), white 30%); box-shadow: 0 0 10px color-mix(in srgb, var(--reserve-color), transparent 55%), inset 0 1px 2px rgb(0 0 0 / 20%); }
+.reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap { animation: reserve-hover-bop .38s cubic-bezier(.2,.8,.2,1); }
 .reserve-fill { position: relative; display: block; height: 100%; min-width: 0; border-radius: inherit; background: color-mix(in srgb, var(--reserve-color), transparent 12%); box-shadow: 0 0 8px color-mix(in srgb, var(--reserve-color), transparent 35%); transition: width 440ms cubic-bezier(.2,.8,.2,1); }
 .reserve-fill::after { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(110deg, transparent 20%, rgb(255 255 255 / 75%) 50%, transparent 80%); content: ''; opacity: 0; }
 .reserve-value { grid-column: 3; grid-row: 1; color: #fff8e9; font-size: .66rem; font-variant-numeric: tabular-nums; text-align: right; text-shadow: 0 1px 4px #171317; }
@@ -319,21 +335,28 @@ function meterText(value: number, level: string): string {
 .low-pulse .reserve-meter { animation: reserve-critical-pulse 1.1s ease-in-out infinite; }
 .level-watch .reserve-fill { background: color-mix(in srgb, #ffe18a, transparent 12%); }
 .level-low .reserve-fill, .level-empty .reserve-fill { background: color-mix(in srgb, #ff9d7e, transparent 12%); }
-.secondary-grid { position: absolute; right: 14px; bottom: 42px; display: grid; gap: .28rem; width: min(150px, calc(100% - 28px)); margin: 0; text-align: right; }
-.secondary-card { min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
-.secondary-heading { gap: .23rem; }
-.secondary-icon { width: .8rem; flex: 0 0 auto; text-align: center; font-size: .62rem; filter: drop-shadow(0 1px 3px rgb(0 0 0 / 65%)); }
-.science-icon { color: #b7ddff; }
-.shelter-icon { color: #f0cb8d; }
-.secondary-label { color: #fff1cf; font-size: .46rem; font-weight: 850; letter-spacing: .06em; text-shadow: 0 1px 4px #171317; }
-.secondary-heading strong { color: #fff8e9; font-size: .62rem; font-variant-numeric: tabular-nums; text-shadow: 0 1px 4px #171317; }
-.secondary-heading strong span { color: #e4dac9; font-size: .72em; }
-.science-track { display: none; }
-.shelter-note { display: none; }
-.feedback { position: absolute; top: 88px; left: 14px; display: flex; align-items: flex-start; gap: .32rem; width: min(240px, calc(100% - 28px)); margin: 0; color: #fff0db; font-size: .58rem; text-shadow: 0 1px 4px #171317; }
-.feedback > span:last-child { display: grid; gap: .06rem; }
-.feedback strong { color: #ffcf91; font-size: .49rem; letter-spacing: .06em; }
-.feedback-mark { width: .75rem; height: .75rem; display: grid; place-items: center; flex: 0 0 auto; color: #ffd28c; font-weight: 900; }
+.secondary-grid { position: absolute; right: 20px; bottom: 42px; display: grid; gap: .72rem; width: min(205px, calc(100% - 28px)); margin: 0; text-align: right; }
+.secondary-card { position: relative; min-width: 0; padding: .25rem 0 .32rem; border: 0; border-radius: 0; background: linear-gradient(90deg, transparent, rgb(10 21 28 / 34%)); }
+.secondary-card::after { position: absolute; right: 0; bottom: 0; width: 76%; height: 1px; background: linear-gradient(90deg, transparent, rgb(255 244 218 / 48%)); content: ''; }
+.secondary-heading { justify-content: flex-end; gap: .48rem; }
+.secondary-icon { display: grid; place-items: center; width: 1.8rem; height: 1.8rem; flex: 0 0 auto; border: 1px solid currentColor; border-radius: 50%; font-size: 1rem; filter: drop-shadow(0 1px 4px rgb(0 0 0 / 65%)); }
+.science-icon { color: #b7ddff; text-shadow: 0 0 10px rgb(132 194 255 / 60%); }
+.shelter-icon { color: #f0cb8d; text-shadow: 0 0 10px rgb(246 197 117 / 48%); }
+.secondary-copy { display: grid; justify-items: end; gap: .04rem; }
+.secondary-label { color: #fff1cf; font-size: .58rem; font-weight: 900; letter-spacing: .11em; text-shadow: 0 1px 4px #171317; }
+.secondary-heading strong { color: #fff8e9; font-size: 1rem; line-height: 1.05; font-variant-numeric: tabular-nums; text-shadow: 0 1px 5px #171317; }
+.secondary-heading strong span { color: #e4dac9; font-size: .68em; }
+.science-track, .shelter-track { display: block; height: 4px; overflow: hidden; margin: .32rem 0 0 auto; border: 1px solid rgb(255 255 255 / 35%); border-radius: 999px; background: rgb(6 14 18 / 30%); }
+.science-track { width: 100%; }
+.shelter-track { width: calc(100% - 2.3rem); }
+.science-track > span, .shelter-track > span { display: block; height: 100%; border-radius: inherit; transition: width 360ms cubic-bezier(.2,.8,.2,1); }
+.science-track > span { background: linear-gradient(90deg, #73baff, #c6e7ff); box-shadow: 0 0 10px rgb(127 190 255 / 70%); }
+.shelter-track > span { background: linear-gradient(90deg, #d29457, #ffe0a0); box-shadow: 0 0 10px rgb(244 190 115 / 60%); }
+.shelter-note { display: block; margin: .2rem 0 0; color: #f8ddaf; font-size: .62rem; font-weight: 700; letter-spacing: .015em; text-shadow: 0 1px 4px #171317; }
+.feedback { position: absolute; top: 88px; left: 14px; display: flex; align-items: flex-start; gap: .48rem; width: min(270px, calc(100% - 28px)); margin: 0; padding: .45rem .6rem; border-left: 2px solid rgb(255 207 145 / 80%); background: linear-gradient(90deg, rgb(12 23 29 / 48%), transparent); color: #fff5e6; font-size: .65rem; line-height: 1.35; text-shadow: 0 1px 4px #171317; animation: feedback-arrive .32s ease-out both; }
+.feedback > span:last-child { display: -webkit-box; overflow: hidden; gap: .1rem; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.feedback strong { color: #ffcf91; font-size: .55rem; letter-spacing: .09em; }
+.feedback-mark { width: 1rem; height: 1rem; display: grid; place-items: center; flex: 0 0 auto; color: #ffd28c; font-size: .95rem; font-weight: 900; }
 .delayed-effects { position: absolute; top: 132px; left: 14px; width: min(240px, calc(100% - 28px)); margin: 0; color: #fff1cf; text-shadow: 0 1px 4px #171317; }
 .delayed-heading { color: #f4d28f; font-size: .49rem; font-weight: 850; letter-spacing: .08em; }
 .delayed-item { display: grid; grid-template-columns: auto 1fr; gap: .3rem; margin: .12rem 0 0; color: #fff8e9; font-size: .56rem; }
@@ -348,6 +371,8 @@ function meterText(value: number, level: string): string {
 .toast-copy { display: grid; gap: .3rem; }
 .toast-copy > strong { color: #ffdc96; font-size: .68rem; font-weight: 950; letter-spacing: .1em; text-shadow: 0 1px #50391f; }
 .toast-spark { align-self: start; color: #ffe6a8; font-size: 1rem; text-shadow: 0 0 10px #ffd779; animation: spark-spin 1.6s ease-in-out infinite; }
+@keyframes reserve-hover-bop { 0%, 100% { transform: scale(1) rotate(0); } 35% { transform: scale(1.16) rotate(-7deg); } 70% { transform: scale(1.12) rotate(6deg); } }
+@keyframes feedback-arrive { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes reserve-pop { 0% { transform: scaleY(.8); } 45% { transform: scaleY(1.28); filter: brightness(1.45); } 100% { transform: scaleY(1); } }
 @keyframes reserve-shimmy { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
 @keyframes reserve-shine { 0% { opacity: .9; transform: translateX(-120%); } 100% { opacity: 0; transform: translateX(150%); } }
@@ -360,13 +385,15 @@ function meterText(value: number, level: string): string {
   .hud-header { top: 50px; left: 10px; }
   .shift-track { top: 72px; left: 10px; width: 120px; }
   .reserve-grid { left: 10px; bottom: 38px; width: min(215px, calc(100% - 20px)); }
-  .secondary-grid { top: 34px; right: 10px; bottom: auto; width: min(118px, calc(100% - 20px)); gap: .16rem; }
+  .secondary-grid { top: 32px; right: 10px; bottom: auto; width: min(178px, calc(100% - 20px)); gap: .48rem; }
   .feedback, .delayed-effects { left: 10px; width: min(215px, calc(100% - 20px)); }
   .feedback { top: 90px; }
   .delayed-effects { top: 128px; }
   .reserve-grid { gap: .3rem; }
   .reserve-card { min-height: 20px; padding: 0; }
   .reserve-meter { height: 7px; }
+  .secondary-icon { width: 1.55rem; height: 1.55rem; font-size: .88rem; }
+  .secondary-heading strong { font-size: .88rem; }
   .achievement-toast { grid-template-columns: 2.5rem minmax(0, 1fr) .7rem; gap: .55rem; min-height: 90px; padding: .68rem .72rem; font-size: .82rem; }
   .toast-medal { width: 2.45rem; height: 2.45rem; }
   .toast-medal span { width: 1.3rem; height: 1.3rem; }
@@ -374,6 +401,6 @@ function meterText(value: number, level: string): string {
 }
 @media (prefers-reduced-motion: reduce) {
   .shift-track > span, .reserve-fill, .science-track > span, .icon-tooltip { transition: none; }
-  .motion-up, .motion-down, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
+  .motion-up, .motion-down, .reserve-icon-wrap:hover, .reserve-icon:focus-visible, .reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap, .feedback, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
 }
 </style>

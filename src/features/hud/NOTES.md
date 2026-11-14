@@ -25,3 +25,5 @@ Status: HUD status, resource feedback, and in-scene game HUD refinement complete
 - Handoff: branch `feat/saurav-hud`; provide milestone commit hashes, changed files, and actual checks to Himamshu.
 
 - Post-merge validation on `origin/main` 71faa94: `npm run typecheck`, `npm test` (70 tests), `npm run build`, and `git diff --check` passed. Build still reports the large physics chunk warning.
+- HUD polish pass: Enlarged right-side science and shelter readouts with clearer icons, goal/protection progress tracks, and plain-language shelter readiness. Shift updates now use a short, clamped accent callout. Reserve icons give a restrained hover/focus shimmy and scale response; hovering a bar gently highlights it and nudges its icon. HUD and hazard toast are shown only while the mission phase is running.
+- Validation for HUD polish: `npm run typecheck`, `npm test` (70 tests), `npm run build`, and `git diff --check` passed. Local browser preview at port 5175 did not connect through the in-app browser, so visual and narrow-screen review remain outstanding.
