@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Integration shell: Rohit owns this file. Himamshu's layout handoff is recorded in world/NOTES.md.
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 import { STATIONS } from './contracts';
 import type { LandingFlightSnapshot, LaunchFlightSnapshot, FlightStage, GravityBody, GameAction, PhysicsAdapter, Vec3, WorldAdapter, StationId, MissionData } from './contracts';
 import { createInitialState, getCurrentEvent, reduceGame, STATION_TASKS, taskCompletionId } from './features/game';
@@ -16,6 +16,9 @@ import {createLandingFlight,createFinalApproach,stepLandingFlight,landingGuidanc
 import {createLaunchFlight,stepLaunchFlight,SPACE_ALTITUDE} from './features/physics/launch-flight';
 import SplashScreen from './features/ui/SplashScreen.vue';
 import LoginScreen from './features/ui/LoginScreen.vue';
+import AccountPanel from './features/ui/AccountPanel.vue';
+import { createPlayerAccount, getSavedProgress, saveGameProgress, signInPlayerAccount, signOutPlayerAccount } from './features/game/progress';
+import type { AccountCredentials, GameProgressSnapshot } from './features/game/progress';
 import ActivityPanel from './features/world/ActivityPanel.vue';
 import { advanceActivity, type Activity } from './features/game/activities';
 import VisualPreflightMinigame from './features/game/VisualPreflightMinigame.vue';
@@ -27,7 +30,7 @@ import { createMusic } from './features/world/music';
 import { createSpacecraftSim, type SpacecraftSim } from './features/physics/spacecraft';
 import { advanceFlightControls, flightCommandForControl, FLIGHT_CONTROL_STEPS, type FlightControlKey } from './features/game/spaceflight';
 
-const mission:MissionData = {...loadMission(),gameplayMode:'station-tasks',hazardSeed:crypto.getRandomValues(new Uint32Array(1))[0]};
+let mission:MissionData = {...loadMission(),gameplayMode:'station-tasks',hazardSeed:crypto.getRandomValues(new Uint32Array(1))[0]};
 const state = shallowRef(createInitialState(mission));
 const host = ref<HTMLElement>();
 const commandPanel = ref<HTMLElement>();
@@ -127,6 +130,7 @@ function startMissionAfterGuide(){
  if(state.value.phase!=='running'||missionTimerActive.value)return;
  missionTimerActive.value=true;arrivalGuide.value=false;
  physics?.resumeInput?.();
+ queueProgressSave();
 }
 let remoteConsole = false;
 
@@ -281,7 +285,7 @@ function finishArrival() {
   if (flightStage.value === 'touchdown') {
     clearLandingFlight();stopFlightSim();
     updateFlightStage(null);
-    arrivalComplete = true;deckVisible.value=false;physics?.reset?.({x:0,y:.8,z:6});setGravity('mars');music?.select('mars'); stationMessage.value = 'Touchdown complete. Mars gravity is 3.72 m/s², about 38% of Earth gravity. Walk inside a station and use a glowing machine to work.'; dispatch({ type: 'START' });
+    arrivalComplete = true;deckVisible.value=false;physics?.reset?.({x:0,y:.8,z:6});setGravity('mars');music?.select('mars'); stationMessage.value = 'Touchdown complete. Mars gravity is 3.72 m/s², about 38% of Earth gravity. Walk inside a station and use a glowing machine to work.'; dispatch({ type: 'START' }); queueProgressSave();
   }
 }
 function setDoor(id: StationId, open: boolean) { doorsOpen.value = { ...doorsOpen.value, [id]: open }; doorReady.value = false; world?.setDoorState?.(id, open); }
@@ -366,14 +370,165 @@ let accumulator = 0;
 let missionSeconds=0;
 const showSplash = ref(true);
 const showLogin = ref(true);
+const showAccount = ref(false);
+const accountReturnToMenu = ref(false);
+const accountBusy = ref(false);
+const accountMessage = ref('');
+const accountUser = ref<string | null>(null);
+const saveStatus = ref('');
+const engineReady = ref(false);
+let startWhenReady = false;
+let progressSaveTimer: ReturnType<typeof setTimeout> | undefined;
+let pendingProgressSave: GameProgressSnapshot | null = null;
+let savingProgress = false;
+
+function makeProgressSnapshot(): GameProgressSnapshot {
+  return {
+    version: 1,
+    missionSeed: mission.hazardSeed ?? 0,
+    state: state.value,
+    activity: activeActivity.value ? { taskId: activeActivity.value.taskId, progress: activityProgress.value } : null,
+  };
+}
+
+async function flushProgressSave(keepalive = false) {
+  if (!accountUser.value || !state.value.taskRun) return;
+  const resumable = arrivalComplete || state.value.phase === 'won' || state.value.phase === 'lost' || (state.value.phase === 'ready' && state.value.taskRun.session > 0);
+  if (!resumable) return;
+  if (progressSaveTimer) clearTimeout(progressSaveTimer);
+  progressSaveTimer = undefined;
+  pendingProgressSave = makeProgressSnapshot();
+  if (savingProgress) {
+    if (!keepalive) while (savingProgress) await new Promise(resolve => setTimeout(resolve, 20));
+    return;
+  }
+
+  savingProgress = true;
+  try {
+    while (pendingProgressSave) {
+      const next = pendingProgressSave;
+      pendingProgressSave = null;
+      saveStatus.value = 'Saving…';
+      await saveGameProgress(next, true);
+      saveStatus.value = 'Progress saved';
+    }
+  } catch {
+    saveStatus.value = 'Save needs a connection';
+  } finally {
+    savingProgress = false;
+  }
+}
+
+function queueProgressSave() {
+  if (!accountUser.value || !state.value.taskRun) return;
+  const resumable = arrivalComplete || state.value.phase === 'won' || state.value.phase === 'lost' || (state.value.phase === 'ready' && state.value.taskRun.session > 0);
+  if (!resumable) return;
+  if (progressSaveTimer) clearTimeout(progressSaveTimer);
+  saveStatus.value = 'Saving soon…';
+  progressSaveTimer = setTimeout(() => { void flushProgressSave(); }, 650);
+}
+
+function restoreProgress(snapshot: GameProgressSnapshot): boolean {
+  const run = snapshot.state.taskRun;
+  const meaningful = snapshot.state.turn > 0 || snapshot.state.phase !== 'ready' || (run?.session ?? 0) > 0 || snapshot.activity !== null;
+  if (!meaningful) return false;
+
+  mission = { ...loadMission(), gameplayMode: 'station-tasks', hazardSeed: snapshot.missionSeed };
+  const resumedState = { ...snapshot.state, taskRun: snapshot.state.taskRun ? { ...snapshot.state.taskRun, protections: { ...snapshot.state.taskRun.protections }, completedIds: [...snapshot.state.taskRun.completedIds] } : undefined };
+  if (resumedState.phase === 'running' && resumedState.taskRun) resumedState.phase = 'paused';
+  state.value = resumedState;
+  arrivalComplete = resumedState.phase === 'paused' || resumedState.phase === 'won' || resumedState.phase === 'lost';
+  missionTimerActive.value = resumedState.phase === 'paused';
+  missionSeconds = 0;
+  arrivalGuide.value = false;
+
+  const savedActivity = snapshot.activity;
+  const task = savedActivity && STATION_TASKS.find(item => item.id === savedActivity.taskId);
+  if (task && resumedState.taskRun?.activeTaskId === task.id && resumedState.phase === 'paused') {
+    activeActivity.value = {
+      ...task,
+      taskId: task.id,
+      completionId: taskCompletionId(resumedState, task.id),
+      impact: task.benefit + ' · ' + task.prevention,
+    };
+    activityProgress.value = Math.max(0, Math.min(task.steps.length - 1, savedActivity.progress));
+    activityFeedback.value = 'Your saved job is ready to continue.';
+  } else {
+    activeActivity.value = null;
+    activityProgress.value = 0;
+  }
+  stationMessage.value = 'Saved expedition restored. Resume when you are ready.';
+  return true;
+}
+
+function startMission() {
+  showAccount.value = false;
+  showSplash.value = false;
+  showLogin.value = false;
+  if (engineReady.value) dispatch({ type: 'START' });
+  else startWhenReady = true;
+}
+
+async function authenticate(mode: 'register' | 'login', credentials: AccountCredentials) {
+  accountBusy.value = true;
+  accountMessage.value = '';
+  try {
+    const session = mode === 'register' ? await createPlayerAccount(credentials) : await signInPlayerAccount(credentials);
+    const saved = await getSavedProgress();
+    accountUser.value = session.username;
+    const restored = saved ? restoreProgress(saved) : false;
+    if (restored) {
+      showAccount.value = false;
+      showSplash.value = false;
+      showLogin.value = false;
+      saveStatus.value = 'Progress restored';
+      if (state.value.phase === 'ready') startMission();
+    } else {
+      saveStatus.value = 'Ready to save';
+      startMission();
+    }
+  } catch (error) {
+    accountMessage.value = error instanceof Error ? error.message : 'The account service is unavailable. Try again soon.';
+  } finally {
+    accountBusy.value = false;
+  }
+}
+
+async function signOut() {
+  await flushProgressSave();
+  try {
+    await signOutPlayerAccount();
+    accountUser.value = null;
+    saveStatus.value = 'Playing as guest';
+  } catch (error) {
+    saveStatus.value = error instanceof Error ? error.message : 'Could not sign out. Try again.';
+  }
+}
+
+function openAccountPanel() {
+  showLogin.value = false;
+  accountReturnToMenu.value = true;
+  showAccount.value = true;
+}
+
+function openAccountFromGame() {
+  accountReturnToMenu.value = false;
+  showAccount.value = true;
+}
+
+function closeAccountPanel() {
+  showAccount.value = false;
+  showLogin.value = accountReturnToMenu.value;
+}
+
+watch(() => [state.value, activeActivity.value?.taskId, activityProgress.value], queueProgressSave, { flush: 'post' });
 
 function onSplashDone() {
   showSplash.value = false;
 }
 
 function onLoginStart() {
-  showLogin.value = false;
-  dispatch({ type: 'START' });
+  startMission();
 }
 
 let lastNearStation: string | null = null;
@@ -662,6 +817,8 @@ onMounted(async () => {
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
+    engineReady.value = true;
+    if (startWhenReady) { startWhenReady = false; dispatch({ type: 'START' }); }
   } catch (error) {
     world?.dispose();
     world = undefined;
@@ -677,6 +834,8 @@ onMounted(async () => {
       frame=requestAnimationFrame(fallbackTick);
     };
     if(!disposed)frame=requestAnimationFrame(fallbackTick);
+    engineReady.value = true;
+    if (startWhenReady) { startWhenReady = false; dispatch({ type: 'START' }); }
   }
 });
 
@@ -697,7 +856,8 @@ onBeforeUnmount(() => {
 
 <template>
   <SplashScreen v-if="showSplash" @finished="onSplashDone" />
-  <LoginScreen v-if="showLogin" @start="onLoginStart" />
+  <LoginScreen v-if="showLogin" @start="onLoginStart" @account="openAccountPanel" />
+  <AccountPanel v-if="showAccount" :busy="accountBusy" :message="accountMessage" @submit="authenticate" @cancel="closeAccountPanel" />
   <main class="ares-app" :class="{'launch-active':!!launchFlight}">
 
     <div class="mission-layout">
@@ -712,6 +872,9 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <div class="header-controls">
+        <span v-if="accountUser" class="account-save-status" role="status" :title="saveStatus || 'Expedition progress is saved to this account.'">{{ accountUser }} · {{ saveStatus || 'save ready' }}</span>
+        <button v-if="accountUser" type="button" class="account-signout" @click="signOut">Sign out</button>
+        <button v-else type="button" class="account-signout" @click="openAccountFromGame">Sign in to sync</button>
         <span class="prototype-label">Junior explorer program</span>
         <button
           type="button"
@@ -864,6 +1027,9 @@ onBeforeUnmount(() => {
 .brand-kicker { margin: 0 0 4px; font-size: 9px; font-weight: 750; letter-spacing: .2em; color: #b2bfc6; }
 h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
 .header-controls { display: flex; align-items: center; gap: 16px; }
+.account-save-status { max-width: 180px; overflow: hidden; color: #b9dfd0; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.account-signout { min-height: 36px; padding: 0 10px; border: 1px solid #627d8a; border-radius: 7px; background: #1d303b; color: #dcebf0; font: 700 10px system-ui, sans-serif; cursor: pointer; }
+.account-signout:focus-visible { outline: 3px solid #ffdc89; outline-offset: 2px; }
 .prototype-label { color: #a0b3bd; font-size: 11px; }
 .mode-btn { font-size: 11px; padding: 9px 12px; background: #182833; border: 1px solid #3f5564; border-radius: 7px; color: #bed2de; cursor: pointer; }
 .mode-btn:hover { background: #253946; color: #ffffff; }

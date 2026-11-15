@@ -6,7 +6,7 @@ import cloudsTextureUrl from '../../assets/earth_clouds_1024.png';
 import moonTextureUrl from '../../assets/moon_1024.jpg';
 import { soundFX } from '../game/audio';
 
-const emit = defineEmits<{ start: [] }>();
+const emit = defineEmits<{ start: []; account: [] }>();
 
 const earthCanvas = ref<HTMLCanvasElement>();
 const showSettings = ref(false);
@@ -200,6 +200,15 @@ onBeforeUnmount(() => {
             @click="emit('start')"
           >
             <span class="btn-text">Start</span>
+            <span class="laser-flare"></span>
+          </button>
+
+          <button
+            class="title-menu-btn account-menu-btn"
+            type="button"
+            @click="emit('account')"
+          >
+            <span class="btn-text">Sign in to sync progress</span>
             <span class="laser-flare"></span>
           </button>
 

@@ -6,7 +6,7 @@ Read this file, `docs/TASKS.md`, `docs/CONTRACTS.md`, `docs/GIT_WORKFLOW.md`, an
 
 Build a browser game for children ages 7–12 managing a small Mars outpost. Teach costly choices involving power, breathable air, supplies/food, shelter, and delayed communication. This is an educational prototype, not professional astronaut training. Target one map, six shifts, a 3–5 minute mission, and a debrief explaining cause and effect. See `docs/HACKATHON_PLAN.md`.
 
-Stack: Vue 3 + TypeScript for screens; Three.js for the world; Rapier for movement/collisions; Vite; npm with the committed lockfile. No backend, login, multiplayer, extra state library or engine migration for the MVP.
+Stack: Vue 3 + TypeScript for screens; Three.js for the world; Rapier for movement/collisions; Vite; npm with the committed lockfile. The MVP now includes a minimal Node.js account API backed by PostgreSQL for username/password sign-in and game-progress saves only. Do not request or store email, real names, age, profile details, raw passwords, IP addresses, or analytics. No multiplayer, extra state library or engine migration.
 
 ## Current gameplay direction — latest 14 November update
 
@@ -31,9 +31,9 @@ For this update only, Himamshu is explicitly assigned edits to root and all six 
 | Dixit | Onboarding, decisions, pause, results, sources | `src/features/ui/**` | `feat/dixit-ui` |
 | Anshu | Physics, movement and interaction input | `src/features/physics/**` | `feat/anshu-physics` |
 | Genius | NASA evidence and mission content | `src/features/missions/**` | `feat/genius-missions` |
-| Rohit | Simulation, app wiring and release preparation | `src/features/game/**` plus engineering files below | `feat/rohit-game` |
+| Rohit | Simulation, account API, app wiring and release preparation | `src/features/game/**`, `server/**`, plus engineering files below | `feat/rohit-game` |
 
-Rohit owns shared engineering files: `src/App.vue`, `src/main.ts`, `src/styles.css`, `src/contracts/**`, root configuration/manifests/lockfile, `index.html`, `docs/CONTRACTS.md`, `docs/DEMO_CHECKLIST.md`, `docs/HACKATHON_PLAN.md`, and CI/deployment configuration. He implements app wiring on his feature branch; he does not merge team branches into main.
+Rohit owns shared engineering files: `src/App.vue`, `src/main.ts`, `src/styles.css`, `src/contracts/**`, root configuration/manifests/lockfile, `index.html`, `server/**`, `docs/CONTRACTS.md`, `docs/DEMO_CHECKLIST.md`, `docs/HACKATHON_PLAN.md`, and CI/deployment configuration. He implements app wiring on his feature branch; he does not merge team branches into main.
 
 Himamshu owns merge coordination and its documents: root `AGENTS.md`, `README.md`, `docs/TASKS.md`, `docs/GIT_WORKFLOW.md`, `docs/PROMPTS.md`, `docs/MERGE_COORDINATOR_PROMPT.md`, and `docs/MERGE_LOG.md`. Only Himamshu, or an AI he explicitly assigns a merge-coordinator task, runs the serial merge queue. Keep that task in a clean main checkout, separate from his world feature worktree. This role does not transfer app/contracts/package ownership from Rohit. The project is already scaffolded; do not regenerate it.
 
