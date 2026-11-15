@@ -42,14 +42,14 @@ export class WorldResources {
 export function createModelKit(resources: WorldResources) {
   const box = resources.geometry(new RoundedBoxGeometry(1, 1, 1, 2, .045));
   const flatBox = resources.geometry(new THREE.BoxGeometry(1, 1, 1));
-  const sphere = resources.geometry(new THREE.SphereGeometry(1, 12, 8));
-  const cylinder = resources.geometry(new THREE.CylinderGeometry(1, 1, 1, 12));
+  const sphere = resources.geometry(new THREE.SphereGeometry(1, 24, 16));
+  const cylinder = resources.geometry(new THREE.CylinderGeometry(1, 1, 1, 24));
   const palette = {
     ivory: '#e3e4dd', trim: '#263d48', dark: '#10252e', orange: '#ff9851',
     blue: '#17465f', glass: '#9de8d4', green: '#75b784', soil: '#3c3231',
   };
   const materials = Object.fromEntries(Object.entries(palette).map(([key, color]) => [
-    key, resources.material(new THREE.MeshStandardMaterial({ color, roughness: .8 })),
+    key, resources.material(new THREE.MeshStandardMaterial({ color, roughness: key === 'glass' ? .22 : key === 'trim' || key === 'dark' ? .45 : .72, metalness: key === 'trim' ? .45 : key === 'blue' ? .25 : .05 })),
   ])) as Record<keyof typeof palette, THREE.MeshStandardMaterial>;
 
   function mesh(parent: THREE.Object3D, geometry: THREE.BufferGeometry, material: THREE.Material,

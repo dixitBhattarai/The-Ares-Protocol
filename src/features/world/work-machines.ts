@@ -3,42 +3,71 @@ import { STATIONS, type StationId } from '../../contracts';
 import type { ModelKit, WorldResources } from './resources';
 import { WORK_MACHINES, type MachineId } from './interactables';
 
-/** Machines sit on existing desks/planter colliders, leaving the central path clear. */
-export function createWorkMachines(station:StationId,room:THREE.Group,kit:ModelKit,resources:WorldResources) {
-  const origin=STATIONS.find(item=>item.id===station)!.position;
-  const machines=new Map<MachineId,THREE.Group>();
-  for(const item of WORK_MACHINES.filter(item=>item.station===station)){
-    const group=new THREE.Group();group.name=`work-${item.id}`;group.userData.machineId=item.id;
-    group.position.set(item.position.x-origin.x,0,item.position.z-origin.z);room.add(group);machines.set(item.id,group);
-    const glow=resources.material(new THREE.MeshStandardMaterial({color:'#b0e8e4',emissive:item.id==='air'?'#ffb054':item.id==='plants'?'#69e997':'#5bcbf1',emissiveIntensity:.65,metalness:.3,roughness:.35}));
-    group.userData.highlightMaterial=glow;
-    if(item.id==='plants'){
-      kit.box(group,kit.materials.trim,[.16,.65,.16],[0,.9,0]);
-      const gauge=kit.box(group,glow,[.6,.42,.1],[0,1.35,0]);gauge.rotation.x=-.2;
-      for(let i=0;i<3;i++)kit.box(group,kit.materials.dark,[.34-i*.07,.035,.02],[0,1.43-i*.08,.065]);
-      kit.cylinder(group,kit.materials.orange,[.13,.25,.13],[.32,1.05,0]);
-    }else{
-      kit.box(group,kit.materials.trim,[1.05,.95,.22],[0,1.26,0]);
-      kit.box(group,glow,[.92,.78,.04],[0,1.26,.13]);
-      if(item.id==='air'){
-        for(const x of [-.25,.25])kit.cylinder(group,kit.materials.ivory,[.08,.55,.08],[x,1.28,.22]);
-        const valve=kit.cylinder(group,kit.materials.orange,[.18,.07,.18],[0,1.22,.27]);valve.rotation.x=Math.PI/2;
-        for(let i=0;i<3;i++)kit.sphere(group,glow,[.035,.035,.035],[.33,1.25+i*.12,.35]);
-      }else if(item.id==='shelter'){
-        for(const side of [-1,1]){const brace=kit.box(group,kit.materials.ivory,[.1,.72,.1],[0,1.27,.24]);brace.rotation.z=side*.65;}
-        for(const x of [-.34,.34])for(const y of [.99,1.55])kit.cylinder(group,kit.materials.orange,[.05,.07,.05],[x,y,.25]).rotation.x=Math.PI/2;
-      }else if(item.id==='power'){
-        for(let i=0;i<3;i++){
-          kit.box(group,kit.materials.blue,[.2,.48,.07],[-.28+i*.28,1.3,.2]);
-          kit.cylinder(group,kit.materials.orange,[.045,.19,.045],[-.28+i*.28,1.02,.24]);
-        }
-      }else{
-        const dish=kit.sphere(group,kit.materials.ivory,[.3,.3,.1],[0,1.3,.23]);dish.rotation.y=.2;
-        kit.cylinder(group,kit.materials.orange,[.025,.3,.025],[0,1.65,.25]);
-        kit.sphere(group,glow,[.07,.07,.07],[0,1.83,.25]);
+/** Machines retain their IDs and desk/planter locations; presentation never awards resources. */
+export function createWorkMachines(station: StationId, room: THREE.Group, kit: ModelKit, resources: WorldResources) {
+  const origin = STATIONS.find(item => item.id === station)!.position;
+  const machines = new Map<MachineId, THREE.Group>();
+  const metal = resources.material(new THREE.MeshStandardMaterial({ color: '#94a8ab', metalness: .65, roughness: .34 }));
+  const rubber = resources.material(new THREE.MeshStandardMaterial({ color: '#1e3037', roughness: .72 }));
+  function pipe(parent: THREE.Object3D, points: number[][], radius: number, material: THREE.Material) {
+    const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p as [number, number, number])));
+    parent.add(new THREE.Mesh(resources.geometry(new THREE.TubeGeometry(curve, 14, radius, 6, false)), material));
+  }
+  for (const item of WORK_MACHINES.filter(item => item.station === station)) {
+    const group = new THREE.Group(); group.name = `work-${item.id}`; group.userData.machineId = item.id;
+    group.position.set(item.position.x - origin.x, 0, item.position.z - origin.z); room.add(group); machines.set(item.id, group);
+    const glow = resources.material(new THREE.MeshStandardMaterial({ color: '#b0e8e4', emissive: item.id === 'air' ? '#ffb054' : item.id === 'plants' ? '#69e997' : '#5bcbf1', emissiveIntensity: .65, metalness: .2, roughness: .35 }));
+    group.userData.highlightMaterial = glow;
+    if (item.id === 'plants') {
+      kit.box(group, metal, [.12, .6, .12], [0, 1.03, 0]);
+      const controller = new THREE.Group(); controller.position.set(0, 1.36, .02); controller.rotation.x = -.25; group.add(controller);
+      kit.box(controller, rubber, [.55, .4, .09], [0, 0, 0]);
+      kit.box(controller, glow, [.44, .24, .02], [0, .025, .055]);
+      for (let i = 0; i < 3; i++) kit.flatBox(controller, rubber, [.08, .025, .015], [-.13 + i * .13, -.145, .055]);
+      kit.cylinder(group, metal, [.13, .32, .13], [.32, 1.06, 0]);
+      kit.cylinder(group, glow, [.135, .14, .135], [.32, 1.08, 0]);
+      pipe(group, [[.32, 1.24, 0], [.36, 1.28, .18], [.1, 1, .23], [0, .78, .2]], .018, rubber);
+    } else if (item.id === 'air') {
+      kit.box(group, rubber, [1, .72, .17], [0, 1.3, 0]);
+      for (const x of [-.28, .28]) {
+        kit.cylinder(group, metal, [.105, .54, .105], [x, 1.33, .17]);
+        for (const y of [1.1, 1.56]) kit.cylinder(group, rubber, [.115, .055, .115], [x, y, .17]);
       }
+      pipe(group, [[-.28, 1.6, .17], [-.28, 1.7, .17], [.28, 1.7, .17], [.28, 1.6, .17]], .035, metal);
+      const wheel = new THREE.Mesh(resources.geometry(new THREE.TorusGeometry(.13, .025, 8, 24)), kit.materials.orange);
+      wheel.position.set(0, 1.27, .28); group.add(wheel);
+      for (const a of [0, Math.PI / 3, -Math.PI / 3]) { const spoke = kit.box(group, kit.materials.orange, [.22, .025, .025], [0, 1.27, .28]); spoke.rotation.z = a; }
+      const dial = kit.cylinder(group, glow, [.075, .025, .075], [0, 1.56, .16]); dial.rotation.x = Math.PI / 2;
+      const needle = kit.flatBox(group, rubber, [.015, .09, .01], [0, 1.58, .18]); needle.rotation.z = -.55;
+    } else if (item.id === 'shelter') {
+      kit.box(group, rubber, [1, .85, .15], [0, 1.32, 0]);
+      const plate = new THREE.Mesh(resources.geometry(new THREE.CylinderGeometry(.43, .43, .08, 6)), metal);
+      plate.rotation.x = Math.PI / 2; plate.position.set(0, 1.32, .13); group.add(plate);
+      for (let i = 0; i < 6; i++) {
+        const a = i * Math.PI / 3;
+        const bolt = kit.cylinder(group, kit.materials.orange, [.035, .035, .035], [Math.sin(a) * .34, 1.32 + Math.cos(a) * .34, .19]); bolt.rotation.x = Math.PI / 2;
+      }
+      kit.box(group, glow, [.16, .24, .025], [0, 1.32, .185]);
+    } else if (item.id === 'power') {
+      kit.box(group, rubber, [1.05, .8, .17], [0, 1.32, 0]);
+      for (let i = 0; i < 3; i++) {
+        const x = -.3 + i * .3;
+        kit.cylinder(group, metal, [.1, .5, .1], [x, 1.35, .18]);
+        kit.cylinder(group, glow, [.105, .055, .105], [x, 1.53, .18]);
+        kit.box(group, kit.materials.orange, [.055, .06, .06], [x, 1.63, .18]);
+        pipe(group, [[x, 1.08, .18], [x, .99, .22], [x + .1, .99, .24], [x + .1, 1.13, .24]], .018, i % 2 ? kit.materials.orange : kit.materials.blue);
+      }
+    } else {
+      kit.box(group, rubber, [1, .75, .2], [0, 1.3, 0]);
+      const scope = new THREE.Group(); scope.position.set(-.1, 1.36, .18); scope.rotation.x = -.18; group.add(scope);
+      kit.box(scope, metal, [.68, .46, .08], [0, 0, 0]);
+      kit.box(scope, glow, [.56, .34, .02], [0, 0, .055]);
+      const reticle = new THREE.Mesh(resources.geometry(new THREE.TorusGeometry(.115, .008, 5, 28)), rubber); reticle.position.z = .073; scope.add(reticle);
+      kit.flatBox(scope, rubber, [.3, .008, .01], [0, 0, .075]); kit.flatBox(scope, rubber, [.008, .29, .01], [0, 0, .075]);
+      for (let i = 0; i < 3; i++) { const knob = kit.cylinder(group, metal, [.04, .035, .04], [-.26 + i * .23, 1, .18]); knob.rotation.x = Math.PI / 2; }
+      pipe(group, [[.4, 1.08, .1], [.46, 1.3, .1], [.4, 1.62, .1], [.3, 1.7, .1]], .02, metal);
     }
-    group.traverse(object=>{if(object instanceof THREE.Mesh){object.castShadow=true;object.receiveShadow=true;object.userData.machineId=item.id;}});
+    group.traverse(object => { if (object instanceof THREE.Mesh) { object.castShadow = true; object.receiveShadow = true; object.userData.machineId = item.id; } });
   }
   return machines;
 }
