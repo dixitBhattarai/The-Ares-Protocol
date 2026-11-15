@@ -11,20 +11,24 @@ export function createLaunchView(kit:ModelKit,resources:WorldResources,nasa:Retu
  const skyColor=new THREE.Color('#79bce3'),black=new THREE.Color('#030813');scene.background=skyColor;
  const ambient=new THREE.HemisphereLight('#e1efff','#334342',2.3);scene.add(ambient);
  const sun=new THREE.DirectionalLight('#fff1d6',3.5);sun.position.set(-300,500,250);scene.add(sun);
- const globeGeo=resources.geometry(new THREE.SphereGeometry(850,96,64));
+ const globeGeo=resources.geometry(new THREE.SphereGeometry(8500,128,80));
  const earthMaterial=resources.material(new THREE.MeshStandardMaterial({color:'#c4d9e7',roughness:.95}));
  nasa.texture(new URL('../../assets/earth_atmos_2048.jpg',import.meta.url).href,earthMaterial);
- const earth=new THREE.Mesh(globeGeo,earthMaterial);earth.position.y=-850;earth.rotation.y=1.3;scene.add(earth);
+ const earth=new THREE.Mesh(globeGeo,earthMaterial);earth.position.y=-8500;earth.rotation.set(.25,1.3,1.1);scene.add(earth);
  // Thin luminous atmospheric limb, evaluated from the camera direction.
  const atmosphereMaterial=resources.material(new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.BackSide,blending:THREE.AdditiveBlending,
-  uniforms:{tint:{value:new THREE.Color('#63baff')}},
+  uniforms:{tint:{value:new THREE.Color('#63baff')},strength:{value:0}},
   vertexShader:'varying vec3 n;varying vec3 v;void main(){vec4 p=modelViewMatrix*vec4(position,1.);n=normalize(normalMatrix*normal);v=normalize(-p.xyz);gl_Position=projectionMatrix*p;}',
-  fragmentShader:'varying vec3 n;varying vec3 v;uniform vec3 tint;void main(){float a=pow(max(0.,1.-abs(dot(normalize(n),normalize(v)))),3.);gl_FragColor=vec4(tint,a*.24);}'
+  fragmentShader:'varying vec3 n;varying vec3 v;uniform vec3 tint;uniform float strength;void main(){float a=pow(max(0.,1.-abs(dot(normalize(n),normalize(v)))),3.);gl_FragColor=vec4(tint,a*.24*strength);}'
  }));
- const atmosphere=new THREE.Mesh(resources.geometry(new THREE.SphereGeometry(862,64,40)),atmosphereMaterial);atmosphere.position.copy(earth.position);scene.add(atmosphere);
+ const atmosphere=new THREE.Mesh(resources.geometry(new THREE.SphereGeometry(8534,96,64)),atmosphereMaterial);atmosphere.position.copy(earth.position);scene.add(atmosphere);
  const concrete=resources.material(new THREE.MeshStandardMaterial({color:'#899796',roughness:.9}));
  const pad=new THREE.Group();scene.add(pad);
- const launchGround=createEarthSurface(resources,260);launchGround.position.y=-.08;pad.add(launchGround);
+ const launchGround=createEarthSurface(resources,900);
+ // Curve the local launch terrain onto the same globe instead of showing a floating square.
+ const surface=launchGround.geometry.attributes.position as THREE.BufferAttribute;
+ for(let i=0;i<surface.count;i++){const x=surface.getX(i),z=surface.getZ(i);surface.setY(i,Math.sqrt(8500*8500-x*x-z*z)-8500+.02);}
+ surface.needsUpdate=true;launchGround.geometry.computeVertexNormals();pad.add(launchGround);
  kit.cylinder(pad,concrete,[10,.3,10],[0,.1,0]);
  kit.flatBox(pad,kit.materials.trim,[3,.08,110],[0,.35,56]);
  const tower=new THREE.Group();tower.position.set(-9,0,-3);pad.add(tower);
@@ -89,18 +93,20 @@ export function createLaunchView(kit:ModelKit,resources:WorldResources,nasa:Retu
    const groundOpacity=launchGroundOpacity(s.altitude);
    pad.visible=groundOpacity>0;
    for(const material of padMaterials.values()){material.opacity=groundOpacity;material.transparent=groundOpacity<1;material.depthWrite=groundOpacity===1;}
-   earth.visible=s.altitude>350;
-   skyColor.set('#79bce3').lerp(black,space);starMaterial.opacity=space*.9;
+   earth.visible=s.altitude>350;atmosphere.visible=s.altitude>8000;atmosphereMaterial.uniforms.strength.value=THREE.MathUtils.smoothstep(s.altitude,8000,50000);
+   // Match the local tangent surface to the globe and reveal curvature gradually.
+   earthMaterial.color.set('#c4d9e7').lerp(new THREE.Color('#ffffff'),space);
+   skyColor.set('#79bce3').lerp(black,space);starMaterial.opacity=THREE.MathUtils.smoothstep(s.altitude,35000,95000)*.9;
    ambient.intensity=2.3-space*1.4;
    rocket.position.set(s.downrange*.006,altitude+7,0);rocket.rotation.z=-s.pitch*Math.PI/180;
    const separation=THREE.MathUtils.clamp((s.altitude-45000)/20000,0,1);
    boosters.forEach((b,i)=>{b.position.set((i===0?-1:1)*(2.05+separation*18),-.9-separation*25,0);b.rotation.z=(i===0?1:-1)*separation*.45;b.visible=separation<1;});
    const thrust=s.ignited&&s.fuel>0&&!s.spaceReached?s.throttle:0;
-   plumes.forEach((p,i)=>{p.visible=thrust>.02&&(i===0||separation===0);p.scale.set(.7+thrust*.5,(.35+thrust*.8)*(reduced?1:1+Math.sin(clock*43+i)*.055),.7+thrust*.5);});
+   plumes.forEach((p,i)=>{p.visible=thrust>.02&&(i===0||separation===0);p.scale.set((.7+thrust*.5)*(1+space*.65),(.35+thrust*.8)*(1+space*.8)*(reduced?1:1+Math.sin(clock*43+i)*.055),(.7+thrust*.5)*(1+space*.65));});
    flameMaterial.uniforms.time.value=clock;engineLight.intensity=thrust*90;
    smoke.forEach((p,i)=>{p.visible=thrust>.3&&s.altitude<2400;const age=((clock*.7+i/24)%1);const radius=age*24+3;p.position.set(Math.sin(i*2.4)*radius,1+age*8,Math.cos(i*2.4)*radius);p.scale.setScalar(3+age*18);});
    // Clouds stay below the ascending camera rather than being swapped for a new slide.
-   clouds.visible=s.altitude<60000;
+   clouds.visible=s.altitude<45000;cloudMaterial.opacity=.65*(1-THREE.MathUtils.smoothstep(s.altitude,16000,45000));
    const lift=THREE.MathUtils.smoothstep(s.altitude,2000,95000);
    target.copy(rocket.position).add(new THREE.Vector3(0,1.3,0));
    const shake=!reduced&&active&&thrust>.4?(1-space)*.045:0;

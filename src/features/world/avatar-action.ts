@@ -129,10 +129,12 @@ export function createAvatarActionLayer(model: THREE.Object3D) {
         rotate('RightUpLeg', -.12 - rising * .4, 0, .04, jump);
         rotate('LeftLeg', .3 + rising * .75, 0, 0, jump);
         rotate('RightLeg', .25 + rising * .55, 0, 0, jump);
-        rotate('LeftArm', -.3 - rising * .4, 0, -.12, jump);
-        rotate('RightArm', -.3 - rising * .4, 0, .12, jump);
-        rotate('LeftForeArm', -.25, 0, 0, jump);
-        rotate('RightForeArm', -.25, 0, 0, jump);
+        rotate('LeftArm', -.35 - rising * .55, 0, -.22, jump);
+        rotate('RightArm', -.35 - rising * .55, 0, .22, jump);
+        rotate('Spine', .12 + rising * .12, 0, 0, jump);
+        rotate('Head', -.1, 0, 0, jump);
+        rotate('LeftForeArm', -.45, 0, 0, jump);
+        rotate('RightForeArm', -.45, 0, 0, jump);
       }
       if (landing > 0) {
         const compression = Math.sin(landing * Math.PI / 2);
