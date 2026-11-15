@@ -136,3 +136,6 @@ User-approved coordinated slice adds ExpeditionControls.vue (contextual boarding
 
 ### 15 November — contextual crater survey
 User-approved SurveyControls.vue shows only the nearby spot, scan progress, two-slot cargo, rover proximity and seal/boarding buttons. SampleLab names each queued specimen and varies its authored grain scatter. No sidebar, cards or job menu. Existing FieldWorkPanel API and reward actions preserved. Keyboard E and touch buttons supported. Browser exercised three scans/two lab examinations and mobile overflow checks. World-owned BatteryRepair is composed inside its existing ActivityPanel, preserving the current UI theme. Ongoing UI ownership remains Dixit's.
+
+### 15 November — launch panel framing
+User-requested launch visibility correction: LaunchControls.vue desktop panel narrowed 264→220px with reduced padding/gaps; flight keys remain >=44px and mobile layout/props/emits unchanged. World notes record Earth/vehicle changes and desktop/mobile visual review. No control behavior or shared HUD styling changed. Ongoing ownership remains Dixit’s.
