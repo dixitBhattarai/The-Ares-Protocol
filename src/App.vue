@@ -26,6 +26,9 @@ import {createLandingFlight,createFinalApproach,stepLandingFlight,landingGuidanc
 import {createLaunchFlight,stepLaunchFlight,SPACE_ALTITUDE} from './features/physics/launch-flight';
 import SplashScreen from './features/ui/SplashScreen.vue';
 import LoginScreen from './features/ui/LoginScreen.vue';
+import ExplorationMap from './features/ui/ExplorationMap.vue';
+import ScienceWorkbench from './features/world/ScienceWorkbench.vue';
+import {DISCOVERY_SITES,nearbyDiscovery,discoverSite,type DiscoveryId} from './contracts/open-world';
 import PauseScreen from './features/ui/PauseScreen.vue';
 import AccountPanel from './features/ui/AccountPanel.vue';
 import { createPlayerAccount, getSavedProgress, saveGameProgress, signInPlayerAccount, signOutPlayerAccount } from './features/game/progress';
@@ -59,6 +62,25 @@ const activeActivity = shallowRef<(Activity & { taskId: string; completionId: st
 const activityProgress = ref(0);
 const activityFeedback = ref('');
 const habitatAccess=ref(freshHabitatAccess());
+const freeExploration=ref(false),explorerPose=ref<Vec3>({x:0,y:.8,z:18});
+const discovered=ref<readonly DiscoveryId[]>([]),trackedSite=ref<DiscoveryId|null>(null),exploringSite=ref<DiscoveryId|null>(null);
+const closeSite=computed(()=>nearbyDiscovery(explorerPose.value));
+const activeSite=computed(()=>DISCOVERY_SITES.find(s=>s.id===exploringSite.value));
+function studyDiscovery(){if(!freeExploration.value||gamePaused.value||!closeSite.value||activeActivity.value)return;exploringSite.value=closeSite.value.id;physics?.pauseInput?.();world?.setMotionPaused?.(true);}
+watch(exploringSite,async id=>{if(id){await nextTick();document.querySelector<HTMLElement>('.discovery-dialog [tabindex="0"]')?.focus();}});
+function trapDiscovery(event:KeyboardEvent){
+ if(event.code==='Escape'){event.preventDefault();closeDiscovery();return;}
+ if(event.code==='KeyP'){event.preventDefault();if(!event.repeat)requestPause();return;}
+ if(event.key!=='Tab')return;
+ const nodes=Array.from(document.querySelectorAll<HTMLElement>('.discovery-dialog button:not(:disabled),.discovery-dialog [tabindex="0"]')).filter(n=>n.getClientRects().length);
+ const first=nodes[0],last=nodes[nodes.length-1];
+ if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+ else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+}
+function finishDiscovery(){if(exploringSite.value)discovered.value=discoverSite(discovered.value,exploringSite.value);closeDiscovery();}
+function closeDiscovery(){exploringSite.value=null;void nextTick(()=>{(document.activeElement as HTMLElement)?.blur();host.value?.focus();syncMovementInput();});}
+function returnToBase(){if(gamePaused.value||exploringSite.value||activeActivity.value)return;habitatAccess.value=freshHabitatAccess();physics?.reset?.({x:1.5,y:.8,z:7});world?.setHabitatAccess?.(habitatAccess.value);}
+
 const nearSuitRack=ref(false);
 const nearMachine=ref(false);
 const airlockOccupied=ref(false);
@@ -409,7 +431,7 @@ function resumeGame(){
  if(mayResumeFlightSim())flightSim?.resume();
  void nextTick(()=>{
   // Hidden/focused controls must not keep swallowing movement after Resume.
-  (document.activeElement as HTMLElement)?.blur();host.value?.focus({preventScroll:true});syncMovementInput();
+  (document.activeElement as HTMLElement)?.blur();if(exploringSite.value)document.querySelector<HTMLElement>('.discovery-dialog [tabindex="0"]')?.focus();else host.value?.focus({preventScroll:true});syncMovementInput();
  });
 }
 function togglePreparationPause(){if(gamePaused.value)resumeGame();else requestPause();}
@@ -417,7 +439,7 @@ function syncMovementInput(){
  const focused=document.activeElement as HTMLElement|null;
  const editing=!!focused?.closest('input,textarea,select,[contenteditable]');
  const deckFocused=!!commandPanel.value?.contains(focused)&&!!commandPanel.value?.getClientRects().length;
- const free=!document.hidden&&!gamePaused.value&&!scienceOpen.value&&!activeActivity.value&&!doingFieldWork.value&&!cabinSeated.value&&!flightStage.value&&!editing&&!deckFocused
+ const free=!document.hidden&&!gamePaused.value&&!exploringSite.value&&!scienceOpen.value&&!activeActivity.value&&!doingFieldWork.value&&!cabinSeated.value&&!flightStage.value&&!editing&&!deckFocused
   &&(state.value.phase==='running'||!!preparation.value)&&!showLogin.value&&!showSplash.value;
  if(free)physics?.resumeInput?.();else physics?.pauseInput?.();
 }
@@ -593,7 +615,7 @@ function makeProgressSnapshot(): GameProgressSnapshot {
 }
 
 async function flushProgressSave(keepalive = false) {
-  if (!accountUser.value || !state.value.taskRun) return;
+  if (freeExploration.value || !accountUser.value || !state.value.taskRun) return;
   const resumable = arrivalComplete || state.value.phase === 'won' || state.value.phase === 'lost' || (state.value.phase === 'ready' && state.value.taskRun.session > 0);
   if (!resumable) return;
   if (progressSaveTimer) clearTimeout(progressSaveTimer);
@@ -621,7 +643,7 @@ async function flushProgressSave(keepalive = false) {
 }
 
 function queueProgressSave() {
-  if (!accountUser.value || !state.value.taskRun) return;
+  if (freeExploration.value || !accountUser.value || !state.value.taskRun) return;
   const resumable = arrivalComplete || state.value.phase === 'won' || state.value.phase === 'lost' || (state.value.phase === 'ready' && state.value.taskRun.session > 0);
   if (!resumable) return;
   if (progressSaveTimer) clearTimeout(progressSaveTimer);
@@ -633,6 +655,7 @@ function restoreProgress(snapshot: GameProgressSnapshot): boolean {
   const run = snapshot.state.taskRun;
   const meaningful = snapshot.state.turn > 0 || snapshot.state.phase !== 'ready' || (run?.session ?? 0) > 0 || snapshot.activity !== null;
   if (!meaningful) return false;
+  freeExploration.value=false;physics?.setFreeRoam?.(false);exploringSite.value=null;
 
   mission = { ...loadMission(), gameplayMode: 'station-tasks', hazardSeed: snapshot.missionSeed };
   const resumedState = { ...snapshot.state, taskRun: snapshot.state.taskRun ? { ...snapshot.state.taskRun, protections: { ...snapshot.state.taskRun.protections }, completedIds: [...snapshot.state.taskRun.completedIds] } : undefined };
@@ -753,11 +776,15 @@ function onSplashDone() {
 }
 
 function quickStartMars(){
+ freeExploration.value=true;mission.freeExploration=true;state.value=createInitialState(mission);activeActivity.value=null;discovered.value=[];trackedSite.value=null;exploringSite.value=null;
+ physics?.setFreeRoam?.(true);habitatAccess.value={suited:true,phase:'outside',remaining:0};
  showSplash.value=false;showLogin.value=false;arrivalComplete=true;preparation.value=null;updateFlightStage(null);world?.setLevel?.(null);setGravity('mars');
- physics?.exitInterior?.();physics?.reset?.({x:1.5,y:.8,z:7});deckVisible.value=false;dispatch({type:'START'});music?.select('mars');
+ physics?.exitInterior?.();physics?.reset?.({x:0,y:.8,z:18});deckVisible.value=false;dispatch({type:'START'});arrivalGuide.value=false;music?.select('mars');
 }
 
 function onLoginStart() {
+ const leavingRoam=freeExploration.value;freeExploration.value=false;mission.freeExploration=false;physics?.setFreeRoam?.(false);
+ if(leavingRoam){state.value=createInitialState(mission);arrivalComplete=false;activeActivity.value=null;exploringSite.value=null;habitatAccess.value=freshHabitatAccess();}
   startMission();
 }
 
@@ -834,7 +861,7 @@ function dispatch(action: GameAction) {
 }
 
 function advanceMissionTime(elapsed:number) {
-  if(state.value.phase==='running'&&missionTimerActive.value&&!document.hidden&&!preparation.value&&flightProgress.value===null){
+  if(!freeExploration.value&&state.value.phase==='running'&&missionTimerActive.value&&!document.hidden&&!preparation.value&&flightProgress.value===null){
     missionSeconds+=elapsed;
     if(missionSeconds>=1){missionSeconds-=1;dispatch({type:'TICK',seconds:1});}
   }else missionSeconds=0;
@@ -880,6 +907,8 @@ function handleGlobalKeydown(event: KeyboardEvent) {
     event.preventDefault();if(!event.repeat && (preparation.value||flightStage.value||state.value.phase==='running'||gamePaused.value)){if(gamePaused.value)resumeGame();else requestPause();}return;
   }
   if(gamePaused.value)return;
+  if(freeExploration.value&&closeSite.value&&event.code==='KeyE'&&!exploringSite.value){event.preventDefault();if(!event.repeat)studyDiscovery();return;}
+  if(exploringSite.value)return;
   if(landingFlight.value&&flightStage.value==='landing'&&!(event.target as HTMLElement|null)?.closest('input,textarea,select,[contenteditable]')){
     if(event.code==='KeyP'){event.preventDefault();if(!event.repeat)togglePreparationPause();return;}
     if(['KeyW','KeyS','KeyA','KeyD','KeyQ','KeyE'].includes(event.code)){event.preventDefault();holdLanding(event.code as FlightControlKey,true);return;}
@@ -992,7 +1021,8 @@ onMounted(async () => {
     });
     world.onInteract?.(id=>dispatch({type:'START_TASK',taskId:id}));
     physics = await createPhysics();
-    syncMovementInput();
+    physics.setFreeRoam?.(freeExploration.value);syncMovementInput();
+    if(freeExploration.value)physics.reset?.({x:0,y:.8,z:18});
     setGravity(preparation.value==='earth'?'earth':preparation.value==='space'?'orbit':'mars');
     world.setConsoleHandler?.(index => {
       if (preparation.value === 'space') {
@@ -1054,6 +1084,7 @@ onMounted(async () => {
       nearSampleSite.value=nearSampleLocation(physics!.getPlayerPose(),SAMPLE_SITE);nearSampleLab.value=interior.value==='solar'&&nearSampleLocation(physics!.getPlayerPose(),SAMPLE_LAB);
       nearSuitRack.value=atSuitRack(physics!.getPlayerPose());airlockOccupied.value=inAirlock(physics!.getPlayerPose());
       let pose = physics!.getPlayerPose();
+      if(freeExploration.value)explorerPose.value={...pose};
       if (preparation.value === 'earth') {
         const outside=insideStation(pose)!=='habitat';
         if(outside!==earthOutside.value){earthOutside.value=outside;world!.setEarthOutside?.(outside);}
@@ -1097,7 +1128,7 @@ onMounted(async () => {
         world!.setAvailableTasks?.(availableTaskStations.value,offerId);
 
       } else if (state.value.phase !== 'paused') {world!.setAvailableTasks?.([], '');}
-      world!.setMotionPaused?.(preparationPaused.value || state.value.phase === 'paused');
+      world!.setMotionPaused?.(preparationPaused.value || state.value.phase === 'paused' || !!exploringSite.value);
       world!.render();
       for(const station of STATIONS)physics!.setDoorOpen?.(station.id,doorsOpen.value[station.id] && (world!.isDoorOpen?.(station.id) ?? true));
       const doorId = interior.value ?? nearby.value;
@@ -1168,7 +1199,7 @@ onBeforeUnmount(() => {
       <div class="header-controls">
         <span v-if="accountUser" class="account-save-status" role="status" :title="saveStatus || 'Expedition progress is saved to this account.'">{{ accountUser }} · {{ saveStatus || 'save ready' }}</span>
         <button v-if="accountUser" type="button" class="account-signout" @click="signOut">Sign out</button>
-        <button v-else type="button" class="account-signout" @click="openAccountFromGame">Sign in to sync</button>
+        <button v-else type="button" class="account-signout" @click="openAccountFromGame">{{ freeExploration?'Account':'Sign in to sync' }}</button>
         <span class="prototype-label">Junior explorer program</span><button v-if="!launchFlight && !landingFlight" @click="openScience">NASA</button>
         <button v-if="!launchFlight && !landingFlight && (preparation || flightStage || state.phase==='running' || gamePaused)" @click="gamePaused?resumeGame():requestPause()">{{ gamePaused?'Resume':'Pause' }}</button>
         <button
@@ -1217,6 +1248,10 @@ onBeforeUnmount(() => {
           role="region"
           :aria-label="flightStage ? 'Rocket ascent, transfer or Mars landing view' : preparation === 'earth' ? 'Interactive Earth launch site' : preparation === 'space' ? 'Interactive zero-gravity rocket cabin' : 'Interactive 3D Mars Outpost Viewport'"
         />
+        <ExplorationMap v-if="freeExploration && (state.phase==='running'||state.phase==='paused')" :pose="explorerPose" :found="discovered" :target="trackedSite" :nearby="closeSite?.name" :busy="gamePaused||!!exploringSite||!!activeActivity" @select="id=>trackedSite=id" @study="studyDiscovery" @home="returnToBase" />
+        <div v-if="activeSite" class="work-modal discovery-dialog" role="dialog" aria-modal="true" :aria-label="activeSite.name" @keydown.stop="trapDiscovery">
+          <section style="width:min(440px,100%);color:#e4edda"><div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:#17343a"><strong>{{ activeSite.name }}</strong><button @click="closeDiscovery">Close field study</button></div><ScienceWorkbench :key="activeSite.id" :stage="activeSite.stage" :paused="gamePaused" @complete="finishDiscovery" /></section>
+        </div>
         <div v-if="arrivalComplete && state.phase==='running'" class="environment-label">{{ habitatAccess.phase==='outside'?'MARS · SUIT SEALED':habitatAccess.suited?'BASE · SUIT READY':'BASE · BREATHABLE' }}</div>
         <div v-if="preparation==='space' && !deckVisible" class="cabin-prompt">
  <small>WASD drift · Space ↑ · Shift ↓ · Ctrl brake · L ladder</small>

@@ -376,14 +376,15 @@ function toggleStat(id: ProgressStat): void {
         <div class="mission-heading">
           <span class="eyebrow">{{ stageCopy?.label ?? 'ARES · OUTPOST 01' }}</span>
           <strong v-if="stageCopy">{{ stageCopy.title }}</strong>
+          <strong v-else-if="mission.freeExploration">FREE EXPLORATION</strong>
           <strong v-else-if="state.taskRun">JOB {{ Math.min(state.turn + 1, mission.maxTurns) }} <span>OF {{ mission.maxTurns }}</span></strong>
           <strong v-else>SHIFT {{ shift }} <span>OF {{ mission.maxTurns }}</span></strong>
         </div>
       </div>
-      <span class="unit-tag">GAME UNITS</span>
+      <span v-if="!mission.freeExploration" class="unit-tag">GAME UNITS</span>
     </header>
 
-    <div v-if="!stageCopy"
+    <div v-if="!stageCopy && !mission.freeExploration"
       class="shift-track"
       role="progressbar"
       :aria-label="state.taskRun ? 'Station jobs completed' : 'Mission shifts completed'"
@@ -452,7 +453,7 @@ function toggleStat(id: ProgressStat): void {
         <span v-if="statPops.science" :key="statPops.science.key" class="progress-pop science-pop" aria-hidden="true"><span class="progress-numerator"><span class="count-old">{{ statPops.science.from }}</span><span class="count-new">{{ statPops.science.to }}</span></span><span class="progress-denominator">/{{ statPops.science.max }}</span></span>
         <div class="stat-detail" :aria-hidden="expandedStat !== 'science'">
           <span class="secondary-label">SCIENCE GOAL</span>
-          <strong class="stat-value">{{ state.science }} <span>/ {{ mission.scienceTarget }}</span></strong>
+          <strong class="stat-value">{{ state.science }} <span v-if="!mission.freeExploration">/ {{ mission.scienceTarget }}</span></strong>
           <div
             id="science-progress-detail"
             class="science-track"

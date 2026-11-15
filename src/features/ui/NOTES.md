@@ -123,3 +123,7 @@ The user requested a pause/resume screen plus camera/input fixes. Himamshu's coo
 - Earth/orbit preflight checks also announce each completed step. No UI feature component changed; this feedback is in the shell-owned App composition.
 - Changed in this slice: `src/App.vue`, `src/contracts/index.ts`, `src/features/game/station-game.ts`, `src/features/game/index.ts`, and `docs/CONTRACTS.md`.
 - Validation: `npm run typecheck` and `npm run build` pass on the rebased branch. `npm test` and browser checks were not run for this request.
+
+### 15 November — Explore Mars and discovery map
+User chose relaxed free roaming. Coordinated slice adds ExplorationMap.vue: selectable landmarks, live location/distance, discovered status, nearby study action, return to base, collapsible map and 360px layout. LoginScreen's existing fast Mars entry is now labeled Explore Mars; ordinary Start still enters the mission. Discovery activities reuse existing visual science panels. Journals are per visit, and account mission saves are not replaced by free roaming. Browser map/field-study/return/pause/mobile checks pass; see world notes for full validation. Dixit retains UI ownership.
+- Final keyboard pass: field-study dialogs automatically focus their instrument, contain Tab, restore instrument focus after Pause/Resume and close with Escape. Verified in the actual observatory flow; final build passes.

@@ -203,7 +203,7 @@ onBeforeUnmount(() => {
             <span class="laser-flare"></span>
           </button>
 
-          <button class="field-menu-btn" type="button" @click="emit('explore')"><span>Mars field mission</span><small>Suit up · collect · discover</small></button>
+          <button class="field-menu-btn" type="button" @click="emit('explore')"><span>Explore Mars</span><small>Free roam · no survival drain · discover</small></button>
 
           <button
             class="title-menu-btn account-menu-btn"

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {createOpenLandscape} from './open-landscape';
 import { createExpeditionSite } from './expedition-site';
 import { createVisualUpgrade } from './visual-upgrade';
 import type { FieldSample } from '../../contracts/exploration';
@@ -83,9 +84,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     let earthOutside = false;
     const nasa = createNasaLoader(resources);
     cleanups.push(() => nasa.dispose());
-    // Scenic references stay outside the walkable boundary: no invisible indoor obstacles.
-    const rover = new THREE.Group(); rover.position.set(21, 0, 7); rover.rotation.y = -Math.PI / 3; scene.add(rover);
-    void nasa.attach(rover, 'curiosity', 3.2, undefined, true);
+    // Distant scenery remains beyond the exploration boundary.
     const volcano = new THREE.Group();
     volcano.name = 'olympus-mons-distant';
     volcano.position.set(-70, -22, -430); scene.add(volcano);
@@ -118,7 +117,9 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     let consoleHandler: ((index: number) => void) | null = null;
     const terrain = createTerrain(kit, resources);
     terrain.traverse(object => { if (object instanceof THREE.Mesh) object.receiveShadow = true; });
-    scene.add(terrain);
+    const openLandscape=createOpenLandscape(kit,resources);scene.add(terrain,openLandscape);
+    const rover=new THREE.Group();rover.position.set(40,0,30);scene.add(rover);
+    void nasa.attach(rover,'curiosity',3.2,openLandscape.getObjectByName('landmark-rover'),true);
     const dome=createHabitatDome(kit,resources);scene.add(dome.group);
     let habitatAccess=freshHabitatAccess();
     const sampleSite=createExpeditionSite(kit,resources),wayfinding=createVisualUpgrade(kit,resources);scene.add(sampleSite.group,wayfinding.group);
