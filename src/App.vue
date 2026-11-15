@@ -67,6 +67,16 @@ const discovered=ref<readonly DiscoveryId[]>([]),trackedSite=ref<DiscoveryId|nul
 const closeSite=computed(()=>nearbyDiscovery(explorerPose.value));
 const activeSite=computed(()=>DISCOVERY_SITES.find(s=>s.id===exploringSite.value));
 function studyDiscovery(){if(!freeExploration.value||gamePaused.value||!closeSite.value||activeActivity.value)return;exploringSite.value=closeSite.value.id;physics?.pauseInput?.();world?.setMotionPaused?.(true);}
+watch(exploringSite,async id=>{if(id){await nextTick();document.querySelector<HTMLElement>('.discovery-dialog [tabindex="0"]')?.focus();}});
+function trapDiscovery(event:KeyboardEvent){
+ if(event.code==='Escape'){event.preventDefault();closeDiscovery();return;}
+ if(event.code==='KeyP'){event.preventDefault();if(!event.repeat)requestPause();return;}
+ if(event.key!=='Tab')return;
+ const nodes=Array.from(document.querySelectorAll<HTMLElement>('.discovery-dialog button:not(:disabled),.discovery-dialog [tabindex="0"]')).filter(n=>n.getClientRects().length);
+ const first=nodes[0],last=nodes[nodes.length-1];
+ if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+ else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+}
 function finishDiscovery(){if(exploringSite.value)discovered.value=discoverSite(discovered.value,exploringSite.value);closeDiscovery();}
 function closeDiscovery(){exploringSite.value=null;void nextTick(()=>{(document.activeElement as HTMLElement)?.blur();host.value?.focus();syncMovementInput();});}
 function returnToBase(){if(gamePaused.value||exploringSite.value||activeActivity.value)return;habitatAccess.value=freshHabitatAccess();physics?.reset?.({x:1.5,y:.8,z:7});world?.setHabitatAccess?.(habitatAccess.value);}
@@ -421,7 +431,7 @@ function resumeGame(){
  if(mayResumeFlightSim())flightSim?.resume();
  void nextTick(()=>{
   // Hidden/focused controls must not keep swallowing movement after Resume.
-  (document.activeElement as HTMLElement)?.blur();host.value?.focus({preventScroll:true});syncMovementInput();
+  (document.activeElement as HTMLElement)?.blur();if(exploringSite.value)document.querySelector<HTMLElement>('.discovery-dialog [tabindex="0"]')?.focus();else host.value?.focus({preventScroll:true});syncMovementInput();
  });
 }
 function togglePreparationPause(){if(gamePaused.value)resumeGame();else requestPause();}
@@ -1239,7 +1249,7 @@ onBeforeUnmount(() => {
           :aria-label="flightStage ? 'Rocket ascent, transfer or Mars landing view' : preparation === 'earth' ? 'Interactive Earth launch site' : preparation === 'space' ? 'Interactive zero-gravity rocket cabin' : 'Interactive 3D Mars Outpost Viewport'"
         />
         <ExplorationMap v-if="freeExploration && (state.phase==='running'||state.phase==='paused')" :pose="explorerPose" :found="discovered" :target="trackedSite" :nearby="closeSite?.name" :busy="gamePaused||!!exploringSite||!!activeActivity" @select="id=>trackedSite=id" @study="studyDiscovery" @home="returnToBase" />
-        <div v-if="activeSite" class="work-modal" role="dialog" aria-modal="true" :aria-label="activeSite.name" @keydown.stop="event=>{if(event.code==='Escape')closeDiscovery();if(event.code==='KeyP'&&!event.repeat)requestPause();}">
+        <div v-if="activeSite" class="work-modal discovery-dialog" role="dialog" aria-modal="true" :aria-label="activeSite.name" @keydown.stop="trapDiscovery">
           <section style="width:min(440px,100%);color:#e4edda"><div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:#17343a"><strong>{{ activeSite.name }}</strong><button @click="closeDiscovery">Close field study</button></div><ScienceWorkbench :key="activeSite.id" :stage="activeSite.stage" :paused="gamePaused" @complete="finishDiscovery" /></section>
         </div>
         <div v-if="arrivalComplete && state.phase==='running'" class="environment-label">{{ habitatAccess.phase==='outside'?'MARS · SUIT SEALED':habitatAccess.suited?'BASE · SUIT READY':'BASE · BREATHABLE' }}</div>
