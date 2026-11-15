@@ -42,12 +42,14 @@ export function filterInteractables(list:readonly WorkInteractable[]):WorkIntera
 
 export function createWorkInteraction() {
   let items:WorkInteractable[]=[],handler:((id:MachineId)=>void)|null=null;
-  const consumed=new Set<MachineId>();
+  // A short cooldown (not a permanent lock) stops one press/click from firing twice, but never leaves
+  // E dead for a machine whose task did not actually open. Leaving range or closing the task resets it.
+  const consumed=new Map<MachineId,number>(),COOLDOWN_MS=500;
   return {
-    setInteractables(list:readonly WorkInteractable[]){items=filterInteractables(list);for(const id of consumed)if(!items.some(item=>item.id===id))consumed.delete(id);},
+    setInteractables(list:readonly WorkInteractable[]){items=filterInteractables(list);for(const id of [...consumed.keys()])if(!items.some(item=>item.id===id))consumed.delete(id);},
     onInteract(callback:((id:MachineId)=>void)|null){handler=callback;},
     list:()=>items,
-    activate(id:MachineId){if(!handler||consumed.has(id)||!items.some(item=>item.id===id))return false;consumed.add(id);handler(id);return true;},
+    activate(id:MachineId){const now=Date.now(),last=consumed.get(id);if(!handler||(last!==undefined&&now-last<COOLDOWN_MS)||!items.some(item=>item.id===id))return false;consumed.set(id,now);handler(id);return true;},
     dispose(){items=[];handler=null;consumed.clear();},
   };
 }

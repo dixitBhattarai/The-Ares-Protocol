@@ -646,7 +646,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       [document.createElement('button'), 'Reset camera', () => follow.reset()],
     ];
     const cameraMenu=document.createElement('details');const cameraSummary=document.createElement('summary');cameraSummary.textContent='Camera';cameraMenu.appendChild(cameraSummary);
-    const cameraKey=(event:KeyboardEvent)=>event.stopPropagation();cameraMenu.addEventListener('keydown',cameraKey);cleanups.push(()=>cameraMenu.removeEventListener('keydown',cameraKey));
+    const cameraKey=(event:KeyboardEvent)=>{if(event.code==='Space'||event.code==='Enter'||event.code==='Escape')event.stopPropagation();};cameraMenu.addEventListener('keydown',cameraKey);cleanups.push(()=>cameraMenu.removeEventListener('keydown',cameraKey));
     const cameraOptions=document.createElement('div');cameraOptions.className='ares-world__camera-options';cameraMenu.appendChild(cameraOptions);cameraBar.appendChild(cameraMenu);
     for(const [button,label,action] of buttons) {
       button.type='button';button.textContent=label;button.setAttribute('aria-label',label);button.addEventListener('click',action);cameraOptions.appendChild(button);cleanups.push(()=>button.removeEventListener('click',action));

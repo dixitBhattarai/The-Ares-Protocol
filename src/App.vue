@@ -849,7 +849,8 @@ function handleGlobalKeydown(event: KeyboardEvent) {
     if(['KeyW','KeyS','KeyA','KeyD'].includes(event.code)){event.preventDefault();holdLaunch(event.code as FlightControlKey,true);return;}
     if(event.code==='Space'&&!(event.target as HTMLElement|null)?.closest('button')){event.preventDefault();if(!event.repeat)igniteLaunch();return;}
   }
-  if ((event.target as HTMLElement | null)?.closest('button, input, textarea, select, [contenteditable]')) return;
+  // A focused button only needs Space/Enter; it must not swallow E (use/interact) after you click a HUD control.
+  if ((event.target as HTMLElement | null)?.closest(event.code === 'KeyE' ? 'input, textarea, select, [contenteditable]' : 'button, input, textarea, select, [contenteditable]')) return;
   if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.code))pendingSampleAction=null;
   if(state.value.phase==='running'&&!activeActivity.value&&!doingFieldWork.value&&event.code==='KeyE'&&(nearSuitRack.value||airlockOccupied.value)){event.preventDefault();if(!event.repeat){if(airlockOccupied.value)useAirlock();else equipSuit();}return;}
   if(state.value.phase==='running'&&!activeActivity.value&&event.code==='KeyE'&&(nearSampleSite.value||nearSampleLab.value)){
@@ -884,7 +885,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
     if (!event.repeat) sitInFlightSeat();
     return;
   }
-  if(event.code==='KeyE'&&state.value.phase==='running'&&!activeActivity.value&&interior.value&&physics&&usableMachines(physics.getPlayerPose(),interior.value).length)return;
+  if(event.code==='KeyE'&&state.value.phase==='running'&&!activeActivity.value&&!doingFieldWork.value&&!preparation.value&&flightProgress.value===null&&interior.value&&physics&&usableMachines(physics.getPlayerPose(),interior.value).length)return;
   if (event.code === 'KeyE') { event.preventDefault(); if (!event.repeat) toggleDoor(); return; }
   if (event.code === 'KeyM') {
     toggleSound();
