@@ -393,17 +393,17 @@ onBeforeUnmount(() => {
   text-align: left;
   display: inline-block;
   width: fit-content;
-  transition: transform 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.25, 1.2);
 }
 
 .title-menu-btn .btn-text {
   display: block;
   font-family: 'Orbitron', sans-serif;
-  font-size: clamp(1.8rem, 3.4vw, 2.8rem);
-  font-weight: 800;
+  font-size: clamp(2rem, 3.8vw, 3.2rem);
+  font-weight: 900;
   color: #ffffff;
-  letter-spacing: 0.05em;
-  text-shadow: 0 0 15px rgba(255, 255, 255, 0.6), 0 0 30px rgba(255, 140, 0, 0.45);
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 15px rgba(0, 229, 255, 0.7), 0 0 35px rgba(0, 229, 255, 0.4);
   transition: all 0.2s ease;
 }
 
@@ -412,37 +412,37 @@ onBeforeUnmount(() => {
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 2px;
+  height: 3px;
   background: linear-gradient(
     90deg,
-    rgba(255, 170, 50, 0) 0%,
-    rgba(255, 150, 20, 0.85) 40%,
-    rgba(255, 255, 255, 0.95) 50%,
-    rgba(255, 150, 20, 0.85) 60%,
-    rgba(255, 170, 50, 0) 100%
+    rgba(0, 229, 255, 0) 0%,
+    rgba(0, 229, 255, 0.9) 35%,
+    rgba(255, 255, 255, 1) 50%,
+    rgba(0, 229, 255, 0.9) 65%,
+    rgba(0, 229, 255, 0) 100%
   );
-  box-shadow: 0 0 12px rgba(255, 140, 20, 0.8), 0 0 24px rgba(255, 90, 0, 0.6);
-  opacity: 0.4;
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.9), 0 0 28px rgba(0, 180, 255, 0.7);
+  opacity: 0.6;
   transition: all 0.25s ease;
 }
 
 .title-menu-btn:hover {
-  transform: translateX(10px) scale(1.02);
+  transform: translateX(14px) scale(1.06);
 }
 
 .title-menu-btn:hover .btn-text {
-  color: #fff9f0;
-  text-shadow: 0 0 20px #ffffff, 0 0 35px #ff9800, 0 0 50px #ff5722;
+  color: #e6ffff;
+  text-shadow: 0 0 20px #ffffff, 0 0 35px #00e5ff, 0 0 60px #00a2ff;
 }
 
 .title-menu-btn:hover .laser-flare {
   opacity: 1;
-  height: 3px;
-  box-shadow: 0 0 18px rgba(255, 160, 30, 1), 0 0 35px rgba(255, 90, 0, 0.9);
+  height: 4px;
+  box-shadow: 0 0 22px rgba(0, 229, 255, 1), 0 0 45px rgba(0, 180, 255, 1);
 }
 
 .title-menu-btn:focus-visible {
-  outline: 2px dashed #ff9800;
+  outline: 2px dashed #00e5ff;
   outline-offset: 6px;
 }
 
@@ -580,4 +580,4 @@ onBeforeUnmount(() => {
 }
 </style>
 
-<style scoped>.field-menu-btn{display:grid;gap:5px;justify-items:start;border:1px solid #cbb98e66;border-left:3px solid #ebc88d;border-radius:5px;padding:11px 15px;background:#152932cc;color:#f4e8c7;cursor:pointer;text-align:left}.field-menu-btn span{font-size:17px;font-weight:650}.field-menu-btn small{font-size:10px;letter-spacing:.06em;color:#c2cbbd}.field-menu-btn:hover{background:#2b474b}.field-menu-btn:focus-visible{outline:3px solid #f7dba0;outline-offset:4px}@media(max-width:640px){.field-menu-btn{padding:8px 10px}.field-menu-btn span{font-size:13px}.field-menu-btn small{font-size:8px}}</style>
+<style scoped>.field-menu-btn{display:grid;gap:6px;justify-items:start;border:2px solid #00e5ff88;border-left:5px solid #00e5ff;border-radius:10px;padding:14px 20px;background:linear-gradient(135deg, #0e2a36ee, #143e4fee);color:#e6f9ff;cursor:pointer;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,0.6), 0 0 20px rgba(0,229,255,0.35);transition:all .2s cubic-bezier(.2,.8,.25,1.15)}.field-menu-btn span{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:800;letter-spacing:.05em;color:#00e5ff;text-shadow:0 0 12px rgba(0,229,255,0.6)}.field-menu-btn small{font-size:11px;letter-spacing:.08em;color:#bde7f7;font-weight:600}.field-menu-btn:hover{background:linear-gradient(135deg, #163f52, #1c566d);border-color:#00e5ff;box-shadow:0 12px 30px rgba(0,0,0,0.7), 0 0 35px rgba(0,229,255,0.6);transform:translateX(10px) scale(1.03)}.field-menu-btn:focus-visible{outline:3px solid #00e5ff;outline-offset:4px}@media(max-width:640px){.field-menu-btn{padding:10px 14px}.field-menu-btn span{font-size:14px}.field-menu-btn small{font-size:9px}}</style>
