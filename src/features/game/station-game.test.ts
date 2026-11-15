@@ -96,3 +96,11 @@ it('models repeated unprotected storms as a game condition with extra food use a
  const paused=reduceGame(state,{type:'PAUSE'},mission);expect(tick(paused,30)).toBe(paused);
  const restarted=reduceGame(state,{type:'RESTART'},mission);expect(restarted.taskRun!.radiationExposure??0).toBe(0);
 });
+
+it.each([0,50])('explains actual routine supplies use at exposure %s', exposure => {
+ const state=start();const before={...state,taskRun:{...state.taskRun!,elapsed:19,radiationExposure:exposure}};
+ const after=tick(before,1),used=before.resources.supplies-after.resources.supplies;
+ expect(used).toBe(exposure>=40?5:3);
+ expect(after.log.at(-1)).toContain(`${used} supplies`);
+ if(exposure>=40)expect(after.log.at(-1)).toContain('crew recovery');
+});

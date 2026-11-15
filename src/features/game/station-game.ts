@@ -108,8 +108,9 @@ export function reduceStationGame(state:Readonly<GameState>,action:GameAction,mi
   if(state.shielding>=15)radiationExposure=Math.max(0,radiationExposure-action.seconds*.5);
   const notes:string[]=[];
   if(Math.floor(elapsed/20)>Math.floor(run.elapsed/20)){
-    resources=apply(resources,{power:-4,oxygen:-4,supplies:radiationExposure>=40?-5:-3});
-    notes.push('Outpost systems used 4 power, 4 air and 3 supplies during the last 20 active seconds.');
+    const suppliesUsed=radiationExposure>=40?5:3;
+    resources=apply(resources,{power:-4,oxygen:-4,supplies:-suppliesUsed});
+    notes.push(`Outpost systems used 4 power, 4 air and ${suppliesUsed} supplies during the last 20 active seconds.${suppliesUsed===5?' Extra supplies supported crew recovery.':''}`);
   }
   const event=scheduledHazard(Math.floor(elapsed/45),mission.hazardSeed??1,run.session);
   if(event && run.elapsed<event.at && elapsed>=event.at){
