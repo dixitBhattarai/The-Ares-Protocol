@@ -1,10 +1,60 @@
-:root { font-family: 'Segoe UI', system-ui, sans-serif; color: #edf1eb; background: #0c171e; color-scheme: dark; font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+/* ═══ The Ares Protocol — Kid-Friendly UI System (ages 9-13) ═══ */
+:root {
+  /* Accent palette */
+  --ares-cyan: #00e5ff;
+  --ares-amber: #ffb347;
+  --ares-gold: #ffd36f;
+  --ares-green: #4cef50;
+  --ares-red: #ff5252;
+  --ares-purple: #c77dff;
+  --ares-pink: #ff6db6;
+  /* Surface palette */
+  --ares-bg: #0c171e;
+  --ares-panel: #132a34;
+  --ares-surface: #17353e;
+  --ares-border: #3e5c68;
+  /* Text palette */
+  --ares-text: #edf1eb;
+  --ares-text-dim: #b0c4ce;
+  --ares-text-bright: #fff8e9;
+  /* Font stacks */
+  --font-display: 'Orbitron', 'Exo 2', system-ui, sans-serif;
+  --font-body: 'Exo 2', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+  /* Juice timing */
+  --ease-bounce: cubic-bezier(.2, .8, .25, 1.15);
+  --ease-smooth: cubic-bezier(.2, .85, .25, 1);
+  font-family: var(--font-body);
+  color: var(--ares-text);
+  background: var(--ares-bg);
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; background: radial-gradient(ellipse at 15% 0, #233a443d, transparent 60%), #0c171e; }
-button { font: inherit; color: inherit; background: #233346; border: 1px solid #6c839b; border-radius: 8px; padding: .7rem 1rem; cursor: pointer; }
-button:hover { background: #344d67; }
-button:focus-visible, a:focus-visible { outline: 3px solid #f6c768; outline-offset: 3px; }
-button:disabled { opacity: .5; cursor: default; }
+body { margin: 0; min-width: 320px; background: radial-gradient(ellipse at 15% 0, #233a443d, transparent 60%), var(--ares-bg); }
+button {
+  font: inherit;
+  color: inherit;
+  background: var(--ares-surface);
+  border: 1px solid var(--ares-border);
+  border-radius: 8px;
+  padding: .7rem 1rem;
+  cursor: pointer;
+  transition: transform .12s var(--ease-bounce), box-shadow .15s ease, background .15s ease, border-color .15s ease;
+}
+button:hover {
+  background: #254858;
+  box-shadow: 0 0 12px rgb(0 229 255 / 15%), 0 4px 14px rgb(0 0 0 / 30%);
+  transform: translateY(-1px);
+}
+button:active {
+  transform: scale(.96) translateY(0);
+  box-shadow: 0 0 6px rgb(0 229 255 / 10%);
+}
+button:focus-visible, a:focus-visible { outline: 3px solid var(--ares-gold); outline-offset: 3px; }
+button:disabled { opacity: .5; cursor: default; transform: none; box-shadow: none; }
 a { color: #a8d7ff; }
-aside:focus-visible, summary:focus-visible { outline: 3px solid #f6c768; outline-offset: -3px; }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0s !important; animation-duration: 0s !important; } }
+aside:focus-visible, summary:focus-visible { outline: 3px solid var(--ares-gold); outline-offset: -3px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0s !important; animation-duration: 0s !important; } button:hover, button:active { transform: none; } }
