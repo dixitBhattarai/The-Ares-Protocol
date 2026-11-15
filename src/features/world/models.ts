@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { STATIONS, type StationId } from '../../contracts';
 import { WorldResources, type ModelKit } from './resources';
-import { createDustTexture, createSurfaceDetails, createAbandonedEquipment, createAlienRockFormations } from './landscape';
+import { createDustTexture, createSurfaceDetails, createAlienRockFormations } from './landscape';
 import { createSlidingDoor } from './doors';
 
 export interface StationVisual {
@@ -71,9 +71,9 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
   // Root cause fix for Z-fighting and overlapping geometry:
   // Instead of an overlapping flatBox at Y=0 and a terrain plane fighting for the
   // exact same space, this single continuous mesh forms the entire landscape.
-  // The central station plaza (r <= 18) is mathematically level at Y=0 for
+  // The walkable exploration area (square radius <= 74) is mathematically level at Y=0 for
   // Rapier colliders and doorway transitions, then departs with zero initial slope
-  // via quintic smootherstep into natural barchan dunes, craters, and calderas.
+  // via quintic smootherstep beyond the walkable area into natural barchan dunes, craters, and calderas.
   // =========================================================================
   const segments = 160;
   const terrainGeo = resources.geometry(new THREE.PlaneGeometry(320, 320, segments, segments));
@@ -88,12 +88,12 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
     const z = pos.getZ(i);
     const r = Math.max(Math.abs(x), Math.abs(z));
 
-    if (r <= 18) {
+    if (r <= 74) {
       // Central research outpost plateau: strictly flat at Y=0
       pos.setY(i, 0);
     } else {
       // Quintic smootherstep departure from base plateau: zero slope at r=18 and r=36
-      const blend = smootherstep(18, 36, r);
+      const blend = smootherstep(74, 96, r);
 
       // Barchan sand dunes: rotated along prevailing Martian wind vector (~26 degrees)
       const uDune = x * 0.07 + z * 0.035;
@@ -130,8 +130,8 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
 
       // Majestic Caldera Mountain Horizon for r > 48m
       let mountains = 0;
-      if (r > 48) {
-        const mDist = smootherstep(48, 125, r);
+      if (r > 90) {
+        const mDist = smootherstep(90, 145, r);
         const crags = (
           Math.sin(x * 0.032) * Math.cos(z * 0.032) * 20 +
           Math.cos(x * 0.065 + 1.2) * Math.sin(z * 0.058 - 0.7) * 9 +
@@ -257,8 +257,8 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
   // 3. SURFACE DETAILS, ABANDONED EQUIPMENT & ALIEN ROCK FORMATIONS
   // =========================================================================
   terrain.add(createSurfaceDetails(resources));
-  terrain.add(createAbandonedEquipment(kit, resources));
-  terrain.add(createAlienRockFormations(kit, resources));
+  // Discovery landmarks replace the old uncollidable scenic equipment.
+  const horizonRocks=createAlienRockFormations(kit,resources);horizonRocks.scale.set(2,1,2);terrain.add(horizonRocks);
 
   // =========================================================================
   // 4. SCATTERED BOULDERS & BASALT ROCKS NATURALLY EMBEDDED IN REGOLITH
@@ -285,7 +285,7 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
   for (let i = 0; i < rockCount; i++) {
     const angle = i * 2.399963;
     const radius = 22 + ((i * 19) % 45);
-    const size = 0.28 + ((i * 13) % 11) * 0.16;
+    const size = 0.08 + ((i * 13) % 11) * 0.012;
     // Naturally embedded into the terrain surface
     transform.position.set(Math.cos(angle) * radius, -0.09, Math.sin(angle) * radius);
     transform.scale.set(size * 1.4, size * 0.7, size * 1.1);
@@ -300,7 +300,7 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
   for (let i = 0; i < darkRockCount; i++) {
     const angle = (i + 0.5) * 2.51327;
     const radius = 26 + ((i * 23) % 40);
-    const size = 0.35 + ((i * 17) % 7) * 0.22;
+    const size = 0.08 + ((i * 17) % 7) * 0.02;
     transform.position.set(Math.cos(angle) * radius, -0.06, Math.sin(angle) * radius);
     transform.scale.set(size * 1.2, size * 0.85, size * 1.3);
     transform.rotation.set(i * 0.3, i * 0.8, -0.2);

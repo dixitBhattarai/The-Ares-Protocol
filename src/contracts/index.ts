@@ -70,6 +70,7 @@ export interface MissionData {
   /** Session seed for authored, random hazard timing. Not a NASA forecast. */
   hazardSeed?: number;
   gameplayMode?: 'station-tasks';
+  freeExploration?: boolean;
   id: string;
   title: string;
   maxTurns: number;
@@ -223,6 +224,7 @@ export interface GravityInfo {
   canJump: boolean;
 }
 export interface PhysicsAdapter {
+  setFreeRoam?(enabled:boolean):void;
   getMotionState?(): import('./exploration').PlayerMotion;
   requestJump?(): void;
   setHabitatAccess?(access: import('./habitat').HabitatAccess): void;

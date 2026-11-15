@@ -1,4 +1,5 @@
 import {CABIN,stepCabin} from './cabin-motion';
+import { ROAM_LIMIT, SITE_OBSTACLES } from '../../contracts/open-world';
 import { constrainHabitatMotion } from './habitat';
 import type { HabitatAccess } from '../../contracts/habitat';
 import type { PlayerMotion } from '../../contracts/exploration';
@@ -85,15 +86,15 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   const gravity = { x: 0, y: -MARS_GRAVITY, z: 0 };
   const world = new RAPIER.World(gravity);
 
-  // Ground collider: 40x40 bounded map, Y=0.
-  // Half extents (20, 0.1, 20) with translation (0, -0.1, 0) places top surface at Y=0.
+  // Shared flat floor supports the enlarged Mars map. Runtime bounds still restrict Earth and mission mode.
   world.createCollider(
-    RAPIER.ColliderDesc.cuboid(20, 0.1, 20)
+    RAPIER.ColliderDesc.cuboid(ROAM_LIMIT+2, 0.1, ROAM_LIMIT+2)
       .setTranslation(0, -0.1, 0)
       .setFriction(0)
       .setRestitution(0),
   );
 
+  const siteColliders=SITE_OBSTACLES.map(p=>world.createCollider(RAPIER.ColliderDesc.cuboid(p.halfX,p.height/2,p.halfZ).setTranslation(p.x,p.height/2,p.z)));
   const stationColliders:RAPIER.Collider[]=[];
   const doors = new Map<StationId,RAPIER.Collider>();
   const doorStates = new Map<StationId,boolean>();
@@ -163,6 +164,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   let walkingPath: Vec3[] = [];
   let habitatAccess: HabitatAccess | null = null;
   let gravityBody: GravityBody = 'mars';
+  let freeRoam=false;
   let drift={x:0,y:0,z:0},climbing=false;
   let jumpRequested = false;
 
@@ -208,6 +210,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       if (!event.repeat) requestJump();
       return;
     }
+    if(event.code==='ShiftLeft'||event.code==='ShiftRight')pressed.add(event.code);
     if (MOVEMENT_KEY_CODES.has(event.code)) {
       walkingPath=[];
       pressed.add(event.code);
@@ -244,6 +247,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   }
 
   return {
+    setFreeRoam(enabled){freeRoam=enabled;},
     getMotionState(): PlayerMotion {
       return {grounded: grounded(), verticalSpeed: isDisposed ? 0 : body.linvel().y, body: gravityBody};
     },
@@ -251,7 +255,8 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
     setHabitatAccess(access) { habitatAccess = access; },
     setGravityBody(next) {
       if (isDisposed || !(next in GRAVITY_BY_BODY)) return;
-      gravityBody = next;drift={x:0,y:0,z:0};climbing=false;
+      gravityBody = next;
+      siteColliders.forEach(c=>c.setEnabled(next==='mars'));drift={x:0,y:0,z:0};climbing=false;
       stationColliders.forEach(c=>c.setEnabled(next!=='orbit'));
       world.gravity = { x: 0, y: -GRAVITY_BY_BODY[next], z: 0 };
       earthLaunchVehicleCollider.setEnabled(next === 'earth');
@@ -270,7 +275,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       if(gravityBody==='orbit'&&outsidePose){const p=body.translation();
  if(walkingPath.length&&!isInputPaused){const t=walkingPath[0],d=Math.hypot(t.x-p.x,t.y-p.y,t.z-p.z);if(d<.1){walkingPath.shift();drift={x:0,y:0,z:0};}else drift={x:(t.x-p.x)/d,y:(t.y-p.y)/d,z:(t.z-p.z)/d};}
  const next=isInputPaused?{pose:{...p},velocity:{x:0,y:0,z:0}}:stepCabin(p,drift,pressed,cameraYaw,dt,climbing);drift=next.velocity;body.setTranslation(next.pose,true);body.setLinvel({x:0,y:0,z:0},true);return;}
-      const input = computeMovementVelocity(pressed, ASTRONAUT_SPEED);
+      const input = computeMovementVelocity(pressed, ASTRONAUT_SPEED*(freeRoam&&gravityBody==='mars'&&(pressed.has('ShiftLeft')||pressed.has('ShiftRight'))?1.8:1));
       let movement = rotateMovement(input.vx, input.vz, cameraYaw);
       if(walkingPath.length&&!isInputPaused) {
         const pose=body.translation(),target=walkingPath[0],dx=target.x-pose.x,dz=target.z-pose.z,distance=Math.hypot(dx,dz);
@@ -290,8 +295,8 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       world.step();
 
       const pose = body.translation();
-      const min = outsidePose ? -2.6 : BOUNDARY_MIN;
-      const max = outsidePose ? 2.6 : BOUNDARY_MAX;
+      const min = outsidePose ? -2.6 : gravityBody==='mars'&&freeRoam?-ROAM_LIMIT:BOUNDARY_MIN;
+      const max = outsidePose ? 2.6 : gravityBody==='mars'&&freeRoam?ROAM_LIMIT:BOUNDARY_MAX;
       let clampedX = Math.max(min, Math.min(max, pose.x));
       let clampedZ = Math.max(min, Math.min(max, pose.z));
       let clampedY = pose.y;

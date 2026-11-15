@@ -51,6 +51,7 @@ function apply(resources:Resources,effect:Partial<Resources> = {}):Resources {
 }
 
 function finish(state:GameState,mission:MissionData):GameState {
+  if(mission.freeExploration)return state;
   const empty=KEYS.find(key=>state.resources[key]<=0);
   const ended=!!empty || state.turn>=mission.maxTurns;
   if(!ended)return state;
@@ -92,13 +93,14 @@ export function reduceStationGame(state:Readonly<GameState>,action:GameAction,mi
     const science=state.science+(task.reward.science??0),shielding=Math.min(100,state.shielding+(task.reward.shielding??0));
     const explanation=`${task.title} completed: ${task.benefit}. ${task.prevention}`;
     const protections={...run.protections};
-    const cooldowns={...run.cooldowns,[task.id]:run.elapsed+TASK_REPEAT_COOLDOWN_SECONDS};
+    const cooldowns={...run.cooldowns,[task.id]:run.elapsed+(mission.freeExploration?0:TASK_REPEAT_COOLDOWN_SECONDS)};
     if(['air','power','plants'].includes(task.id))protections[task.station]=run.elapsed+60;
     return finish({...state,turn:state.turn+1,resources,science,shielding,
       taskRun:{...run,activeTaskId:undefined,cooldowns,protections,completedIds:[...run.completedIds,action.completionId]},
       log:[...state.log,explanation],history:[...(state.history??[]),{turn:state.turn,shift:state.turn+1,eventId:'station-work',eventTitle:'Station work',choiceId:task.id,choiceLabel:task.title,explanation,resources:{...resources},science,shielding}],
     },mission);
   }
+  if(action.type==='TICK'&&mission.freeExploration)return state;
   if(action.type!=='TICK'||!Number.isFinite(action.seconds)||action.seconds<=0||action.seconds>1)return state;
   const elapsed=run.elapsed+action.seconds;
   let resources={...state.resources},notice=state.lastHazardNotice;
