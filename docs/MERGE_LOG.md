@@ -456,3 +456,6 @@ Merged origin/feat/immersive-mars-science, tip 782a20b, with original feature/me
 
 ### 15 November — PR #3 pause, movement and flight fixes
 User requested merge of PR #3. Merged `fix/pause-movement-and-flight` tip `10bb50b` without conflicts, preserving feature authorship. Post-merge typecheck, all 214 tests and build passed. Feature browser checks cover movement, pause/lock/focus recovery, Earth floor, seated avatar and launch-ground removal. No environment publication or deployment.
+
+### 15 November — PR #4 visual science field lab
+Integrated `feat/visual-science-workbench`, tip `03cb7db`, as `4b5d06d` under the user's combined merge/science request and standing serial integration authorization. The solar science job now has visual terrain scanning, air molecule sorting and telescope/star exposures. Feature author preserved; no conflicts. Post-merge typecheck, all 216 tests across 42 files and production build passed. Production browser smoke checked Earth launch-prep and Mars mission entry with no uncaught errors. Detailed science interaction, wrong-match, keyboard/pause and exact payout checks are recorded in world notes. No environment publication or deployment.
