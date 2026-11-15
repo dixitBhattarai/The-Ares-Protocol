@@ -14,7 +14,7 @@ const definitions:readonly [MachineId,StationId,string,number,number][] = [
   ['shelter','habitat','Reinforce the storm shelter',1.8,-1.72],
   ['power','solar','Clean and connect solar panels',-1.8,-1.72],
   ['plants','greenhouse','Care for the greenhouse',-1.1,.6],
-  ['survey','solar','Record surface science',1.8,-1.72],
+  ['survey','solar','Analyze terrain, air and stars',1.8,-1.72],
 ];
 export const WORK_MACHINES:readonly WorkInteractable[]=definitions.map(([id,station,label,x,z])=>{
   const origin=STATIONS.find(item=>item.id===station)!.position;
