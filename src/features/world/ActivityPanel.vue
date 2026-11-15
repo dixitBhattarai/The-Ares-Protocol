@@ -33,5 +33,16 @@ function trap(event:KeyboardEvent){
  </section>
 </template>
 <style scoped>
-.activity{position:relative;width:100%;outline:none;color:#ecfff6}.close{position:absolute;right:10px;top:6px;z-index:2;width:38px;height:38px;border:0;border-radius:50%;background:#16323d;color:#e2f7ef;font-size:17px;cursor:pointer}.activity :deep(.steps){margin-right:38px}.activity footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 4px;font-size:11px}.reward{color:#a8eccc;font-weight:700}.activity footer button,.approach button{min-height:40px;padding:7px 12px;border:1px solid #719d9d;border-radius:9px;background:#1e424c;color:#eafff3;cursor:pointer}.activity button:focus-visible{outline:3px solid #ffdf92;outline-offset:2px}.approach{padding:20px;background:#15323d;border-radius:16px}.approach h2{font-size:20px}
+.activity{position:relative;width:100%;outline:none;color:#ecfff6;font-family:var(--font-body, system-ui, sans-serif)}
+.close{position:absolute;right:10px;top:6px;z-index:2;width:38px;height:38px;border:1px solid rgb(0 229 255 / 35%);border-radius:50%;background:#16323d;color:#e2f7ef;font-size:16px;font-weight:700;cursor:pointer;transition:all .14s ease}
+.close:hover{background:#234e5e;border-color:#00e5ff;transform:scale(1.1);box-shadow:0 0 10px rgb(0 229 255 / 40%)}
+.activity :deep(.steps){margin-right:38px}
+.activity footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 4px;font-size:11px}
+.reward{color:#4cef50;font-family:var(--font-display, 'Orbitron', sans-serif);font-size:10px;font-weight:800;letter-spacing:.04em;text-shadow:0 0 8px rgb(76 239 80 / 30%)}
+.activity footer button,.approach button{min-height:42px;padding:8px 14px;border:1px solid rgb(0 229 255 / 35%);border-radius:9px;background:linear-gradient(135deg, #1a3f4a, #235564);color:#eafff3;font-family:var(--font-display, 'Orbitron', sans-serif);font-size:11px;font-weight:700;letter-spacing:.04em;cursor:pointer;box-shadow:0 2px 8px rgb(0 0 0 / 25%);transition:all .14s cubic-bezier(.2,.8,.25,1.15)}
+.activity footer button:hover,.approach button:hover{background:linear-gradient(135deg, #235462, #2d6c7e);border-color:#00e5ff;box-shadow:0 0 14px rgb(0 229 255 / 35%);transform:translateY(-1px) scale(1.02)}
+.activity footer button:active,.approach button:active{transform:scale(.97)}
+.activity button:focus-visible{outline:3px solid #ffdf92;outline-offset:2px}
+.approach{padding:20px;background:linear-gradient(135deg, #132b35f2, #183742f2);border:1px solid rgb(0 229 255 / 35%);border-radius:14px;box-shadow:0 8px 24px #0008, 0 0 16px rgb(0 229 255 / 15%)}
+.approach h2{font-family:var(--font-display, 'Orbitron', sans-serif);font-size:20px;letter-spacing:.04em;color:#00e5ff;text-shadow:0 0 12px rgb(0 229 255 / 40%)}
 </style>
