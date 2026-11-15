@@ -42,16 +42,16 @@ export function createLocomotion(model: THREE.Object3D, clips: readonly THREE.An
   let reduced = false;
   let playerMotion: PlayerMotion = {grounded:true,verticalSpeed:0,body:'mars'};
   let activity: AvatarActivity = {action:'none',progress:0};
-  let posture:'ground'|'float'|'seated'='ground';
+  let posture:'ground'|'float'|'seated'|'climb'='ground';
   const cabinPosture=createCabinPosture(model);
-  const pose=()=>cabinPosture.apply(posture);
+  const pose=(seconds=0)=>cabinPosture.apply(posture,seconds);
   return {
     mixer,
     setMotion(motion: PlayerMotion) { playerMotion = motion; actionLayer.setMotion(motion); },
     setActivity(next: AvatarActivity) { activity = next; actionLayer.setActivity(next); },
     resetActions() { actionLayer.reset(); playerMotion={grounded:true,verticalSpeed:0,body:'mars'}; activity={action:'none',progress:0}; moving = false; sinceMovement = Infinity; },
     getActionState: actionLayer.getState,
-    setPosture(value:'ground'|'float'|'seated'){if(posture===value)return;cabinPosture.restore();actionLayer.beforeMixer();posture=value;moving=false;sinceMovement=Infinity;mixer.update(0);pose();},
+    setPosture(value:'ground'|'float'|'seated'|'climb'){if(posture===value)return;cabinPosture.restore();actionLayer.beforeMixer();posture=value;moving=false;sinceMovement=Infinity;mixer.update(0);pose();},
     actions: actions as ReadonlyMap<string, THREE.AnimationAction>,
     setMoving(value: boolean) { moving = value; if (value) sinceMovement = 0; },
     update(seconds: number, active: boolean, reduceMotion: boolean) {
