@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createEarthSurface, launchGroundOpacity } from './earth-surface';
 import type { LaunchFlightSnapshot } from '../../contracts';
 import type { ModelKit, WorldResources } from './resources';
 import type { createNasaLoader } from './nasa-assets';
@@ -21,10 +22,9 @@ export function createLaunchView(kit:ModelKit,resources:WorldResources,nasa:Retu
   fragmentShader:'varying vec3 n;varying vec3 v;uniform vec3 tint;void main(){float a=pow(max(0.,1.-abs(dot(normalize(n),normalize(v)))),3.);gl_FragColor=vec4(tint,a*.24);}'
  }));
  const atmosphere=new THREE.Mesh(resources.geometry(new THREE.SphereGeometry(862,64,40)),atmosphereMaterial);atmosphere.position.copy(earth.position);scene.add(atmosphere);
- const land=resources.material(new THREE.MeshStandardMaterial({color:'#567c56',roughness:1}));
  const concrete=resources.material(new THREE.MeshStandardMaterial({color:'#899796',roughness:.9}));
  const pad=new THREE.Group();scene.add(pad);
- kit.flatBox(pad,land,[260,.3,260],[0,-.25,0]);
+ const launchGround=createEarthSurface(resources,260);launchGround.position.y=-.08;pad.add(launchGround);
  kit.cylinder(pad,concrete,[10,.3,10],[0,.1,0]);
  kit.flatBox(pad,kit.materials.trim,[3,.08,110],[0,.35,56]);
  const tower=new THREE.Group();tower.position.set(-9,0,-3);pad.add(tower);
@@ -32,6 +32,9 @@ export function createLaunchView(kit:ModelKit,resources:WorldResources,nasa:Retu
  for(let y=2;y<20;y+=3){kit.flatBox(tower,concrete,[4,.2,4],[0,y,0]);for(const side of [-1,1]){const beam=kit.cylinder(tower,kit.materials.trim,[.1,4,.1],[side*1.6,y-1.4,0]);beam.rotation.x=.7;}}
  kit.flatBox(tower,kit.materials.ivory,[8,.4,1],[3,17,0]);
  for(let i=0;i<8;i++)kit.box(pad,concrete,[4+(i%2)*2,2,6],[-35+(i%4)*18,1,22+Math.floor(i/4)*28]);
+ // Clone scenery materials so fading the ground cannot fade the rocket's shared trim.
+ const padMaterials=new Map<THREE.Material,THREE.Material>();
+ pad.traverse(node=>{if(!(node instanceof THREE.Mesh))return;const copy=(material:THREE.Material)=>{let clone=padMaterials.get(material);if(!clone){clone=resources.material(material.clone());padMaterials.set(material,clone);}return clone;};node.material=Array.isArray(node.material)?node.material.map(copy):copy(node.material);});
  const hull=resources.material(new THREE.MeshStandardMaterial({color:'#eef0ea',metalness:.35,roughness:.4}));
  const metal=resources.material(new THREE.MeshStandardMaterial({color:'#8e9fa8',metalness:.8,roughness:.3}));
  const blackHull=resources.material(new THREE.MeshStandardMaterial({color:'#182833',metalness:.5,roughness:.45}));
@@ -83,6 +86,10 @@ export function createLaunchView(kit:ModelKit,resources:WorldResources,nasa:Retu
    if(active&&!reduced)clock+=Math.min(.1,Math.max(0,seconds));
    // Preserve visible pad clearance early, then compress the much larger atmospheric climb.
    const altitude=20*Math.log1p(s.altitude/35)+s.altitude*.0045,space=THREE.MathUtils.smoothstep(s.altitude,12000,75000);
+   const groundOpacity=launchGroundOpacity(s.altitude);
+   pad.visible=groundOpacity>0;
+   for(const material of padMaterials.values()){material.opacity=groundOpacity;material.transparent=groundOpacity<1;material.depthWrite=groundOpacity===1;}
+   earth.visible=s.altitude>350;
    skyColor.set('#79bce3').lerp(black,space);starMaterial.opacity=space*.9;
    ambient.intensity=2.3-space*1.4;
    rocket.position.set(s.downrange*.006,altitude+7,0);rocket.rotation.z=-s.pitch*Math.PI/180;

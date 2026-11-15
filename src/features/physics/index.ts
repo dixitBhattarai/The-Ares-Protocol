@@ -327,6 +327,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
     },
     resumeInput() {
       if (isDisposed) return;
+      if (!isInputPaused) return;
       isInputPaused = false;
       clearKeys();
     },

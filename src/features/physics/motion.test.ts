@@ -101,3 +101,15 @@ describe('physics-driven character motion', () => {
     physics.step(Number.NaN);expect(Number.isFinite(physics.getPlayerPose().y)).toBe(true);
   });
 });
+
+it('keeps held WASD through repeated resume checks, then clears it across an actual pause',async()=>{
+ const listeners=new Map<string,(event:any)=>void>();
+ vi.stubGlobal('window',{addEventListener:(name:string,fn:any)=>listeners.set(name,fn),removeEventListener:()=>{}});
+ const physics=await fixture();physics.reset?.({x:0,y:.8,z:5});
+ listeners.get('keydown')?.({code:'KeyD',target:null});
+ for(let i=0;i<20;i++){physics.resumeInput?.();physics.step(1/60);}
+ expect(physics.getPlayerPose().x).toBeGreaterThan(.8);
+ physics.pauseInput?.();const stopped=physics.getPlayerPose().x;advance(physics,.3);expect(physics.getPlayerPose().x).toBeCloseTo(stopped,4);
+ physics.resumeInput?.();advance(physics,.3);expect(physics.getPlayerPose().x).toBeCloseTo(stopped,4);
+ listeners.get('keydown')?.({code:'KeyA',target:null});advance(physics,.3);expect(physics.getPlayerPose().x).toBeLessThan(stopped-.7);
+});

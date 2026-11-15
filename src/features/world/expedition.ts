@@ -334,6 +334,11 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
       cabinSunHalo.position.copy(cabinSun.position);
       suit.userData.setPosture?.(cabinSeatState==='occupied'?'seated':activeRoom==='space'?'float':'ground');
       updateAstronautAnimation(astronaut, seconds, active, reduced);
+      if(activeRoom==='space'&&cabinSeatState==='occupied'){
+        astronaut.group.updateWorldMatrix(true,true);
+        let hips:THREE.Object3D|undefined;astronaut.group.traverse(node=>{if(/(?:^|:|mixamorig\d*)Hips$/.test(node.name))hips=node;});
+        if(hips){const point=hips.getWorldPosition(new THREE.Vector3());astronaut.group.position.add(new THREE.Vector3(SPACECRAFT_SEAT.x,.8,SPACECRAFT_SEAT.z+.02).sub(point));}
+      }
       door.update(active ? seconds : 0, reduced);
     },
     cutaway(view: THREE.Camera) { backWall.visible = view.position.z > -2.8; leftWall.visible = view.position.x > -2.8; },
@@ -405,8 +410,8 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
       previous.copy(pose);
       applyAstronautGait(astronaut, cycle, moving && d < 1 && cabinSeatState !== 'occupied');
       if (activeRoom === 'space' && cabinSeatState === 'occupied') {
-        astronaut.group.position.set(SPACECRAFT_SEAT.x, SPACECRAFT_SEAT.y + .14, SPACECRAFT_SEAT.z);
-        astronaut.group.rotation.set(-.08, 0, 0);
+        astronaut.group.position.set(SPACECRAFT_SEAT.x, SPACECRAFT_SEAT.y, SPACECRAFT_SEAT.z);
+        astronaut.group.rotation.set(0, Math.PI, 0);
         astronaut.legs.forEach((leg, index) => { leg.rotation.x = index ? .74 : .9; });
         astronaut.arms.forEach((arm, index) => { arm.rotation.x = index ? -.45 : -.7; });
       } else {

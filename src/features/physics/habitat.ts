@@ -16,11 +16,12 @@ export function constrainHabitatMotion(previous: Vec3, next: Vec3, access: Habit
   }
  }
  // Side walls of the chamber cannot be bypassed even with a suit.
- if (previous.z>H.innerZ && previous.z<H.outerZ && (Math.abs(next.x)>H.halfWidth-.3)) return {...previous,y:next.y};
+ if (Math.abs(previous.x)<H.halfWidth-.3 && previous.z>H.innerZ && previous.z<H.outerZ && (Math.abs(next.x)>H.halfWidth-.3)) return {...previous,y:next.y};
  if (chamber(next) && (chamber(previous)||corridor)) return next;
  const wasInside=radius(previous)<=H.radius-.32;
  const isInside=radius(next)<=H.radius-.32;
- if (wasInside!==isInside && !(corridor&&Math.min(previous.z,next.z)>H.innerZ)) return {...previous,y:next.y};
- if (!isInside && !chamber(next) && !access.suited) return {...previous,y:next.y};
+ const recovering=!access.suited && !wasInside && radius(previous)<H.radius-.02 && radius(next)<radius(previous);
+ if (wasInside!==isInside && !recovering && !(corridor&&Math.min(previous.z,next.z)>H.innerZ)) return {...previous,y:next.y};
+ if (!isInside && !chamber(next) && !access.suited && radius(next)>=radius(previous)) return {...previous,y:next.y};
  return next;
 }

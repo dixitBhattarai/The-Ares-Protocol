@@ -11,6 +11,7 @@ let previous:HTMLElement|null=null;
 onMounted(()=>{previous=document.activeElement as HTMLElement;root.value?.focus();});
 onBeforeUnmount(()=>previous?.isConnected&&previous.focus());
 function trap(event:KeyboardEvent){
+ if(event.code==='KeyP'){event.preventDefault();if(!event.repeat)emit('pause');return;}
  if(event.key==='Escape'){event.preventDefault();emit('cancel');return;}
  if(event.key!=='Tab')return;
  const buttons=Array.from(root.value?.querySelectorAll<HTMLElement>('button:not(:disabled),summary,[tabindex="0"]')??[]).filter(node=>node.getClientRects().length);

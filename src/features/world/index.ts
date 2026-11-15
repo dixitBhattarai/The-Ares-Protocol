@@ -339,7 +339,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     };
 
     const lockMouse = () => {
-      if (disposed || journey !== null || flightStage !== null) return;
+      if (disposed || motionPaused || lastState?.phase==='paused' || journey !== null || flightStage !== null) return;
       if (cameraMode !== 'follow') {
         cameraMode = 'follow';
         modeButton.textContent = 'Overview';
@@ -421,7 +421,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     };
 
     const onPointerOrMouseMove = (event: MouseEvent | PointerEvent) => {
-      if (disposed || journey !== null || flightStage !== null) return;
+      if (disposed || motionPaused || lastState?.phase==='paused' || journey !== null || flightStage !== null) return;
 
       // Case 1: Browser native pointer lock is active
       if (isNativeLocked()) {
@@ -457,7 +457,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
 
     // Capture-phase pointerdown runs BEFORE Three.js OrbitControls can call preventDefault() or setPointerCapture()
     const onCapturePointerDown = (event: PointerEvent) => {
-      if (disposed || journey !== null || flightStage !== null) return;
+      if (disposed || motionPaused || lastState?.phase==='paused' || journey !== null || flightStage !== null) return;
       const onScene = isSceneElement(event.target);
 
       // Right-click (button === 2) toggles mouse lock on/off in Follow or First-Person mode
@@ -483,6 +483,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     };
 
     const onPointerLockChange = () => {
+      if(motionPaused && isNativeLocked()){unlockMouse();return;}
       if (isNativeLocked()) {
         virtualLock = true;
         follow.controls.enabled = false;
@@ -505,6 +506,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         unlockMouse();
         return;
       }
+      if(motionPaused || lastState?.phase==='paused')return;
       if (event.code !== 'KeyV' || event.repeat || event.ctrlKey || event.metaKey || event.altKey || journey !== null || flightStage !== null) return;
       if ((event.target as HTMLElement | null)?.closest?.('button, input, textarea, select, [contenteditable]')) return;
       setFirstPerson(!firstPerson, false);
@@ -738,7 +740,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       },
       getCameraYaw() { return cameraMode === 'follow' ? follow.yaw() : 0; },
       setEarthOutside(outside) { earthOutside = outside; },
-      setMotionPaused(paused) { motionPaused = paused; },
+      setMotionPaused(paused) { motionPaused = paused; if(paused && isLocked())unlockMouse(); },
       setDoorState(id, open) {
         if (disposed) return;
         doorStates[id] = open;
