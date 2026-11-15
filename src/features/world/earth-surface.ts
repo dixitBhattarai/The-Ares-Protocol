@@ -19,4 +19,4 @@ export function createEarthSurface(resources:WorldResources,span:number){
  const ground=new THREE.Mesh(geometry,material);ground.name='coastal-grass-and-sand';ground.receiveShadow=true;
  return ground;
 }
-export function launchGroundOpacity(altitude:number):number{return 1-THREE.MathUtils.smoothstep(Math.max(0,altitude),600,1800);}
+export function launchGroundOpacity(altitude:number):number{return 1-THREE.MathUtils.smoothstep(Math.max(0,altitude),8000,10000);}

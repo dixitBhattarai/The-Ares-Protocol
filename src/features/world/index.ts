@@ -24,6 +24,7 @@ import { createNasaLoader } from './nasa-assets';
 import { createFollowCamera } from './follow-camera';
 import { createEarthCampus } from './earth';
 import { createMarsAtmosphere } from './atmosphere';
+import { createMarsWeather } from './weather';
 import { createWorkInteraction, createWorkPrompt, WORK_MACHINES, type WorkWorldAdapter, type MachineId } from './interactables';
 import { createEmergencyPath } from './emergency-path';
 
@@ -75,6 +76,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     sun.shadow.bias = -.0006;
     cleanups.push(() => sun.shadow.dispose());
     scene.add(sun);
+    const weather = createMarsWeather(scene, resources); cleanups.push(() => weather.dispose());
     const kit = createModelKit(resources);
     const earth = createEarthCampus(kit, resources);
     cleanups.push(() => earth.dispose());
@@ -873,6 +875,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       setState(state) {
         if (disposed || state === lastState) return;
         if(state.phase==='ready'&&lastState?.phase!=='ready'){resetAstronautActions(astronaut);avatarTools.reset();}
+        weather.setState(state);
         const notice = getWorldEventNotice(state);
         if (notice !== eventNotice || state.turn !== lastState?.turn) eventReport.open = false;
         eventNotice = notice;
@@ -907,7 +910,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         const pausedOrEnded = motionPaused || document.hidden || lastState?.phase === 'paused' || lastState?.phase === 'won' || lastState?.phase === 'lost';
         const active = !pausedOrEnded;
         sampleSite.update(sampleStage==='researching'?'collected':sampleStage,sampleProgress,delta,active,reduceMotion);wayfinding.update(delta,active,reduceMotion);emergencyPath.update(delta,active,reduceMotion);
-        container.classList.toggle('ares-world--paused',!active);atmosphere.update(delta,active,reduceMotion);
+        container.classList.toggle('ares-world--paused',!active);atmosphere.update(delta,active,reduceMotion);weather.update(delta,active,reduceMotion);sun.intensity=2.8*(1-weather.intensity()*.6);
         machineGroups.forEach(group=>{let remaining=group.userData.pressRemaining??0;if(reduceMotion)remaining=0;else if(active)remaining=Math.max(0,remaining-Math.min(.05,delta));group.userData.pressRemaining=remaining;group.scale.setScalar(1-Math.sin(remaining/.18*Math.PI)*.025);});
         if (isLocked() && (pausedOrEnded || journey !== null)) {
           unlockMouse();
