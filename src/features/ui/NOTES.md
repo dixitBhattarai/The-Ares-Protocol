@@ -101,3 +101,9 @@ Added compact LandingControls telemetry, pad alignment/tilt, thrust slider, held
 
 ### Entry HUD and corrected landing input
 Landing HUD now stays through space approach, atmospheric entry and base approach, with km/m altitude, descent, non-negative forward speed, fuel, heat, pitch and bank. W/S explicitly say Nose down/up. Separate Q/E thrust buttons and slider remain keyboard/touch operable. Engine standby/active and 800m leg gate explain current controls compactly. Earth launch bindings unchanged. Retry in final approach uses a short checkpoint. Desktop/mobile browser pass checked W changes pitch without changing throttle and all entry phases retain HUD.
+
+### Task completion feedback — 14 November
+- App-level “Task complete!” popup now confirms every paid station job and shows its benefit. Accessible machine focus disables an unavailable task and shows its active-time cooldown countdown.
+- Earth/orbit preflight checks also announce each completed step. No UI feature component changed; this feedback is in the shell-owned App composition.
+- Changed in this slice: `src/App.vue`, `src/contracts/index.ts`, `src/features/game/station-game.ts`, `src/features/game/index.ts`, and `docs/CONTRACTS.md`.
+- Validation: `npm run typecheck` and `npm run build` pass on the rebased branch. `npm test` and browser checks were not run for this request.

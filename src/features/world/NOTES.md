@@ -294,3 +294,9 @@ Same cockpit scene now begins with a growing textured Mars globe against stars, 
 Validation kept focused: four landing tests, typecheck, Vite build; actual browser space/atmosphere/base phase progression, W changes pitch without changing thrust, desktop/mobile HUD and no runtime/console errors. Captures: ignored output/playwright/mars-space-approach.png, mars-atmospheric-entry.png, mars-base-approach-mobile.png. Full mission suite not repeated.
 
 Full entry-to-soft-touchdown handoff also passed in the same browser run. Final visual-only polish after captures: distance-scaled approach fog reveals the outpost sooner, Mars-to-terrain fade avoids depth occlusion, and daylight stars fade faster. Reviewed without repeating the full flight.
+
+### Station minigame completion and cooldown handoff — 14 November
+- App now confirms completed Mars minigames with a dismissible status popup, then keeps that job unavailable for 60 active mission seconds. Other machines remain usable. Pause/hidden tabs preserve the remaining delay; replay resets it.
+- Earth/orbit checklist completion also receives the same brief status popup. Existing `StationMinigame.vue` and `VisualPreflightMinigame.vue` puzzle inputs are unchanged; the shell owns the confirmation and game cooldown.
+- Changed outside this feature: `src/App.vue`, `src/contracts/index.ts`, `src/features/game/station-game.ts`, `src/features/game/index.ts`, `docs/CONTRACTS.md`; coordination notes updated in game/UI/world.
+- Validation: `npm run typecheck` and `npm run build` pass on the rebased branch. `npm test` and browser checks were not run for this request.

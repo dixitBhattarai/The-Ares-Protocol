@@ -9,6 +9,9 @@ export const STATION_TASKS: readonly StationTask[] = [
   {id:'survey',station:'solar',title:'Record surface science',steps:['Connect the sensor','Match the signal','Save the observations'],reward:{science:2},benefit:'+2 science',prevention:'Builds mission progress. For dust protection, service the solar panels.'},
 ];
 
+/** One active mission minute gives players time to service another system before repeating work. */
+export const TASK_REPEAT_COOLDOWN_SECONDS = 60;
+
 const KEYS = ['power','oxygen','supplies'] as const;
 const HAZARDS: readonly {title:string;station?:StationId;loss:Partial<Resources>;advice:string}[] = [
   {title:'Air leak',station:'habitat',loss:{oxygen:-14},advice:'Service the air system'},
@@ -33,6 +36,14 @@ export function taskHazardNotice(elapsed:number,seed=1,session=0):string|undefin
 
 export function taskCompletionId(state:Readonly<GameState>,taskId:string):string {
   return `${state.taskRun?.session??0}:${state.turn}:${taskId}`;
+}
+
+/** Remaining repeat delay in active mission seconds; pauses and hidden tabs do not consume it. */
+export function taskCooldownRemaining(state:Readonly<GameState>,taskId:string):number {
+  const run=state.taskRun;
+  const availableAt=run?.cooldowns?.[taskId];
+  if(!run||typeof availableAt!=='number'||!Number.isFinite(availableAt))return 0;
+  return Math.max(0,Math.ceil(availableAt-run.elapsed));
 }
 
 function apply(resources:Resources,effect:Partial<Resources> = {}):Resources {
@@ -70,7 +81,8 @@ export function reduceStationGame(state:Readonly<GameState>,action:GameAction,mi
   if(state.phase!=='running'||!run)return state;
   if(action.type==='CHOOSE')return state; // Old card actions cannot bypass station work.
   if(action.type==='START_TASK') {
-    if(run.activeTaskId||!STATION_TASKS.some(task=>task.id===action.taskId))return state;
+    const task=STATION_TASKS.find(task=>task.id===action.taskId);
+    if(run.activeTaskId||!task||taskCooldownRemaining(state,task.id)>0)return state;
     return {...state,taskRun:{...run,activeTaskId:action.taskId}};
   }
   if(action.type==='COMPLETE_TASK') {
@@ -80,9 +92,10 @@ export function reduceStationGame(state:Readonly<GameState>,action:GameAction,mi
     const science=state.science+(task.reward.science??0),shielding=Math.min(100,state.shielding+(task.reward.shielding??0));
     const explanation=`${task.title} completed: ${task.benefit}. ${task.prevention}`;
     const protections={...run.protections};
+    const cooldowns={...run.cooldowns,[task.id]:run.elapsed+TASK_REPEAT_COOLDOWN_SECONDS};
     if(['air','power','plants'].includes(task.id))protections[task.station]=run.elapsed+60;
     return finish({...state,turn:state.turn+1,resources,science,shielding,
-      taskRun:{...run,activeTaskId:undefined,protections,completedIds:[...run.completedIds,action.completionId]},
+      taskRun:{...run,activeTaskId:undefined,cooldowns,protections,completedIds:[...run.completedIds,action.completionId]},
       log:[...state.log,explanation],history:[...(state.history??[]),{turn:state.turn,shift:state.turn+1,eventId:'station-work',eventTitle:'Station work',choiceId:task.id,choiceLabel:task.title,explanation,resources:{...resources},science,shielding}],
     },mission);
   }

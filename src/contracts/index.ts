@@ -119,6 +119,8 @@ export interface GameState {
     elapsed: number;
     completedIds: readonly string[];
     activeTaskId?: string;
+    /** Task IDs remain unavailable until these active-time expiries. */
+    cooldowns?: Readonly<Record<string, number>>;
     protections: Partial<Record<StationId, number>>;
   };
   phase: Phase;

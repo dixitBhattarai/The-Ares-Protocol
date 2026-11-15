@@ -125,3 +125,9 @@ Status: Tested milestones complete; audio synthesis, station proximity, star rat
 
 ### Random hazards — 14 November
 Under the user's explicit coordinated UI/gameplay request, replaced fixed 30s event cycling with seeded 45s windows: 55% chance of one randomly typed/timed hazard (18–44s into window), otherwise no event; warning only in the last 8s. App samples MissionData.hazardSeed once, session varies replay; reducer is deterministic and pause-safe. All five jobs stay freely available, reward/prevention and routine drain unchanged. Focused station-game tests cover quiet windows, seed/replay variation, warnings, each maintenance prevention and expiry. World notes record browser checks; no full suite repeated.
+
+### Station task cooldown and completion handoff — 14 November
+- Each completed station task is unavailable for 60 active mission seconds. `taskRun.cooldowns` stores task-ID expiry times; the reducer rejects early starts, pause/hidden tabs do not advance them, and RESTART clears them with the session. Chose one minute over five because this prototype's entire mission takes about 3–5 minutes and requires six jobs; other machines remain available during the delay.
+- App owns cooldown countdowns, filters physical machine prompts and accessible station selection, and shows a dismissible “Task complete!” popup with the benefit. Earth/orbit checklist steps announce completion; those ordered one-time checks do not need repeat cooldowns.
+- Changed: `src/features/game/station-game.ts`, `src/features/game/index.ts`, `src/contracts/index.ts`, `src/App.vue`, `docs/CONTRACTS.md`; coordination notes updated in game/UI/world.
+- Validation: `npm run typecheck` and `npm run build` pass on the rebased branch. `npm test` and browser checks were not run for this request.
