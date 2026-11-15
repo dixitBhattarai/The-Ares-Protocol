@@ -19,7 +19,6 @@ import MissionPanels from './features/ui/MissionPanels.vue';
 import { usableMachines, WORK_MACHINES, type WorkWorldAdapter } from './features/world/interactables';
 import SpaceflightPanel from './features/ui/SpaceflightPanel.vue';
 import CabinTasks from './features/ui/CabinTasks.vue';
-import CabinSeatPanel from './features/ui/CabinSeatPanel.vue';
 import LaunchControls from './features/ui/LaunchControls.vue';
 import LandingControls from './features/ui/LandingControls.vue';
 import {createLandingFlight,createFinalApproach,stepLandingFlight,landingGuidance,LANDING_ALTITUDE} from './features/physics/landing-flight';
@@ -151,6 +150,39 @@ function showCompletionNotice(title:string,message:string) {
 function dismissCompletionNotice() {
   if(completionNoticeTimer)clearTimeout(completionNoticeTimer);
   completionNoticeTimer=undefined;completionNotice.value=null;
+}
+const taskWarning = ref('');
+const taskWarningShake = ref(0);
+let taskWarningTimer: ReturnType<typeof setTimeout> | undefined;
+
+function triggerTaskCancelWarning() {
+  taskWarning.value = 'The mission will fail if the tasks are not done properly! Complete all checks to proceed.';
+  taskWarningShake.value++;
+  showCompletionNotice('Mission Warning', 'The mission will fail if the tasks are not done properly! Complete all checks.');
+  stationMessage.value = 'Warning: The mission will fail if the tasks are not done properly! Complete all checks.';
+  preparationFeedback.value = 'The mission will fail if the tasks are not done properly.';
+  deckVisible.value = true;
+  if (taskWarningTimer) clearTimeout(taskWarningTimer);
+  taskWarningTimer = setTimeout(() => {
+    taskWarning.value = '';
+    taskWarningTimer = undefined;
+  }, 6000);
+}
+
+function closeDeck() {
+  if (preparation.value && preparationProgress.value < PREPARATION[preparation.value].steps.length) {
+    triggerTaskCancelWarning();
+    return;
+  }
+  deckVisible.value = false;
+}
+
+function toggleDeck() {
+  if (deckVisible.value && preparation.value && preparationProgress.value < PREPARATION[preparation.value].steps.length) {
+    triggerTaskCancelWarning();
+    return;
+  }
+  deckVisible.value = !deckVisible.value;
 }
 function clearLaunchInput(){launchHeld.clear();}
 function holdLaunch(key:FlightControlKey,down:boolean){if(down&&flightStage.value==='launch'&&!preparationPaused.value)launchHeld.add(key);else launchHeld.delete(key);}
@@ -287,6 +319,8 @@ function updateFlightStage(stage: FlightStage | null, progress = 0) {
 function beginPreparation(level: PreparationLevel) {
   clearLandingFlight();clearLaunchFlight();
   deckVisible.value=true;
+  taskWarning.value = '';
+  if (taskWarningTimer) { clearTimeout(taskWarningTimer); taskWarningTimer = undefined; }
   updateFlightStage(null);
   world?.setJourney?.(null);
   stopFlightSim();
@@ -339,7 +373,6 @@ function sitInFlightSeat() {
   if (preparation.value !== 'space' || preparationProgress.value < PREPARATION.space.steps.length || preparationPaused.value || cabinSeated.value) return;
   if (!nearCabinSeat.value) {
     preparationFeedback.value = 'Float beside the glowing flight seat first, then press E or the seat button.';
-    deckVisible.value = true;
     return;
   }
   cabinSeated.value = true;
@@ -446,6 +479,7 @@ function operatePreparation(control: string) {
   if (!nearConsole.value && !remoteConsole) { preparationFeedback.value = 'Walk to the console or enable the accessible remote console.'; return; }
   const next = advancePreparation(level, preparationProgress.value, control);
   if (next === preparationProgress.value) { preparationFeedback.value = 'Follow the procedure in order.'; return; }
+  taskWarning.value = '';
   preparationProgress.value = next; world?.setActivityProgress?.(next); preparationFeedback.value = `Check ${next} complete.`;
   showCompletionNotice('Check complete!', PREPARATION[level].steps[next-1]);
   if (next === PREPARATION[level].steps.length) {
@@ -454,7 +488,7 @@ function operatePreparation(control: string) {
       preparationFeedback.value = 'All three cabin tasks are complete. Float to the marked flight seat and buckle in before Mars approach.';
       stationMessage.value = 'Flight tasks complete. The glowing seat marker shows where to buckle in.';
       physics?.resumeInput?.();
-      deckVisible.value = true;
+      deckVisible.value = false;
     } else {
       earthOutside.value = false; world?.setEarthOutside?.(false);
       preparation.value = null; physics?.exitInterior?.(); world?.setLevel?.(null); world?.setActivityProgress?.(0);
@@ -735,7 +769,7 @@ watch(() => [state.value, activeActivity.value?.taskId, activityProgress.value],
 
 function trapDeck(event:KeyboardEvent){
  if(event.code==='KeyP'){event.preventDefault();if(!event.repeat)requestPause();return;}
- if(event.key==='Escape'){event.preventDefault();deckVisible.value=false;(document.activeElement as HTMLElement)?.blur();host.value?.focus();return;}
+ if(event.key==='Escape'){event.preventDefault();closeDeck();(document.activeElement as HTMLElement)?.blur();host.value?.focus();return;}
  if(event.key!=='Tab')return;
  const nodes=Array.from(commandPanel.value?.querySelectorAll<HTMLElement>('button:not(:disabled),summary,a[href],input:not(:disabled),select,[tabindex="0"]')??[]).filter(node=>node.getClientRects().length);
  const first=nodes[0],last=nodes[nodes.length-1];if(!first)return;
@@ -805,7 +839,7 @@ function dispatch(action: GameAction) {
     activityProgress.value=0;activityFeedback.value='Finish the station minigame to earn this reward.';
     world?.setObjective?.(task.station);physics?.pauseInput?.();deckVisible.value=false;return;
   }
-  if (action.type === 'RESTART') { pendingSampleAction=null;scienceOpen.value=false;scienceAbort?.abort();fieldNotice.value='';habitatAccess.value=freshHabitatAccess();airlockNotice.value='';missionTimerActive.value=false;arrivalGuide.value=false;clearLandingFlight();clearLaunchFlight();missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; preparationProgress.value=0;nearCabinSeat.value=false;cabinSeated.value=false;world?.setCabinSeatState?.('hidden');arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
+  if (action.type === 'RESTART') { taskWarning.value='';pendingSampleAction=null;scienceOpen.value=false;scienceAbort?.abort();fieldNotice.value='';habitatAccess.value=freshHabitatAccess();airlockNotice.value='';missionTimerActive.value=false;arrivalGuide.value=false;clearLandingFlight();clearLaunchFlight();missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; preparationProgress.value=0;nearCabinSeat.value=false;cabinSeated.value=false;world?.setCabinSeatState?.('hidden');arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
   if (action.type === 'PAUSE' && state.value.phase === 'running') {world?.setMotionPaused?.(true);pendingSampleAction=null;deckVisible.value=true;music?.setPaused(true);}
   if (action.type === 'RESUME' && !directDecisionMode.value) deckVisible.value=false;
   if (action.type === 'RESUME' && state.value.phase === 'paused') music?.setPaused(false);
@@ -943,18 +977,26 @@ function handleGlobalKeydown(event: KeyboardEvent) {
     return;
   }
   if (event.code === 'KeyC') {
-    deckVisible.value = !deckVisible.value;
+    if (preparation.value === 'space' && preparationProgress.value >= PREPARATION.space.steps.length) return;
+    toggleDeck();
     return;
+  }
+  if (event.code === 'Escape') {
+    if (activeActivity.value) {
+      event.preventDefault();
+      cancelActivity();
+      return;
+    }
+    if (deckVisible.value) {
+      event.preventDefault();
+      closeDeck();
+      return;
+    }
   }
   if (activeActivity.value) {
     if (event.code === 'KeyT') {
       event.preventDefault();
       travelToTask();
-      return;
-    }
-    if (event.code === 'Escape') {
-      event.preventDefault();
-      cancelActivity();
       return;
     }
   }
@@ -1209,10 +1251,10 @@ onBeforeUnmount(() => {
           <div class="surface-actions">
             <button
               type="button"
-              v-if="!launchFlight && !landingFlight && (preparation || flightStage || state.phase !== 'running' || directDecisionMode || graphicsError)" class="deck-toggle-btn info-btn"
+              v-if="!launchFlight && !landingFlight && ((preparation ? (preparation !== 'space' || preparationProgress < PREPARATION.space.steps.length) : false) || flightStage || state.phase !== 'running' || directDecisionMode || graphicsError)" class="deck-toggle-btn info-btn"
               :aria-label="deckVisible ? 'Hide Mission Deck' : 'Show Mission Deck / Info'"
               :title="deckVisible ? 'Hide Mission Deck (Press C)' : 'Show Mission Deck (Press C)'"
-              @click="deckVisible = !deckVisible"
+              @click="toggleDeck"
             >
               {{ deckVisible ? 'Close console' : 'Console' }}
             </button>
@@ -1300,7 +1342,7 @@ onBeforeUnmount(() => {
 
         <!-- Coherent In-Viewport Overlay Host for Shell UI Panels -->
         <section
-          v-show="!gamePaused && deckVisible && !activeActivity && !launchFlight && !landingFlight && (!!preparation || !!flightStage || state.phase !== 'running' || directDecisionMode || !!graphicsError)"
+          v-show="!gamePaused && deckVisible && !activeActivity && !launchFlight && !landingFlight && (preparation === 'space' ? preparationProgress < PREPARATION.space.steps.length : (!!preparation || !!flightStage || state.phase !== 'running' || directDecisionMode || !!graphicsError))"
           ref="commandPanel"
           class="command-panel in-viewport-deck"
           role="dialog" aria-label="Mission controls"
@@ -1318,13 +1360,20 @@ onBeforeUnmount(() => {
                 class="deck-close-corner-btn"
                 title="Hide window (Press C or click to close)"
                 aria-label="Close window"
-                @click="deckVisible = false"
+                @click="closeDeck"
               >✕</button>
             </div>
           </div>
           <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
             {{ state.upcomingHazardNotice }}
           </p>
+          <div v-if="taskWarning" :key="taskWarningShake" class="task-cancel-warning" role="alert">
+            <span class="warning-icon" aria-hidden="true">⚠</span>
+            <div class="warning-content">
+              <strong>MISSION CRITICAL</strong>
+              <p>{{ taskWarning }}</p>
+            </div>
+          </div>
           <CabinTasks v-if="preparation==='space' && preparationProgress<PREPARATION.space.steps.length" :progress="preparationProgress" :paused="preparationPaused" @control="handleVisualMinigameControl" @pause="togglePreparationPause" />
           <VisualPreflightMinigame
             v-else-if="preparation==='earth'"
@@ -1335,17 +1384,7 @@ onBeforeUnmount(() => {
             @pause="togglePreparationPause"
             @skip="skipPreparation"
           />
-          <CabinSeatPanel
-            v-else-if="preparation === 'space' && preparationProgress >= PREPARATION.space.steps.length"
-            :near-seat="nearCabinSeat"
-            :seated="cabinSeated"
-            :paused="preparationPaused"
-            :feedback="preparationFeedback"
-            @glide="glideToFlightSeat"
-            @sit="sitInFlightSeat"
-            @transfer="beginTransferFromFlightSeat"
-            @pause="togglePreparationPause"
-          />
+          <template v-else-if="preparation === 'space'" />
           <SpaceflightPanel v-else-if="flightStage" :stage="flightStage" :progress="flightProgress ?? 0" :step="flightControlProgress" :feedback="flightFeedback" :telemetry="flightTelemetry" :paused="preparationPaused" :controls="flightStage === 'landing' ? FLIGHT_CONTROL_STEPS.landing : FLIGHT_CONTROL_STEPS.launch" @control="operateFlightControl" @pause="togglePreparationPause" @continue="finishArrival" />
           <section v-else-if="state.phase==='running'" class="exploration-info" aria-label="Exploration information">
             <h2>Find a glowing machine</h2><p>Walk inside a station. Press E near a machine or click it to work.</p><p>{{ state.turn }} / {{ mission.maxTurns }} jobs finished. Watch the hazard forecast.</p>
@@ -1451,6 +1490,12 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
 .command-panel :deep(.card li) { font-size: 12px; line-height: 1.65; }
 .command-panel :deep(.hazard-banner), .command-panel :deep(.feedback-box) { font-size: 11px; }
 .hazard-advisory { margin: 12px 16px 0; padding: 11px; border-radius: 8px; background: #3b291d; border-left: 3px solid #eab575; color: #f8d5a6; font-size: 12px; line-height: 1.6; }
+.task-cancel-warning { margin: 12px 16px 0; padding: 12px 14px; border-radius: 8px; background: #3b1d1d; border-left: 4px solid #f87171; color: #fecaca; display: flex; align-items: center; gap: 12px; animation: shakeWarning 0.35s ease-in-out; }
+.task-cancel-warning .warning-icon { font-size: 22px; color: #f87171; flex-shrink: 0; }
+.task-cancel-warning strong { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; color: #fca5a5; text-transform: uppercase; }
+.task-cancel-warning p { margin: 2px 0 0; font-size: 13px; line-height: 1.4; color: #fff1f2; }
+@keyframes shakeWarning { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+@media (prefers-reduced-motion: reduce) { .task-cancel-warning { animation: none; } }
 @media (min-width: 1000px) {
   .hud-container :deep(.hud) { width: 100%; display: grid; grid-template-columns: 155px minmax(0, 1fr) 250px; gap: 8px 18px; padding: 12px 16px; background: #15242d; border: 1px solid #364851; border-radius: 12px; }
   .hud-container :deep(.hud-header) { grid-column: 1; grid-row: 1; flex-wrap: wrap; gap: 6px; margin: 0; }
