@@ -57,7 +57,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.shadowMap.autoUpdate = false;
     renderer.domElement.setAttribute('aria-hidden', 'true');
     renderer.domElement.tabIndex = -1;
@@ -69,10 +69,10 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     const sun = new THREE.DirectionalLight('#fff2de', 2.8);
     sun.position.set(-18,10,-35);sun.shadow.radius=2.5;scene.add(sun.target);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -25, right: 25, top: 25, bottom: -25, near: .5, far: 65 });
-    sun.shadow.normalBias = .02;
-    sun.shadow.bias = -.0003;
+    sun.shadow.normalBias = .065;
+    sun.shadow.bias = -.0006;
     cleanups.push(() => sun.shadow.dispose());
     scene.add(sun);
     const kit = createModelKit(resources);

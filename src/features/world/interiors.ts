@@ -11,8 +11,9 @@ export interface RocketSeatVisual {
 export function dressRoom(room: THREE.Object3D, kit: ModelKit, resources: WorldResources) {
   const steel = resources.material(new THREE.MeshStandardMaterial({ color: '#536973', metalness: .65, roughness: .4 }));
   const light = resources.material(new THREE.MeshBasicMaterial({ color: '#c2ede6' }));
+  const floor = resources.material(new THREE.MeshStandardMaterial({ color: '#667b80', roughness: .86, metalness: .12 }));
   for (let x = -2.5; x <= 2.5; x++) for (let z = -2.5; z <= 2.5; z++) {
-    kit.flatBox(room, (Math.round(x + z) % 2) ? kit.materials.trim : steel, [.97, .025, .97], [x, .012, z]);
+    kit.flatBox(room, floor, [.97, .025, .97], [x, .012, z]);
   }
   for (const x of [-2, -1, 0, 1, 2]) {
     kit.box(room, steel, [.04, 2.2, .07], [x, 1.12, -2.9]);
@@ -141,13 +142,19 @@ export function furnishRoom(equipment: THREE.Group, id: string, kit: ModelKit, s
   if (id === 'greenhouse') for (const x of [-1.65, 1.65]) {
     kit.box(equipment, steel, [1.05, .6, 2.3], [x, .3, .6]);
     kit.box(equipment, kit.materials.soil, [.92, .09, 2.15], [x, .63, .6]);
+    const foliage = kit.resources.material(new THREE.MeshStandardMaterial({ color: '#58a566', roughness: .82, side: THREE.DoubleSide }));
+    const leafShape = new THREE.Shape(); leafShape.moveTo(0, 0); leafShape.bezierCurveTo(.22, .04, .24, .26, 0, .44); leafShape.bezierCurveTo(-.24, .26, -.22, .04, 0, 0);
+    const leafGeometry = kit.resources.geometry(new THREE.ShapeGeometry(leafShape, 7));
     for (const z of [-.1, .55, 1.2]) {
-      kit.cylinder(equipment, kit.materials.green, [.025, .45, .025], [x, .86, z]);
-      for (const direction of [-1,1]) {
-        const leaf = kit.sphere(equipment, kit.materials.green, [.24,.065,.13], [x + direction * .13, 1, z]); leaf.rotation.z = direction * .35;
+      kit.cylinder(equipment, kit.materials.green, [.018, .45, .018], [x, .86, z]);
+      for (let i = 0; i < 5; i++) {
+        const leaf = new THREE.Mesh(leafGeometry, foliage);
+        leaf.position.set(x, .81 + i * .065, z); leaf.rotation.set(.9 + i * .12, i * 2.4, 0); leaf.scale.setScalar(.72 + i * .03); equipment.add(leaf);
       }
     }
-    kit.box(equipment, screens[0], [.85, .035, 2.1], [x, 1.75, .6]);
+    kit.box(equipment, steel, [.85, .06, 2.1], [x, 1.75, .6]);
+    const grow = kit.resources.material(new THREE.MeshBasicMaterial({ color: '#c8f4c9' }));
+    for (const lane of [-.26, 0, .26]) kit.flatBox(equipment, grow, [.09, .018, 1.94], [x + lane, 1.713, .6]);
     for (const z of [-.5,1.7]) kit.cylinder(equipment, steel, [.025,1.5,.025], [x,1,z]);
   }
   if (id === 'solar') for (const x of [-2, 2]) {

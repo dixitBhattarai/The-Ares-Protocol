@@ -7,8 +7,10 @@ export function createHabitatDome(kit: ModelKit, resources: WorldResources) {
  const shellMaterial=resources.material(new THREE.MeshPhysicalMaterial({color:'#9bdcdb',transparent:true,opacity:.09,roughness:.3,metalness:.1,side:THREE.DoubleSide,depthWrite:false}));
  const shell=new THREE.Mesh(resources.geometry(new THREE.SphereGeometry(H.radius,48,20,0,Math.PI*2,0,Math.PI/2)),shellMaterial);
  shell.position.z=H.centerZ;group.add(shell);
- const deck=resources.material(new THREE.MeshStandardMaterial({color:'#454b4c',roughness:.85}));
- kit.cylinder(group,deck,[H.radius,.06,H.radius],[0,-.027,H.centerZ]);
+ const deck=resources.material(new THREE.MeshStandardMaterial({color:'#667478',roughness:.85}));
+ const deckMesh=new THREE.Mesh(resources.geometry(new THREE.CylinderGeometry(H.radius,H.radius,.06,96)),deck);deckMesh.position.set(0,-.027,H.centerZ);group.add(deckMesh);
+ const seam=resources.material(new THREE.MeshBasicMaterial({color:'#98a9a5',transparent:true,opacity:.35,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}));
+ for(const radius of [5,9.5,13.4]){const ring=new THREE.Mesh(resources.geometry(new THREE.RingGeometry(radius-.012,radius+.012,96)),seam);ring.rotation.x=-Math.PI/2;ring.position.set(0,.007,H.centerZ);group.add(ring);}
  const occluders:THREE.Object3D[]=[];
  const rib=resources.material(new THREE.MeshStandardMaterial({color:'#91b5b6',metalness:.6,roughness:.5}));
  for(let i=0;i<8;i++){
