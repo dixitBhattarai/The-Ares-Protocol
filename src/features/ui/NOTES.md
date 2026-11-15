@@ -127,3 +127,6 @@ The user requested a pause/resume screen plus camera/input fixes. Himamshu's coo
 ### 15 November — Explore Mars and discovery map
 User chose relaxed free roaming. Coordinated slice adds ExplorationMap.vue: selectable landmarks, live location/distance, discovered status, nearby study action, return to base, collapsible map and 360px layout. LoginScreen's existing fast Mars entry is now labeled Explore Mars; ordinary Start still enters the mission. Discovery activities reuse existing visual science panels. Journals are per visit, and account mission saves are not replaced by free roaming. Browser map/field-study/return/pause/mobile checks pass; see world notes for full validation. Dixit retains UI ownership.
 - Final keyboard pass: field-study dialogs automatically focus their instrument, contain Tab, restore instrument focus after Pause/Resume and close with Escape. Verified in the actual observatory flow; final build passes.
+
+### 15 November — confirmed orphan cleanup
+User-authorized code-review cleanup removes TaskBoard.vue and the unused GreenhouseMiniGame/SolarStationWireFix prototypes. Reference search found no runtime imports; active StationMinigame, ScienceWorkbench and physical-machine entry remain. DecisionPanel and frozen legacy contracts remain compatible; no obsolete job list restored. No UI redesign. Build/typecheck checked after deletion.

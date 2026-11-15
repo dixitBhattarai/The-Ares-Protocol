@@ -61,6 +61,19 @@ function copyTaskRun(value) {
     completedIds: [...value.completedIds],
     protections: {},
   };
+  if (value.radiationExposure !== undefined) {
+    if (!finite(value.radiationExposure, 0, 100)) return null;
+    result.radiationExposure = value.radiationExposure;
+  }
+  if (value.cooldowns !== undefined) {
+    if (!isRecord(value.cooldowns)) return null;
+    const cooldowns = {};
+    for (const [id, until] of Object.entries(value.cooldowns)) {
+      if (!['air', 'shelter', 'power', 'plants', 'survey'].includes(id) || !finite(until, 0, 10_000_000)) return null;
+      cooldowns[id] = until;
+    }
+    result.cooldowns = cooldowns;
+  }
   if (value.activeTaskId !== undefined) {
     if (typeof value.activeTaskId !== 'string' || !/^[a-z0-9-]{1,80}$/.test(value.activeTaskId)) return null;
     result.activeTaskId = value.activeTaskId;

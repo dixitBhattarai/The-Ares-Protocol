@@ -40,3 +40,20 @@ describe('progress snapshot allowlist', () => {
     expect(normalizeProgressSnapshot(noTaskRun)).toBeNull();
   });
 });
+
+it('preserves radiation consequences and job cooldowns across save normalization', () => {
+  const input = validSave();
+  input.state.taskRun.radiationExposure = 50;
+  input.state.taskRun.cooldowns = { air: 105, survey: 90 };
+  const loaded = normalizeProgressSnapshot(JSON.parse(JSON.stringify(input)));
+  expect(loaded.state.taskRun.radiationExposure).toBe(50);
+  expect(loaded.state.taskRun.cooldowns).toEqual({ air: 105, survey: 90 });
+  expect(loaded.state.taskRun.cooldowns.air - loaded.state.taskRun.elapsed).toBe(60);
+});
+it('rejects invalid exposure and unknown or invalid cooldowns while accepting older saves', () => {
+  expect(normalizeProgressSnapshot(validSave())).not.toBeNull();
+  for (const extra of [{ radiationExposure: -1 }, { radiationExposure: 101 }, { cooldowns: { air: Infinity } }, { cooldowns: { unknown: 100 } }]) {
+    const input = validSave(); Object.assign(input.state.taskRun, extra);
+    expect(normalizeProgressSnapshot(input)).toBeNull();
+  }
+});

@@ -413,3 +413,6 @@ Tests: boundary test now uses the Mars arena; new tests for Earth keeping 18 m, 
 
 ### 15 November — concurrent main reconciliation for PR #5
 Preserved the newer orbit.ts camera and ±60 m ordinary Mars arena, while free exploration retains ±72 m bounds. Floor/terrain/scenery use the larger bound. Restored concurrent rover/lander/weather/seismic visuals and their shared colliders, alongside the four discovery props. Discovery trails now use shared loop/spur segments on the map and in world; a new capsule-clearance regression checks every marked segment against both legacy and discovery footprints. This avoids paths through the newly solid lander or discovery props. Typecheck, all 248 tests and build pass after semantic conflict resolution; original feature authorship preserved.
+
+### 15 November — confirmed orphan cleanup
+User-authorized audit cleanup removes unimported PreparationPanel.vue and src/assets/astronout.jpeg. The active visual preflight minigames and credited rig/fallback assets remain. Inactive raw evidence JSON retained with provenance documentation, and Draco retained because astronaut/Opportunity/EO-1 models require it. This cleanup changes repository source only; no claimed initial-download saving for already unbundled files. Build/typecheck checked after removal. Existing file ownership resumes after this coordinated cleanup.
