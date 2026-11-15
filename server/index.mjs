@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { Pool } from 'pg';
+import { serveClient } from './static.mjs';
 import {
   createSessionToken,
   hashPassword,
@@ -225,6 +226,7 @@ async function handle(request, response) {
       return;
     }
 
+    if (isProduction && await serveClient(request, response)) return;
     json(response, 404, { error: 'Not found.' });
   } catch (error) {
     const status = Number.isInteger(error?.status) ? error.status : 500;
