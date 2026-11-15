@@ -57,3 +57,10 @@ it('rejects invalid exposure and unknown or invalid cooldowns while accepting ol
     expect(normalizeProgressSnapshot(input)).toBeNull();
   }
 });
+
+it('preserves rover parking, battery, sample cargo and storm preparations',()=>{
+ const input=validSave();input.state.rover={pose:{x:29,y:.8,z:33},heading:1,battery:42,driving:true};
+ input.state.fieldSample={stage:'collected',runId:'1:2:sample',elapsed:6,researchStep:0,remote:true};
+ input.state.taskRun.stormPrep={shutters:true,secured:false,dusty:true};
+ const saved=normalizeProgressSnapshot(input);expect(saved.state.rover).toEqual({...input.state.rover,driving:false});expect(saved.state.fieldSample).toEqual(input.state.fieldSample);expect(saved.state.taskRun.stormPrep).toEqual(input.state.taskRun.stormPrep);
+});

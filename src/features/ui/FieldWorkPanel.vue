@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SampleLab from './SampleLab.vue';
 import type { FieldSample } from '../../contracts/exploration';
 defineProps<{sample?:FieldSample;nearSite:boolean;nearLab:boolean;suited:boolean;paused:boolean;notice:string}>();
 const emit=defineEmits<{dig:[];research:[];check:[control:string];cancel:[];science:[];pause:[]}>();
@@ -18,14 +19,7 @@ const emit=defineEmits<{dig:[];research:[];check:[control:string];cancel:[];scie
    <h2>Sample sealed ✓</h2><p>{{ nearLab?'Place it under the lab camera.':'Return through the airlock. Find the blue science lab.' }}</p>
    <button v-if="nearLab" class="primary" :disabled="paused" @click="emit('research')">E · Examine sample</button>
   </template>
-  <template v-else-if="sample.stage==='researching'">
-   <h2>{{ ['Look closer','Describe the grains','Record the finding'][sample.researchStep] }}</h2>
-   <div v-if="sample.researchStep===1" class="grain-view" role="img" aria-label="Simulated sample: many small loose grains"><i v-for="n in 28" :key="n" :style="{left:((n*37)%94)+'%',top:((n*23)%78)+'%'}"/></div>
-   <p v-if="sample.researchStep===0">Use the camera before making a claim.</p>
-   <div v-if="sample.researchStep===1" class="grain-choices"><button :disabled="paused||sample.elapsed<4" @click="emit('check','fine-grains')">Fine grains</button><button :disabled="paused||sample.elapsed<4" @click="emit('check','pebbles')">Large pebbles</button></div>
-   <button v-else class="primary" :disabled="paused||sample.elapsed<(sample.researchStep+1)*2" @click="emit('check',sample.researchStep===0?'image':'record')">{{ sample.researchStep===0?'Capture image':'Save observation · +2 science' }}</button>
-   <p class="caption">Practice sample · not a NASA measurement</p><p v-if="notice" role="status">{{ notice }}</p>
-  </template>
+  <SampleLab v-else-if="sample.stage==='researching'" :sample="sample" :paused="paused" @check="emit('check',$event)" @close="emit('cancel')" @pause="emit('pause')"/>
   <template v-else><h2>Field note saved ✓</h2><p>Loose grains observed. Composition still unknown.</p><button @click="emit('science')">Compare with NASA imagery</button></template>
   <footer v-if="sample?.stage==='digging'||sample?.stage==='researching'"><button @click="emit('pause')">{{ paused?'Resume':'Pause' }}</button><span>Real work takes time.</span></footer>
  </section>

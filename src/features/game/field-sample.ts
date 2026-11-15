@@ -1,6 +1,7 @@
 import type { GameAction, GameState, Vec3 } from '../../contracts';
 import { SAMPLE_LAB, SAMPLE_SITE } from '../../contracts/exploration';
 
+import { REMOTE_SAMPLE } from '../../contracts/expedition';
 import type { FieldSample } from '../../contracts/exploration';
 export const DIG_SECONDS = 6;
 export const RESEARCH_SECONDS = 6;
@@ -25,11 +26,11 @@ export function reduceFieldSample(
       taskRun:{...state.taskRun,activeTaskId:state.taskRun.activeTaskId==='survey'?undefined:state.taskRun.activeTaskId}};
   }
   if (!['START_DIG','START_SAMPLE_RESEARCH','FIELD_TICK','SAMPLE_RESEARCH_STEP'].includes(action.type)) return undefined;
-  if (state.phase !== 'running' || !state.taskRun) return state;
+  if (state.phase !== 'running' || !state.taskRun || state.rover?.driving) return state;
   const run=state.taskRun;
   if (action.type === 'START_DIG') {
-    if (run.activeTaskId || sample || !action.suited || !action.grounded || !nearSampleLocation(action.pose,SAMPLE_SITE)) return state;
-    return {...state,taskRun:{...run,activeTaskId:'survey'},fieldSample:{stage:'digging',runId:`${run.session}:${state.turn}:sample`,elapsed:0,researchStep:0}};
+    if (run.activeTaskId || sample || !action.suited || !action.grounded || !(nearSampleLocation(action.pose,SAMPLE_SITE)||nearSampleLocation(action.pose,REMOTE_SAMPLE))) return state;
+    return {...state,taskRun:{...run,activeTaskId:'survey'},fieldSample:{stage:'digging',runId:`${run.session}:${state.turn}:sample`,elapsed:0,researchStep:0,remote:nearSampleLocation(action.pose,REMOTE_SAMPLE)}};
   }
   if (!sample) return state;
   if (action.type === 'START_SAMPLE_RESEARCH') {
@@ -38,7 +39,7 @@ export function reduceFieldSample(
   }
   if (action.type === 'FIELD_TICK') {
     if (action.runId!==sample.runId || !fieldBusy(state) || !Number.isFinite(action.seconds) || action.seconds <= 0 || action.seconds > .1) return state;
-    const target=sample.stage==='digging'?SAMPLE_SITE:SAMPLE_LAB;
+    const target=sample.stage==='digging'?(sample.remote?REMOTE_SAMPLE:SAMPLE_SITE):SAMPLE_LAB;
     if (!action.grounded || !nearSampleLocation(action.pose,target) || (sample.stage==='digging'&&!action.suited)) return state;
     const elapsed=Math.min(sample.stage==='digging'?DIG_SECONDS:RESEARCH_SECONDS,sample.elapsed+action.seconds);
     return {...state,fieldSample:{...sample,elapsed,stage:sample.stage==='digging'&&elapsed>=DIG_SECONDS?'collected':sample.stage}};

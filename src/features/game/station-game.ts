@@ -15,7 +15,7 @@ export const TASK_REPEAT_COOLDOWN_SECONDS = 60;
 const KEYS = ['power','oxygen','supplies'] as const;
 const HAZARDS: readonly {title:string;station?:StationId;loss:Partial<Resources>;advice:string}[] = [
   {title:'Air leak',station:'habitat',loss:{oxygen:-14},advice:'Service the air system'},
-  {title:'Dust fault',station:'solar',loss:{power:-16},advice:'Clean and connect solar panels'},
+  {title:'Dust fault',station:'solar',loss:{power:-16},advice:'Close shutters + secure gear, or service the solar panels'},
   {title:'Solar storm',loss:{power:-20,oxygen:-12,supplies:-6},advice:'Reinforce the storm shelter to score 15'},
   {title:'Crop stress',station:'greenhouse',loss:{supplies:-14},advice:'Care for the greenhouse'},
 ];
@@ -82,6 +82,7 @@ export function reduceStationGame(state:Readonly<GameState>,action:GameAction,mi
   if(state.phase!=='running'||!run)return state;
   if(action.type==='CHOOSE')return state; // Old card actions cannot bypass station work.
   if(action.type==='START_TASK') {
+    if(state.rover?.driving)return state;
     const task=STATION_TASKS.find(task=>task.id===action.taskId);
     if(run.activeTaskId||!task||taskCooldownRemaining(state,task.id)>0)return state;
     return {...state,taskRun:{...run,activeTaskId:action.taskId}};
@@ -96,7 +97,7 @@ export function reduceStationGame(state:Readonly<GameState>,action:GameAction,mi
     const cooldowns={...run.cooldowns,[task.id]:run.elapsed+(mission.freeExploration?0:TASK_REPEAT_COOLDOWN_SECONDS)};
     if(['air','power','plants'].includes(task.id))protections[task.station]=run.elapsed+60;
     return finish({...state,turn:state.turn+1,resources,science,shielding,
-      taskRun:{...run,activeTaskId:undefined,cooldowns,protections,completedIds:[...run.completedIds,action.completionId]},
+      taskRun:{...run,activeTaskId:undefined,cooldowns,protections,stormPrep:task.id==='power'?{...(run.stormPrep??{shutters:false,secured:false}),dusty:false}:run.stormPrep,completedIds:[...run.completedIds,action.completionId]},
       log:[...state.log,explanation],history:[...(state.history??[]),{turn:state.turn,shift:state.turn+1,eventId:'station-work',eventTitle:'Station work',choiceId:task.id,choiceLabel:task.title,explanation,resources:{...resources},science,shielding}],
     },mission);
   }
@@ -105,6 +106,7 @@ export function reduceStationGame(state:Readonly<GameState>,action:GameAction,mi
   const elapsed=run.elapsed+action.seconds;
   let resources={...state.resources},notice=state.lastHazardNotice;
   let radiationExposure=run.radiationExposure??0;
+  let stormPrep=run.stormPrep;
   if(state.shielding>=15)radiationExposure=Math.max(0,radiationExposure-action.seconds*.5);
   const notes:string[]=[];
   if(Math.floor(elapsed/20)>Math.floor(run.elapsed/20)){
@@ -115,10 +117,12 @@ export function reduceStationGame(state:Readonly<GameState>,action:GameAction,mi
   const event=scheduledHazard(Math.floor(elapsed/45),mission.hazardSeed??1,run.session);
   if(event && run.elapsed<event.at && elapsed>=event.at){
     const hazard=HAZARDS[event.index];
-    const protectedNow=hazard.station?(run.protections[hazard.station]??-1)>=elapsed:state.shielding>=15;
+    const preparedDust=event.index===1&&!!stormPrep?.shutters&&!!stormPrep?.secured;
+    const protectedNow=preparedDust|| (hazard.station?(run.protections[hazard.station]??-1)>=elapsed:state.shielding>=15);
+    if(event.index===1)stormPrep={shutters:false,secured:false,dusty:true};
     if(!protectedNow){resources=apply(resources,hazard.loss);if(hazard.title==='Solar storm')radiationExposure=Math.min(100,radiationExposure+50);}
     notice=protectedNow?`${hazard.title} prevented · maintenance protected you.`:`${hazard.title} hit · ${Object.entries(hazard.loss).map(([key,value])=>`${key} ${value}`).join(' · ')}`;
     notes.push(notice);
   }
-  return finish({...state,resources,taskRun:{...run,elapsed,radiationExposure},lastHazardNotice:notice,upcomingHazardNotice:taskHazardNotice(elapsed,mission.hazardSeed??1,run.session),log:[...state.log,...notes]},mission);
+  return finish({...state,resources,taskRun:{...run,elapsed,radiationExposure,stormPrep},lastHazardNotice:notice,upcomingHazardNotice:taskHazardNotice(elapsed,mission.hazardSeed??1,run.session),log:[...state.log,...notes]},mission);
 }
