@@ -81,7 +81,7 @@ describe('station work instead of decision cards',()=>{
     state={...state,resources:{power:100,oxygen:100,supplies:100}};state=work(state,'air');expect(state.resources.oxygen).toBe(100);expect(state.science).toBe(1);
   });
   it('six jobs win and an unattended outpost loses; terminal time and work are ignored',()=>{
-    let state=start();for(const id of ['air','shelter','power','plants','survey','air'])state=work(state,id);
+    let state=start();for(const id of ['air','shelter','power','plants','survey'])state=work(state,id);state=work(tick(state,60),'air');
     expect(state.phase).toBe('won');expect(state.debrief?.verdict).toBe('won');expect(tick(state,90)).toBe(state);
     state=tick(start(),500);expect(state.phase).toBe('lost');expect(state.debrief?.verdict).toBe('depleted');expect(work(state,'air')).toBe(state);
   });

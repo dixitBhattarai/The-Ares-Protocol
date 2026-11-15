@@ -117,3 +117,9 @@ Added FieldWorkPanel, connected the NASA ScienceConsole, and added a direct Mars
 ### 15 November — explicit pause and resume screen
 
 The user requested a pause/resume screen plus camera/input fixes. Himamshu's coordinated slice adds `PauseScreen.vue`, composed by App for Mars, Earth preparation, cabin and flight. It provides a focused Resume button, Tab containment, P/Escape resumption, visible focus, cursor-release instructions and a 360px layout. App freezes motion/flight/music and releases pointer capture while paused; returning from hidden tabs requires explicit Resume. It resumes with neutral viewport focus instead of leaving keys trapped in a hidden console. Validation: browser Mars/Earth/launch pause/resume, focus trap, movement restoration, visibility-change handler and 360px layout; all 214 tests/typecheck/build pass. Dixit retains subsequent UI ownership.
+
+### Task completion feedback — 14 November
+- App-level “Task complete!” popup now confirms every paid station job and shows its benefit. Accessible machine focus disables an unavailable task and shows its active-time cooldown countdown.
+- Earth/orbit preflight checks also announce each completed step. No UI feature component changed; this feedback is in the shell-owned App composition.
+- Changed in this slice: `src/App.vue`, `src/contracts/index.ts`, `src/features/game/station-game.ts`, `src/features/game/index.ts`, and `docs/CONTRACTS.md`.
+- Validation: `npm run typecheck` and `npm run build` pass on the rebased branch. `npm test` and browser checks were not run for this request.

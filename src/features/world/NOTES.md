@@ -217,6 +217,12 @@ Local editable suit and preview: [space-man.blend](<C:/Users/bhomk/OneDrive/Docu
 - New files: `first-person.ts` (pure look maths) and `first-person.test.ts` (conventions checked against a real Three.js camera). Edited: `follow-camera.ts`, `index.ts`, `expedition.ts`, `world.css`.
 - Limits: not yet run through typecheck, the test suite, build or a browser. Interiors and the ground were tuned for a distant camera, so close-up texture detail and the visible map edge or horizon in first person are untested polish items. No head bob, hands or body shadow in first person.
 
+## Full vertical orbit camera — 14 Nov 2026
+
+- Removed the custom third-person polar-angle limits. OrbitControls now keeps its full pole-to-pole vertical range, while azimuth can continue through full horizontal turns. First-person pitch behavior is unchanged.
+- Validation: not run for this change.
+- Limit: vertical orbit reaches the underside of the target at its lower pole; a literal 360-degree vertical tumble would invert the camera and scene.
+
 ## Earth launch and Mars landing visuals — 14 Nov 2026
 
 - Added an in-bounds Earth launch pad, service tower, fallback launch vehicle and exhaust. The rocket has a perspective launch camera and a named `ARES_ROCKET_MODEL_SLOT`; call `earth.useLaunchVehicleModel(gltf.scene)` after a locally bundled, license-verified model is loaded. Until then, the authored fallback is visible.
@@ -371,6 +377,11 @@ User explicitly assigned this coordinated App/UI/world/physics slice after suppl
 User requested more science through visual minigames rather than a text simulator. `ScienceWorkbench.vue` replaces the generic survey scanner through `ActivityPanel.vue`: hold a probe over three illustrated terrain sites; drag six labeled CO₂/O₂/N₂ molecules into matching detectors (or tap both ends); aim a telescope reticle and hold exposures on three stars to draw a connected pattern. `science-work.ts` owns only local observation/sorting checks, with regression tests for wrong aim, paused/long elapsed time, wrong bins and duplicate captures. `interactables.ts` describes the existing science machine as terrain/air/star analysis. No game reducer, reward, physics, asset download or dependency changes; the existing three stage callbacks still earn exactly one +2 science payout. Practice data and the authored star pattern are labeled, including the fact that molecule counts do not represent atmospheric proportions.
 
 Validation: typecheck, all 216 tests across 42 files and build pass. Chromium exercised the actual App survey through pointer terrain scanning, wrong-bin rejection and molecule dragging, keyboard telescope exposures, pause with retained observations, repeated job access, exactly one +2 science/one-job payout, and 360px layout; no uncaught errors. Background Three rendering was suppressed during the interaction assertions to keep the software-rendered test responsive; terrain, molecule and telescope panels were visually inspected in screenshots. Pause/reduced motion and cleanup remain supported. Ongoing world ownership unchanged.
+### Station minigame completion and cooldown handoff — 14 November
+- App now confirms completed Mars minigames with a dismissible status popup, then keeps that job unavailable for 60 active mission seconds. Other machines remain usable. Pause/hidden tabs preserve the remaining delay; replay resets it.
+- Earth/orbit checklist completion also receives the same brief status popup. Existing `StationMinigame.vue` and `VisualPreflightMinigame.vue` puzzle inputs are unchanged; the shell owns the confirmation and game cooldown.
+- Changed outside this feature: `src/App.vue`, `src/contracts/index.ts`, `src/features/game/station-game.ts`, `src/features/game/index.ts`, `docs/CONTRACTS.md`; coordination notes updated in game/UI/world.
+- Validation: `npm run typecheck` and `npm run build` pass on the rebased branch. `npm test` and browser checks were not run for this request.
 
 ### Larger orbital cabin, floating and ladders — 15 November
 Expanded shell to 9.6m footprint/5.3m headroom, preserving human-sized crew/equipment/seat. Added upper gallery with ladder opening and a two-rail climbable ladder; removed cosmetic vertical bob. Existing rig/mixer now supports floating arms and alternating ladder reach without changing avatar scale or replacing clips. Physics owns vertical drift and climb; Space/Shift/Ctrl/L controls shown in cabin. Cabin furnishings are visual rather than individual collision bodies; hull is bounded.

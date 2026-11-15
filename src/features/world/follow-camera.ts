@@ -15,8 +15,8 @@ export function createFollowCamera(canvas: HTMLCanvasElement) {
   const controls = new OrbitControls(camera, canvas);
   controls.enablePan = false;
   controls.enableDamping = false;
-  controls.minPolarAngle = .28;
-  controls.maxPolarAngle = 1.35;
+  // Full vertical orbit (pole to pole) and free azimuth. The view is kept above the ground
+  // separately by keepAboveGround(), so the orbit itself is never limited.
   controls.minDistance = 2.5;
   controls.maxDistance = 18;
   controls.rotateSpeed = .65;
@@ -29,6 +29,21 @@ export function createFollowCamera(canvas: HTMLCanvasElement) {
   let pendingYaw = 0;
   let look: Look = { yaw: 0, pitch: 0 };
   const ray = new THREE.Raycaster();
+  let groundY = 0;
+  /** If the orbit swings below the floor, slide the rendered camera along the ground circle at the
+   * same distance and keep looking at the player, so it is always seen from above the ground. */
+  const keepAboveGround = () => {
+    const floor = groundY + .3;
+    if (view.position.y >= floor) return;
+    const dx = view.position.x - controls.target.x, dy = view.position.y - controls.target.y, dz = view.position.z - controls.target.z;
+    const dist = Math.hypot(dx, dy, dz);
+    const rise = floor - controls.target.y;
+    const flat = Math.sqrt(Math.max(0, dist * dist - rise * rise));
+    const az = controls.getAzimuthalAngle();
+    view.position.set(controls.target.x + Math.sin(az) * flat, floor, controls.target.z + Math.cos(az) * flat);
+    view.lookAt(controls.target);
+    view.updateMatrixWorld();
+  };
   return {
     camera:view, controls,
     setWorkFocus(value:'none'|'dig'|'research'){if(value===workFocus)return;workFocus=value;context='';},
@@ -43,7 +58,7 @@ export function createFollowCamera(canvas: HTMLCanvasElement) {
         view.updateProjectionMatrix(); view.updateMatrixWorld();
         return;
       }
-      target.set(pose.x, pose.y + .45, pose.z);
+      groundY = pose.y; target.set(pose.x, pose.y + .45, pose.z);
       if (context !== nextContext) {
         context = nextContext;
         const offset = new THREE.Vector3(workFocus==='research'?-2.4:workFocus==='dig'?2.4:0, workFocus!=='none'?1.65:nextContext === 'room' ? 3.5 : 2.5, workFocus==='research'?-2.4:workFocus==='dig'?3:nextContext === 'room' ? 5 : 8).applyAxisAngle(up, pendingYaw);
@@ -56,14 +71,14 @@ export function createFollowCamera(canvas: HTMLCanvasElement) {
         controls.target.copy(target);
       }
       camera.aspect = Math.max(.1, aspect); camera.updateProjectionMatrix(); controls.update();
-      view.copy(camera);view.name='explorer-camera';view.updateMatrixWorld();
+      view.copy(camera);view.name='explorer-camera';view.updateMatrixWorld();keepAboveGround();
     },
     avoidOcclusion(objects:THREE.Object3D[]) {
       if (firstPerson) return;
-      const offset=new THREE.Vector3().subVectors(camera.position,controls.target),distance=offset.length();
+      const offset=new THREE.Vector3().subVectors(view.position,controls.target),distance=offset.length();
       ray.set(controls.target,offset.normalize());
       const hit=ray.intersectObjects(objects,true).find(hit=>{let obj:THREE.Object3D|null=hit.object;while(obj){if(!obj.visible)return false;obj=obj.parent;}return true;});
-      if(hit && hit.distance<distance) {view.position.copy(controls.target).addScaledVector(offset,Math.max(.45,hit.distance-.2));view.updateMatrixWorld();}
+      if(hit && hit.distance<distance) {view.position.copy(controls.target).addScaledVector(offset,Math.max(.45,hit.distance-.2));view.updateMatrixWorld();keepAboveGround();}
     },
     /** Switch viewpoint. The heading carries over so the player keeps facing the same way. */
     setFirstPerson(next: boolean) {

@@ -6,7 +6,7 @@ import cloudsTextureUrl from '../../assets/earth_clouds_1024.png';
 import moonTextureUrl from '../../assets/moon_1024.jpg';
 import { soundFX } from '../game/audio';
 
-const emit = defineEmits<{ start: []; explore: [] }>();
+const emit = defineEmits<{ start: []; explore: []; account: [] }>();
 
 const earthCanvas = ref<HTMLCanvasElement>();
 const showSettings = ref(false);
@@ -204,6 +204,15 @@ onBeforeUnmount(() => {
           </button>
 
           <button class="field-menu-btn" type="button" @click="emit('explore')"><span>Mars field mission</span><small>Suit up · collect · discover</small></button>
+
+          <button
+            class="title-menu-btn account-menu-btn"
+            type="button"
+            @click="emit('account')"
+          >
+            <span class="btn-text">Sign in to sync progress</span>
+            <span class="laser-flare"></span>
+          </button>
 
           <button
             class="title-menu-btn"
