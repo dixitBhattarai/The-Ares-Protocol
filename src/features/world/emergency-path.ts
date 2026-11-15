@@ -22,18 +22,21 @@ export interface EmergencyPathTrailer {
 const MAX_MARKERS = 36;
 const MARKER_SPACING = 1.05;
 
-/** Creates a sharp, holographic chevron shape pointing in the +Z direction on XZ plane. */
+/** Creates a sharp, holographic chevron shape pointing in the +Z forward direction on the XZ plane. */
 function createChevronGeometry(resources: WorldResources): THREE.BufferGeometry {
   const shape = new THREE.Shape();
   const w = 0.28;
   const l = 0.22;
   const indent = 0.12;
-  shape.moveTo(0, l);
-  shape.lineTo(w, -l);
-  shape.lineTo(w * 0.55, -l + indent);
-  shape.lineTo(0, 0.04);
-  shape.lineTo(-w * 0.55, -l + indent);
-  shape.lineTo(-w, -l);
+  // In 2D XY plane: tip at (0, -l), wings at (±w, l).
+  // When rotated by -Math.PI / 2 around the X axis, (0, -l, 0) transforms to (0, 0, +l) in the XZ plane,
+  // pointing cleanly in the +Z forward direction with normal facing upward (+Y).
+  shape.moveTo(0, -l);
+  shape.lineTo(-w, l);
+  shape.lineTo(-w * 0.55, l - indent);
+  shape.lineTo(0, -0.04);
+  shape.lineTo(w * 0.55, l - indent);
+  shape.lineTo(w, l);
   shape.closePath();
   const geom = resources.geometry(new THREE.ShapeGeometry(shape));
   geom.rotateX(-Math.PI / 2);
@@ -267,7 +270,7 @@ export function createEmergencyPath(kit: ModelKit, resources: WorldResources): E
       currentFrom = from;
       currentTarget = resolved;
       isPathActive = resolved !== null;
-      isEmergencyMode = options?.emergency ?? true;
+      if (options?.emergency !== undefined) isEmergencyMode = options.emergency;
 
       applyColors(isEmergencyMode, options?.color);
       layoutRoute();

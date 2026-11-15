@@ -294,7 +294,16 @@ function toggleEmergencyPath() {
 function activateEmergencyRoute() {
   if (!emergencyRouteTarget.value || state.value.phase !== 'running') return;
   emergencyPathVisible.value = true;
-  travelToDoor(emergencyRouteTarget.value);
+  startMissionAfterGuide();
+  const id = emergencyRouteTarget.value;
+  setDoor(id, true);
+  if (interior.value) {
+    travelToDoor(id);
+  } else {
+    physics?.resumeInput?.();
+    physics?.walkPath?.([doorApproach(id)]);
+    stationMessage.value = `Guided path to ${id} shelter active. WASD or arrow keys cancel guided walking.`;
+  }
 }
 // ===
 
