@@ -61,6 +61,10 @@ function copyTaskRun(value) {
     completedIds: [...value.completedIds],
     protections: {},
   };
+  if (value.stormPrep !== undefined) {
+    if (!isRecord(value.stormPrep) || !['shutters','secured','dusty'].every(key => typeof value.stormPrep[key] === 'boolean')) return null;
+    result.stormPrep = {shutters:value.stormPrep.shutters,secured:value.stormPrep.secured,dusty:value.stormPrep.dusty};
+  }
   if (value.radiationExposure !== undefined) {
     if (!finite(value.radiationExposure, 0, 100)) return null;
     result.radiationExposure = value.radiationExposure;
@@ -160,6 +164,16 @@ function copyState(value) {
   const taskRun = copyTaskRun(value.taskRun);
   if (!taskRun) return null;
   result.taskRun = taskRun;
+  if (value.rover !== undefined) {
+    const r=value.rover;
+    if (!isRecord(r)||!isRecord(r.pose)||!finite(r.pose.x,-73,73)||!finite(r.pose.z,-73,73)||!finite(r.pose.y,0,5)||!finite(r.heading,-1_000_000,1_000_000)||!finite(r.battery,0,100))return null;
+    result.rover={pose:{x:r.pose.x,y:r.pose.y,z:r.pose.z},heading:r.heading,battery:r.battery,driving:false};
+  }
+  if (value.fieldSample !== undefined) {
+    const f=value.fieldSample;
+    if(!isRecord(f)||!['digging','collected','researching','researched'].includes(f.stage)||typeof f.runId!=='string'||!/^[a-z0-9:_-]{1,100}$/.test(f.runId)||!finite(f.elapsed,0,6)||!integer(f.researchStep,0,3)||(f.remote!==undefined&&typeof f.remote!=='boolean'))return null;
+    result.fieldSample={stage:f.stage,runId:f.runId,elapsed:f.elapsed,researchStep:f.researchStep,remote:!!f.remote};
+  }
   if (value.log !== undefined) {
     if (!Array.isArray(value.log) || value.log.length > 100 || !value.log.every(item => text(item, 500) !== null)) return null;
     result.log = [...value.log];

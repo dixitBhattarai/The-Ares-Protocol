@@ -115,8 +115,10 @@ export interface PendingDelayedEffect {
 }
 
 export interface GameState {
+  rover?: import('./expedition').RoverState;
   fieldSample?: import('./exploration').FieldSample;
   taskRun?: {
+    stormPrep?: import('./expedition').StormPreparation;
     radiationExposure?: number;
     session: number;
     elapsed: number;
@@ -138,7 +140,7 @@ export interface GameState {
   lastHazardNotice?: string;
   upcomingHazardNotice?: string;
 }
-export type GameAction =
+export type GameAction = import('./expedition').ExpeditionAction
   | { type: 'START_DIG'; pose: Vec3; suited: boolean; grounded: boolean }
   | { type: 'START_SAMPLE_RESEARCH'; pose: Vec3; grounded: boolean }
   | { type: 'FIELD_TICK'; runId: string; seconds: number; pose: Vec3; suited: boolean; grounded: boolean }
@@ -154,6 +156,7 @@ export type GameAction =
   | { type: 'RESTART' }
   | { type: 'CHOOSE'; choiceId: string };
 export interface WorldAdapter {
+  setRover?(state: import('./expedition').RoverState, carrying: boolean): void;
   setSampleStage?(stage: import('./exploration').FieldSample['stage'] | 'empty', progress: number): void;
   setPlayerMotion?(motion: import('./exploration').PlayerMotion): void;
   setAvatarActivity?(activity: import('./exploration').AvatarActivity): void;
@@ -224,6 +227,10 @@ export interface GravityInfo {
   canJump: boolean;
 }
 export interface PhysicsAdapter {
+  setRoverMode?(enabled: boolean, pose?: Vec3, heading?: number): boolean;
+  getRoverHeading?(): number;
+  setRoverParking?(pose: Vec3): void;
+  setRoverPower?(powered: boolean): void;
   setFreeRoam?(enabled:boolean):void;
   getMotionState?(): import('./exploration').PlayerMotion;
   requestJump?(): void;

@@ -6,6 +6,8 @@ import { changeSuit, cycleAirlock, stepAirlock } from './features/game/airlock';
 import { SAMPLE_SITE, SAMPLE_LAB } from './contracts/exploration';
 import { fieldBusy, nearSampleLocation } from './features/game/field-sample';
 import FieldWorkPanel from './features/ui/FieldWorkPanel.vue';
+import ExpeditionControls from './features/ui/ExpeditionControls.vue';
+import {freshRover,ROVER_DOCK,REMOTE_SAMPLE,STORM_CONTROLS,type StormControlId} from './contracts/expedition';
 import { SPACECRAFT_SEAT, STATIONS } from './contracts';
 import type { LandingFlightSnapshot, LaunchFlightSnapshot, FlightStage, GravityBody, GameAction, PhysicsAdapter, Vec3, WorldAdapter, StationId, MissionData } from './contracts';
 import { createInitialState, getCurrentEvent, reduceGame, STATION_TASKS, TASK_REPEAT_COOLDOWN_SECONDS, taskCompletionId, taskCooldownRemaining } from './features/game';
@@ -122,12 +124,34 @@ function trapScience(event:KeyboardEvent){
  else if(!event.shiftKey&&(document.activeElement===last||document.activeElement===scienceDialog.value)){event.preventDefault();first.focus();}
 }
 const doingFieldWork=computed(()=>fieldBusy(state.value));
-const showFieldPanel=computed(()=>!activeActivity.value && (nearSampleSite.value||nearSampleLab.value||doingFieldWork.value));
+const showFieldPanel=computed(()=>!rover.value.driving&&!preparing.value&&!activeActivity.value && (nearSampleSite.value||nearSampleLab.value||doingFieldWork.value));
 function samplePose(){return physics?.getPlayerPose()??{x:0,y:0,z:0};}
+
+const rover=computed(()=>state.value.rover??freshRover()),nearRover=ref(false),nearPrep=ref<typeof STORM_CONTROLS[number]>();
+const preparing=ref<{id:StormControlId;elapsed:number}|null>(null),roverTarget=ref('');let expeditionSeconds=0;
+function toggleRover(){
+ if(!physics||state.value.phase!=='running'||doingFieldWork.value||activeActivity.value||preparing.value)return;
+ if(rover.value.driving){
+  state.value=reduceGame(state.value,{type:'ROVER_TICK',seconds:1,pose:samplePose(),heading:physics.getRoverHeading?.()??rover.value.heading},mission);
+  if(!physics.setRoverMode?.(false)){fieldNotice.value='Move the rover into open space before stepping out.';return;}
+  state.value=reduceGame(state.value,{type:'ROVER_EXIT'},mission);
+ }else{
+  const before=state.value,next=reduceGame(before,{type:'ROVER_ENTER',pose:samplePose(),suited:habitatAccess.value.suited},mission);
+  if(next===before){fieldNotice.value='Suit up before driving outside.';return;}
+  if(!physics.setRoverMode?.(true,next.rover!.pose,next.rover!.heading))return;state.value=next;
+ }
+ (document.activeElement as HTMLElement)?.blur();physics.resumeInput?.();expeditionSeconds=0;startMissionAfterGuide();
+}
+function recoverRover(){if(rover.value.driving)toggleRover();if(!rover.value.driving)dispatch({type:'ROVER_RECOVER'});}
+function prepareStorm(id:StormControlId){if(preparing.value||!nearPrep.value||nearPrep.value.id!==id||rover.value.driving||doingFieldWork.value||activeActivity.value||state.value.phase!=='running')return;preparing.value={id,elapsed:.001};physics?.pauseInput?.();startMissionAfterGuide();}
+function cancelPreparation(){preparing.value=null;physics?.resumeInput?.();}
+
 function startDig(){
+ if(rover.value.driving)return;
+ const digTarget=nearSampleLocation(samplePose(),REMOTE_SAMPLE)?REMOTE_SAMPLE:SAMPLE_SITE;
  if(!physics)return;
- if(state.value.phase==='running'&&!state.value.fieldSample&&habitatAccess.value.suited&&nearSampleLocation(samplePose(),SAMPLE_SITE)&&Math.hypot(samplePose().x-SAMPLE_SITE.x,samplePose().z-SAMPLE_SITE.z)>.16){
-  pendingSampleAction='dig';(document.activeElement as HTMLElement)?.blur();physics.resumeInput?.();physics.walkPath?.([SAMPLE_SITE]);startMissionAfterGuide();return;
+ if(state.value.phase==='running'&&!state.value.fieldSample&&habitatAccess.value.suited&&nearSampleLocation(samplePose(),digTarget)&&Math.hypot(samplePose().x-digTarget.x,samplePose().z-digTarget.z)>.16){
+  pendingSampleAction='dig';(document.activeElement as HTMLElement)?.blur();physics.resumeInput?.();physics.walkPath?.([digTarget]);startMissionAfterGuide();return;
  }
  pendingSampleAction=null;
  const before=state.value;state.value=reduceGame(state.value,{type:'START_DIG',pose:samplePose(),suited:habitatAccess.value.suited,grounded:physics.getMotionState?.().grounded??false},mission);
@@ -481,7 +505,7 @@ function syncMovementInput(){
  const focused=document.activeElement as HTMLElement|null;
  const editing=!!focused?.closest('input,textarea,select,[contenteditable]');
  const deckFocused=!!commandPanel.value?.contains(focused)&&!!commandPanel.value?.getClientRects().length;
- const free=!document.hidden&&!gamePaused.value&&!exploringSite.value&&!scienceOpen.value&&!activeActivity.value&&!doingFieldWork.value&&!cabinSeated.value&&!flightStage.value&&!editing&&!deckFocused
+ const free=!preparing.value&&!document.hidden&&!gamePaused.value&&!exploringSite.value&&!scienceOpen.value&&!activeActivity.value&&!doingFieldWork.value&&!cabinSeated.value&&!flightStage.value&&!editing&&!deckFocused
   &&(state.value.phase==='running'||!!preparation.value)&&!showLogin.value&&!showSplash.value;
  if(free)physics?.resumeInput?.();else physics?.pauseInput?.();
 }
@@ -698,11 +722,15 @@ function restoreProgress(snapshot: GameProgressSnapshot): boolean {
   const run = snapshot.state.taskRun;
   const meaningful = snapshot.state.turn > 0 || snapshot.state.phase !== 'ready' || (run?.session ?? 0) > 0 || snapshot.activity !== null;
   if (!meaningful) return false;
+  cancelPreparation();physics?.reset?.({x:0,y:.8,z:6});
   freeExploration.value=false;physics?.setFreeRoam?.(false);exploringSite.value=null;
 
   mission = { ...loadMission(), gameplayMode: 'station-tasks', hazardSeed: snapshot.missionSeed };
   const resumedState = { ...snapshot.state, taskRun: snapshot.state.taskRun ? { ...snapshot.state.taskRun, protections: { ...snapshot.state.taskRun.protections }, completedIds: [...snapshot.state.taskRun.completedIds] } : undefined };
   if (resumedState.phase === 'running' && resumedState.taskRun) resumedState.phase = 'paused';
+  if(resumedState.rover)resumedState.rover={...resumedState.rover,driving:false};
+  if(resumedState.fieldSample?.stage==='digging'){resumedState.fieldSample=undefined;if(resumedState.taskRun)resumedState.taskRun.activeTaskId=undefined;}
+  if(resumedState.fieldSample?.stage==='researching')resumedState.fieldSample={...resumedState.fieldSample,stage:'collected',elapsed:0,researchStep:0};
   state.value = resumedState;
   arrivalComplete = resumedState.phase === 'paused' || resumedState.phase === 'won' || resumedState.phase === 'lost';
   missionTimerActive.value = resumedState.phase === 'paused';
@@ -866,7 +894,7 @@ function dispatch(action: GameAction) {
     activityProgress.value=0;activityFeedback.value='Finish the station minigame to earn this reward.';
     world?.setObjective?.(task.station);physics?.pauseInput?.();deckVisible.value=false;return;
   }
-  if (action.type === 'RESTART') { taskWarning.value='';pendingSampleAction=null;scienceOpen.value=false;scienceAbort?.abort();fieldNotice.value='';habitatAccess.value=freshHabitatAccess();airlockNotice.value='';missionTimerActive.value=false;arrivalGuide.value=false;clearLandingFlight();clearLaunchFlight();missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; preparationProgress.value=0;nearCabinSeat.value=false;cabinSeated.value=false;world?.setCabinSeatState?.('hidden');arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
+  if (action.type === 'RESTART') {cancelPreparation();physics?.reset?.({x:0,y:.8,z:6}); taskWarning.value='';pendingSampleAction=null;scienceOpen.value=false;scienceAbort?.abort();fieldNotice.value='';habitatAccess.value=freshHabitatAccess();airlockNotice.value='';missionTimerActive.value=false;arrivalGuide.value=false;clearLandingFlight();clearLaunchFlight();missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; preparationProgress.value=0;nearCabinSeat.value=false;cabinSeated.value=false;world?.setCabinSeatState?.('hidden');arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
   if (action.type === 'PAUSE' && state.value.phase === 'running') {world?.setMotionPaused?.(true);pendingSampleAction=null;deckVisible.value=true;music?.setPaused(true);}
   if (action.type === 'RESUME' && !directDecisionMode.value) deckVisible.value=false;
   if (action.type === 'RESUME' && state.value.phase === 'paused') music?.setPaused(false);
@@ -965,6 +993,10 @@ function handleGlobalKeydown(event: KeyboardEvent) {
   }
   // A focused button only needs Space/Enter; it must not swallow E (use/interact) after you click a HUD control.
   if ((event.target as HTMLElement | null)?.closest(event.code === 'KeyE' ? 'input, textarea, select, [contenteditable]' : 'button, input, textarea, select, [contenteditable]')) return;
+  if(arrivalComplete&&state.value.phase==='running'&&!rover.value.driving&&nearSampleSite.value&&!state.value.fieldSample&&event.code==='KeyE'){event.preventDefault();if(!event.repeat)startDig();return;}
+  if(arrivalComplete&&state.value.phase==='running'&&!preparation.value&&!flightStage.value&&event.code==='KeyE'&&!activeActivity.value&&!doingFieldWork.value&&(rover.value.driving||nearRover.value||nearPrep.value)){
+   event.preventDefault();if(!event.repeat){if(rover.value.driving||nearRover.value)toggleRover();else if(nearPrep.value)prepareStorm(nearPrep.value.id);}return;
+  }
   if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.code))pendingSampleAction=null;
   if(state.value.phase==='running'&&!activeActivity.value&&!doingFieldWork.value&&event.code==='KeyE'&&(nearSuitRack.value||airlockOccupied.value)){event.preventDefault();if(!event.repeat){if(airlockOccupied.value)useAirlock();else equipSuit();}return;}
   if(state.value.phase==='running'&&!activeActivity.value&&event.code==='KeyE'&&(nearSampleSite.value||nearSampleLab.value)){
@@ -1132,9 +1164,22 @@ onMounted(async () => {
       advanceMissionTime(elapsed);
       if(state.value.phase==='running'&&!activeActivity.value&&!document.hidden)habitatAccess.value=stepAirlock(habitatAccess.value,elapsed);
       physics!.setHabitatAccess?.(habitatAccess.value);world!.setHabitatAccess?.(habitatAccess.value);
-      nearSampleSite.value=nearSampleLocation(physics!.getPlayerPose(),SAMPLE_SITE);nearSampleLab.value=interior.value==='solar'&&nearSampleLocation(physics!.getPlayerPose(),SAMPLE_LAB);
+      nearSampleSite.value=(nearSampleLocation(physics!.getPlayerPose(),SAMPLE_SITE)||nearSampleLocation(physics!.getPlayerPose(),REMOTE_SAMPLE));nearSampleLab.value=interior.value==='solar'&&nearSampleLocation(physics!.getPlayerPose(),SAMPLE_LAB);
       nearSuitRack.value=atSuitRack(physics!.getPlayerPose());airlockOccupied.value=inAirlock(physics!.getPlayerPose());
       let pose = physics!.getPlayerPose();
+      nearRover.value=!rover.value.driving&&Math.hypot(pose.x-rover.value.pose.x,pose.z-rover.value.pose.z)<2.8;
+      nearPrep.value=STORM_CONTROLS.find(p=>Math.hypot(pose.x-p.x,pose.z-p.z)<1.8);
+      const target=state.value.fieldSample?ROVER_DOCK:REMOTE_SAMPLE;
+      const bearing=Math.atan2(target.x-pose.x,target.z-pose.z)-(physics!.getRoverHeading?.()??rover.value.heading);const turn=Math.atan2(Math.sin(bearing),Math.cos(bearing));
+      roverTarget.value=(Math.abs(turn)<.3?'↑ ':Math.abs(turn)>2.7?'↶ ':turn>0?'← ':'→ ')+(state.value.fieldSample?.stage==='researched'?'Dock / recharge':state.value.fieldSample?.stage==='collected'?'Return to dock':'Sample site')+' · '+Math.round(Math.hypot(pose.x-target.x,pose.z-target.z))+' m';
+      if(arrivalComplete&&state.value.phase==='running'&&!document.hidden){
+        expeditionSeconds+=elapsed;
+        if(expeditionSeconds>=1){expeditionSeconds-=1;state.value=reduceGame(state.value,{type:'ROVER_TICK',seconds:1,pose,heading:physics!.getRoverHeading?.()??rover.value.heading},mission);}
+        if(preparing.value){preparing.value.elapsed+=elapsed;if(preparing.value.elapsed>=2){dispatch({type:'PREPARE_STORM',id:preparing.value.id,pose});cancelPreparation();soundFX.playDecision();}}
+      }
+      physics!.setRoverPower?.(rover.value.battery>0);
+      if(!rover.value.driving)physics!.setRoverParking?.(rover.value.pose);
+      world!.setRover?.(rover.value.driving?{...rover.value,pose,heading:physics!.getRoverHeading?.()??rover.value.heading}:rover.value,state.value.fieldSample?.stage==='collected');
       if(freeExploration.value)explorerPose.value={...pose};
       if (preparation.value === 'earth') {
         const outside=insideStation(pose)!=='habitat';
@@ -1147,7 +1192,7 @@ onMounted(async () => {
         nearCabinSeat.value=preparationProgress.value>=PREPARATION.space.steps.length && Math.hypot(pose.x-SPACECRAFT_SEAT.x,pose.z-SPACECRAFT_SEAT.z)<.95;
       } else { nearConsole.value=false; nearCabinSeat.value=false; }
       if(pendingSampleAction&&state.value.phase==='running'){
-        const target=pendingSampleAction==='dig'?SAMPLE_SITE:SAMPLE_LAB;
+        const target=pendingSampleAction==='dig'?(nearSampleLocation(samplePose(),REMOTE_SAMPLE)?REMOTE_SAMPLE:SAMPLE_SITE):SAMPLE_LAB;
         if(Math.hypot(pose.x-target.x,pose.z-target.z)<=.16){if(pendingSampleAction==='dig')startDig();else startSampleResearch();}
       }
       checkStationProximity(pose);
@@ -1340,8 +1385,9 @@ onBeforeUnmount(() => {
           <button v-if="nearSuitRack && !airlockOccupied" @click="equipSuit">{{ habitatAccess.suited?'E · Stow suit':'E · Equip suit' }}</button>
           <button v-else :disabled="habitatAccess.remaining>0 || !habitatAccess.suited" @click="useAirlock">{{ habitatAccess.phase==='inside'?'E · Cycle to Mars':'E · Cycle to base' }}</button>
         </section>
+        <ExpeditionControls v-if="arrivalComplete&&(state.phase==='running'||state.phase==='paused')&&!scienceOpen&&!activeActivity&&!doingFieldWork&&(rover.driving||nearRover||nearPrep||preparing||rover.battery<=0||state.fieldSample?.stage==='collected')" :rover="rover" :power="state.resources.power" :near-rover="nearRover&&!(nearSampleSite&&!state.fieldSample)" :target="roverTarget" :near-prep="nearPrep" :prep="state.taskRun?.stormPrep" :preparing="preparing?.elapsed??0" :paused="gamePaused" :carrying="state.fieldSample?.stage==='collected'" @rover="toggleRover" @recover="recoverRover" @prepare="prepareStorm" @cancel="cancelPreparation"/>
         <FieldWorkPanel v-if="arrivalComplete && (state.phase==='running'||state.phase==='paused') && showFieldPanel" :sample="state.fieldSample" :near-site="nearSampleSite" :near-lab="nearSampleLab" :suited="habitatAccess.suited" :paused="state.phase==='paused'" :notice="fieldNotice" @dig="startDig" @research="startSampleResearch" @check="observeSample" @cancel="cancelSample" @science="openScience" @pause="dispatch({type:state.phase==='paused'?'RESUME':'PAUSE'})"/>
-        <button v-if="arrivalComplete && state.phase==='running' && !activeActivity && !doingFieldWork" class="jump-control" aria-label="Jump" @click="jump">↑ Jump <kbd>Space</kbd></button>
+        <button v-if="arrivalComplete && state.phase==='running' && !activeActivity && !doingFieldWork && !rover.driving" class="jump-control" aria-label="Jump" @click="jump">↑ Jump <kbd>Space</kbd></button>
         <LaunchControls v-if="launchFlight" :flight="launchFlight" :paused="preparationPaused" @ignite="igniteLaunch" @hold="holdLaunch" @nudge="nudgeLaunch" @throttle="setLaunchThrottle" @pause="togglePreparationPause" @reset="beginLaunchSequence" />
         <LandingControls v-if="landingFlight" :flight="landingFlight" :guidance="landingGuidance(landingFlight)" :paused="preparationPaused" @hold="holdLanding" @nudge="nudgeLanding" @throttle="setLandingThrottle" @legs="deployLandingLegs" @assist="toggleLandingAssist" @pause="togglePreparationPause" @retry="retryMarsLanding" @continue="finishArrival" />
         <div v-if="flightStage && !launchFlight && !landingFlight" class="arrival-overlay" role="status">

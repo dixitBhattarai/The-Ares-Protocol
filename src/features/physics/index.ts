@@ -1,3 +1,4 @@
+import { ROVER_DOCK } from '../../contracts/expedition';
 import {CABIN,stepCabin} from './cabin-motion';
 import { ROAM_LIMIT, SITE_OBSTACLES } from '../../contracts/open-world';
 import { constrainHabitatMotion } from './habitat';
@@ -175,6 +176,8 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   let gravityBody: GravityBody = 'mars';
   let freeRoam=false;
   let drift={x:0,y:0,z:0},climbing=false;
+  let roverMode=false,roverPowered=true,roverHeading=Math.PI,roverSpeed=0;
+  const parking=world.createCollider(RAPIER.ColliderDesc.cuboid(1.3,.65,1.3).setTranslation(ROVER_DOCK.x,.65,ROVER_DOCK.z));marsOnlyColliders.push(parking);
   let jumpRequested = false;
 
   // The capsule reaches .8m below its centre. A short support probe handles
@@ -213,6 +216,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
     if(gravityBody==='orbit'){
  if(event.code==='KeyL'&&!event.repeat){const p=body.translation();if(climbing||Math.hypot(p.x-CABIN.ladderX,p.z-CABIN.ladderZ)<1.2){climbing=!climbing;drift={x:0,y:0,z:0};}return;}
  if(['Space','ShiftLeft','ShiftRight','ControlLeft','ControlRight'].includes(event.code)){event.preventDefault();pressed.add(event.code);return;}}
+    if(roverMode&&event.code==='Space'){event.preventDefault();pressed.add('Space');return;}
     if (event.code === 'Space') {
       if((event.target as HTMLElement|null)?.closest?.('button,summary,a'))return;
       event.preventDefault();
@@ -256,6 +260,24 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   }
 
   return {
+    getRoverHeading:()=>roverHeading,
+    setRoverParking(pose){if(!roverMode)parking.setTranslation({x:pose.x,y:.65,z:pose.z});},
+    setRoverPower(powered){roverPowered=powered;},
+    setRoverMode(enabled,pose,heading){
+      if(isDisposed||gravityBody!=='mars'||outsidePose)return false;
+      if(enabled){if(!pose)return false;if(heading!==undefined&&Number.isFinite(heading))roverHeading=heading;parking.setEnabled(false);body.setTranslation(pose,true);capsuleCollider.setShape(new RAPIER.Cuboid(1.3,.8,1.3));roverMode=true;}
+      else if(roverMode){
+        const p=body.translation();let exit:Vec3|undefined;
+        for(const [dx,dz] of [[2.1,0],[-2.1,0],[0,2.1],[0,-2.1]]){
+          const candidate={x:p.x+dx,y:.82,z:p.z+dz};
+          if(Math.hypot(candidate.x,candidate.z+2)<16||Math.abs(candidate.x)>MARS_WALKABLE_HALF_SIZE-.5||Math.abs(candidate.z)>MARS_WALKABLE_HALF_SIZE-.5)continue;
+          if(!world.intersectionWithShape(candidate,{x:0,y:0,z:0,w:1},new RAPIER.Capsule(.5,.3),undefined,undefined,capsuleCollider,body)){exit=candidate;break;}
+        }
+        if(!exit)return false;
+        capsuleCollider.setShape(new RAPIER.Capsule(.5,.3));body.setTranslation(exit,true);parking.setTranslation({x:p.x,y:.65,z:p.z});parking.setEnabled(true);roverMode=false;
+      }
+      roverSpeed=0;pressed.clear();walkingPath=[];jumpRequested=false;body.setLinvel({x:0,y:0,z:0},true);return true;
+    },
     setFreeRoam(enabled){freeRoam=enabled;},
     getMotionState(): PlayerMotion {
       return {grounded: grounded(), verticalSpeed: isDisposed ? 0 : body.linvel().y, body: gravityBody};
@@ -291,11 +313,19 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
         if(distance<.08) {walkingPath.shift();movement={vx:0,vz:0};}
         else {const speed=Math.min(ASTRONAUT_SPEED,distance/dt);movement={vx:dx/distance*speed,vz:dz/distance*speed};}
       }
+      if(roverMode){
+        const throttle=Number(pressed.has('KeyW')||pressed.has('ArrowUp'))-Number(pressed.has('KeyS')||pressed.has('ArrowDown'));
+        const steer=Number(pressed.has('KeyA')||pressed.has('ArrowLeft'))-Number(pressed.has('KeyD')||pressed.has('ArrowRight'));
+        const target=!isInputPaused&&roverPowered&&!pressed.has('Space')?throttle*6:0;
+        roverSpeed+=Math.max(-8*dt,Math.min(8*dt,target-roverSpeed));
+        roverHeading+=steer*Math.sign(roverSpeed)*dt*Math.min(1.4,Math.abs(roverSpeed)*.3);
+        movement={vx:Math.sin(roverHeading)*roverSpeed,vz:Math.cos(roverHeading)*roverSpeed};
+      }
       const { vx, vz } = isInputPaused ? { vx: 0, vz: 0 } : movement;
       const curLinvel = body.linvel();
       let vy = curLinvel.y;
       const onGround = grounded();
-      if (jumpRequested && onGround && !isInputPaused && !walkingPath.length && GRAVITY_BY_BODY[gravityBody] > 0) vy = JUMP_SPEED;
+      if (jumpRequested && !roverMode && onGround && !isInputPaused && !walkingPath.length && GRAVITY_BY_BODY[gravityBody] > 0) vy = JUMP_SPEED;
       jumpRequested = false;
       body.setLinvel({ x: vx, y: vy, z: vz }, true);
 
@@ -318,6 +348,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
         }
       }
 
+      if(roverMode&&Math.hypot(clampedX,clampedZ+2)<18.5){clampedX=previousPose.x;clampedZ=previousPose.z;roverSpeed=0;}
       if (gravityBody === 'mars' && !outsidePose && habitatAccess) {
         const safe=constrainHabitatMotion(previousPose,{x:clampedX,y:clampedY,z:clampedZ},habitatAccess);
         clampedX=safe.x;clampedZ=safe.z;
@@ -332,6 +363,8 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       return { x: pose.x, y: pose.y, z: pose.z };
     },
     reset(pose?: Vec3) {
+      if (isDisposed) return;
+      roverMode=false;roverSpeed=0;roverPowered=true;roverHeading=Math.PI;capsuleCollider.setShape(new RAPIER.Capsule(.5,.3));parking.setTranslation({x:ROVER_DOCK.x,y:.65,z:ROVER_DOCK.z});parking.setEnabled(gravityBody==='mars');
       walkingPath=[];
       outsidePose = undefined;drift={x:0,y:0,z:0};climbing=false;
       if (isDisposed) return;
@@ -342,6 +375,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     },
     pauseInput() {
+      roverSpeed=0;
       walkingPath=[];
       jumpRequested = false;
       if (isDisposed) return;

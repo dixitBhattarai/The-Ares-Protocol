@@ -1,3 +1,5 @@
+import { createFieldExpedition } from './field-expedition';
+import { freshRover } from '../../contracts/expedition';
 import * as THREE from 'three';
 import {createOpenLandscape} from './open-landscape';
 import { createExpeditionSite } from './expedition-site';
@@ -78,6 +80,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     scene.add(sun);
     const weather = createMarsWeather(scene, resources); cleanups.push(() => weather.dispose());
     const kit = createModelKit(resources);
+    const fieldExpedition=createFieldExpedition(kit,resources);scene.add(fieldExpedition.group);let roverState=freshRover();
     const earth = createEarthCampus(kit, resources);
     cleanups.push(() => earth.dispose());
     const follow = createFollowCamera(renderer.domElement);
@@ -781,7 +784,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         follow.setWorkFocus(activity.action);
         avatarActivity=activity;setAstronautActivity(astronaut,activity);
       },
-      setSampleStage(stage,progress){sampleStage=stage;sampleProgress=Number.isFinite(progress)?Math.max(0,Math.min(1,progress)):0;carriedSample.visible=stage==='collected';},
+      setRover(state,carrying){roverState=state;fieldExpedition.update(state,carrying,lastState?.taskRun?.stormPrep);astronaut.group.visible=!state.driving&&!firstPerson;},
+      setSampleStage(stage,progress){fieldExpedition.remote.update(stage==='researching'?'collected':stage,progress,0,true,true);sampleStage=stage;sampleProgress=Number.isFinite(progress)?Math.max(0,Math.min(1,progress)):0;carriedSample.visible=stage==='collected';},
       setHabitatAccess(access) { habitatAccess=access;dome.update(access); },
       setLevel(id) {
         if (disposed || level === id) return;
@@ -875,7 +879,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       setState(state) {
         if (disposed || state === lastState) return;
         if(state.phase==='ready'&&lastState?.phase!=='ready'){resetAstronautActions(astronaut);avatarTools.reset();}
-        weather.setState(state);
+        weather.setState(state);fieldExpedition.update(roverState,state.fieldSample?.stage==='collected',state.taskRun?.stormPrep);
         const notice = getWorldEventNotice(state);
         if (notice !== eventNotice || state.turn !== lastState?.turn) eventReport.open = false;
         eventNotice = notice;
@@ -892,6 +896,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
           station.label.dataset.level = status.level;
           station.label.setAttribute('aria-label', `Select ${STATION_NAMES[station.id]}. ${status.description}${station.taskBadge.hidden ? '' : '. Task available'}`);
           applyStationStatus(station.visual, status, state.resources.power, state.shielding, Boolean(eventNotice));
+          if(station.id==='greenhouse'&&(state.taskRun?.stormPrep?.shutters||state.taskRun?.stormPrep?.dusty))station.visual.shelterPanels.forEach(panel=>{panel.visible=true;panel.scale.y=1.35;});
+          if(station.id==='solar'){const dusty=!!state.taskRun?.stormPrep?.dusty;station.visual.roof.traverse(o=>{if(o instanceof THREE.InstancedMesh&&o.name==='photovoltaic-cells')(o.material as THREE.MeshStandardMaterial).color.set(dusty?'#9d7750':'#133d65');});}
         });
         const phaseNames = { ready: 'BRIEFING', running: 'MISSION ACTIVE', paused: 'PAUSED', won: 'MISSION COMPLETE', lost: 'TRY ANOTHER PLAN' };
         phaseBadge.textContent = phaseNames[state.phase];

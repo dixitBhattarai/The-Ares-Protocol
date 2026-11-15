@@ -11,6 +11,7 @@ import type {
   Phase,
   TurnRecord,
 } from '../../contracts';
+import { reduceExpedition } from './expedition';
 import { reduceFieldSample } from './field-sample';
 import { reduceStationGame, taskHazardNotice } from './station-game';
 export { STATION_TASKS, TASK_REPEAT_COOLDOWN_SECONDS, taskCompletionId, taskCooldownRemaining } from './station-game';
@@ -93,6 +94,7 @@ export function getCurrentEvent(mission: MissionData, state: Readonly<GameState>
 // Pure turn-based reducer. Only this module changes simulation state.
 export function reduceGame(state: Readonly<GameState>, action: GameAction, mission: MissionData): GameState {
   if(mission.gameplayMode==='station-tasks') {
+    const expedition=reduceExpedition(state,action);if(expedition)return expedition;
     const field=reduceFieldSample(state,action,prepared=>{
       const result=reduceStationGame(prepared,{type:'COMPLETE_TASK',completionId:`${prepared.taskRun!.session}:${prepared.turn}:survey`},mission,()=>createInitialState(mission));
       if(result.turn===prepared.turn)return result;

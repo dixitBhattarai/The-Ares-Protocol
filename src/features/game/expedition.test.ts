@@ -1,0 +1,42 @@
+import {expect,it} from 'vitest';
+import {createInitialState,reduceGame} from './index';
+import {scheduledHazard} from './station-game';
+import {ROVER_DOCK,REMOTE_SAMPLE,STORM_CONTROLS} from '../../contracts/expedition';
+import {SAMPLE_LAB} from '../../contracts/exploration';
+import type {MissionData,GameState,GameAction} from '../../contracts';
+const mission:MissionData={id:'expedition',title:'Expedition',gameplayMode:'station-tasks',initialResources:{power:80,oxygen:80,supplies:80},maxTurns:6,scienceTarget:3,events:[],sources:[],dataMode:'authored-demo'};
+const start=()=>reduceGame(createInitialState(mission),{type:'START'},mission);
+const act=(s:GameState,a:GameAction)=>reduceGame(s,a,mission);
+it('requires a nearby suited pilot, drains while moving, parks and charges at the dock',()=>{
+ let s=start();expect(act(s,{type:'ROVER_ENTER',pose:ROVER_DOCK,suited:false})).toBe(s);
+ expect(act(s,{type:'ROVER_ENTER',pose:REMOTE_SAMPLE,suited:true})).toBe(s);
+ s=act(s,{type:'ROVER_ENTER',pose:ROVER_DOCK,suited:true});expect(s.rover?.driving).toBe(true);
+ for(let i=1;i<=4;i++)s=act(s,{type:'ROVER_TICK',seconds:1,pose:{x:0,y:.8,z:21+i*6},heading:0});expect(s.rover!.battery).toBeLessThan(100);
+ const paused=act(s,{type:'PAUSE'});expect(act(paused,{type:'ROVER_TICK',seconds:1,pose:ROVER_DOCK,heading:0})).toBe(paused);
+ expect(act(s,{type:'START_TASK',taskId:'air'})).toBe(s);
+ s=act(s,{type:'ROVER_EXIT'});expect(s.rover?.driving).toBe(false);
+ expect(act(s,{type:'ROVER_RECOVER'})).toBe(s);
+ const depleted={...s,rover:{...s.rover!,battery:0}};s=act(depleted,{type:'ROVER_RECOVER'});expect(s.resources.power).toBe(75);expect(s.rover?.pose).toEqual(ROVER_DOCK);
+ const before=s.rover!.battery;s=act(s,{type:'ROVER_TICK',seconds:1,pose:REMOTE_SAMPLE,heading:0});expect(s.rover!.battery).toBeGreaterThan(before);expect(s.rover!.pose).toEqual(ROVER_DOCK);
+});
+it('collects at the remote plot, requires return to the lab and pays science once',()=>{
+ let s=act(start(),{type:'START_DIG',pose:REMOTE_SAMPLE,suited:true,grounded:true});expect(s.fieldSample?.remote).toBe(true);
+ for(let i=0;i<61;i++)s=act(s,{type:'FIELD_TICK',runId:s.fieldSample!.runId,seconds:.1,pose:REMOTE_SAMPLE,suited:true,grounded:true});
+ expect(s.fieldSample?.stage).toBe('collected');expect(s.science).toBe(0);
+ expect(act(s,{type:'START_SAMPLE_RESEARCH',pose:REMOTE_SAMPLE,grounded:true})).toBe(s);
+ s=act(s,{type:'START_SAMPLE_RESEARCH',pose:SAMPLE_LAB,grounded:true});
+ for(let i=0;i<61;i++)s=act(s,{type:'FIELD_TICK',runId:s.fieldSample!.runId,seconds:.1,pose:SAMPLE_LAB,suited:false,grounded:true});
+ for(const control of ['image','fine-grains','record'])s=act(s,{type:'SAMPLE_RESEARCH_STEP',runId:s.fieldSample!.runId,pose:SAMPLE_LAB,control});
+ expect(s.fieldSample?.stage).toBe('researched');expect(s.science).toBe(2);expect(s.turn).toBe(1);
+ const done=s;s=act(s,{type:'SAMPLE_RESEARCH_STEP',runId:s.fieldSample!.runId,pose:SAMPLE_LAB,control:'record'});expect(s).toBe(done);
+});
+it('requires both physical preparations, prevents a dust loss, then exposes dirty panels until serviced',()=>{
+ const event=Array.from({length:100},(_,i)=>scheduledHazard(i)).find(e=>e?.index===1)!;
+ let s=start();expect(act(s,{type:'PREPARE_STORM',id:'secured',pose:REMOTE_SAMPLE})).toBe(s);
+ for(const c of STORM_CONTROLS)s=act(s,{type:'PREPARE_STORM',id:c.id,pose:c});
+ const duplicate=s;expect(act(s,{type:'PREPARE_STORM',id:'shutters',pose:STORM_CONTROLS[0]})).toBe(duplicate);
+ s={...s,taskRun:{...s.taskRun!,elapsed:event.at-.1}};const after=act(s,{type:'TICK',seconds:.1});
+ expect(after.lastHazardNotice).toContain('prevented');expect(after.taskRun?.stormPrep).toEqual({shutters:false,secured:false,dusty:true});
+ const unprepared=act({...s,taskRun:{...s.taskRun!,stormPrep:undefined}},{type:'TICK',seconds:.1});expect(after.resources.power-unprepared.resources.power).toBe(16);
+ let cleaned=act(after,{type:'START_TASK',taskId:'power'});cleaned=act(cleaned,{type:'COMPLETE_TASK',completionId:`${cleaned.taskRun!.session}:${cleaned.turn}:power`});expect(cleaned.taskRun?.stormPrep?.dusty).toBe(false);
+});

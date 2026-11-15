@@ -130,3 +130,6 @@ User chose relaxed free roaming. Coordinated slice adds ExplorationMap.vue: sele
 
 ### 15 November — confirmed orphan cleanup
 User-authorized code-review cleanup removes TaskBoard.vue and the unused GreenhouseMiniGame/SolarStationWireFix prototypes. Reference search found no runtime imports; active StationMinigame, ScienceWorkbench and physical-machine entry remain. DecisionPanel and frozen legacy contracts remain compatible; no obsolete job list restored. No UI redesign. Build/typecheck checked after deletion.
+
+### 15 November — field expedition interfaces
+User-approved coordinated slice adds ExpeditionControls.vue (contextual boarding/exit/preparation, battery and direction cue) and SampleLab.vue (focus wheel, illustrated grain inspection, capture/classify/record). Existing FieldWorkPanel forwards its original check/cancel/pause emits to the microscope; existing reducer still validates time/proximity/order/rewards. Keyboard range controls, focus containment, P/pause, Escape/close and reduced visual complexity on 360px supported. Microscopy is practice imagery; chemical composition is explicitly unknown. No extra card/job list. Browser reached exactly one +2 science payout, checked mobile overflow, and actual rover keyboard controls. Future ownership remains Dixit's.
