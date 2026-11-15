@@ -189,7 +189,7 @@ function setGravity(body: GravityBody) {
   const info = physics?.getGravityInfo?.();
   gravityLabel.value = !info ? '' : info.canJump
     ? `Gravity: ${info.gravityMS2.toFixed(2)} m/s² (${Math.round(info.relativeToEarth * 100)}% of Earth) · press Space to jump — about ${info.jumpHeightM.toFixed(2)} m high here`
-    : 'Orbit cabin: free fall feels weightless. Gravity still acts on the spacecraft; the simplified cabin controller does not jump.';
+    : 'Orbit cabin: free fall feels weightless. Gravity still acts on the spacecraft; Space rises; Shift descends; Ctrl brakes; L grips the ladder.';
 }
 function startFlightSim(preset: string, timeScale = 1, paused = false) {
   stopFlightSim();
@@ -1171,6 +1171,7 @@ onBeforeUnmount(() => {
         />
         <div v-if="arrivalComplete && state.phase==='running'" class="environment-label">{{ habitatAccess.phase==='outside'?'MARS · SUIT SEALED':habitatAccess.suited?'BASE · SUIT READY':'BASE · BREATHABLE' }}</div>
         <div v-if="preparation==='space' && !deckVisible" class="cabin-prompt">
+ <small>WASD drift · Space ↑ · Shift ↓ · Ctrl brake · L ladder</small>
           <button v-if="preparationProgress<3" @click="deckVisible=true">E · Flight console {{ preparationProgress+1 }}</button>
           <template v-else><button v-if="!nearCabinSeat && !cabinSeated" @click="glideToFlightSeat">Go to seat</button><button v-else-if="!cabinSeated" @click="sitInFlightSeat">E · Buckle in</button><button v-else @click="beginTransferFromFlightSeat">Begin Mars transfer</button></template>
         </div>

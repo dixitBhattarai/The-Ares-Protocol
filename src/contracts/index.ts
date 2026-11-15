@@ -116,6 +116,7 @@ export interface PendingDelayedEffect {
 export interface GameState {
   fieldSample?: import('./exploration').FieldSample;
   taskRun?: {
+    radiationExposure?: number;
     session: number;
     elapsed: number;
     completedIds: readonly string[];

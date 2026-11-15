@@ -146,3 +146,5 @@ User explicitly assigned Himamshu the coordinated pause/movement/flight presenta
 - App owns cooldown countdowns, filters physical machine prompts and accessible station selection, and shows a dismissible “Task complete!” popup with the benefit. Earth/orbit checklist steps announce completion; those ordered one-time checks do not need repeat cooldowns.
 - Changed: `src/features/game/station-game.ts`, `src/features/game/index.ts`, `src/contracts/index.ts`, `src/App.vue`, `docs/CONTRACTS.md`; coordination notes updated in game/UI/world.
 - Validation: `npm run typecheck` and `npm run build` pass on the rebased branch. `npm test` and browser checks were not run for this request.
+
+Task neglect now has a fictional crew condition: unprotected solar storm adds 50 exposure units; >=40 shows simulated radiation sickness and adds two food use per 20 active seconds. Shielding >=15 prevents new damage and exposure counter recovers .5 per active second; pause/replay respected. No real dose/diagnosis/treatment model. Focused test verifies accumulation, protected recovery, pause and replay.
