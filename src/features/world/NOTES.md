@@ -217,6 +217,12 @@ Local editable suit and preview: [space-man.blend](<C:/Users/bhomk/OneDrive/Docu
 - New files: `first-person.ts` (pure look maths) and `first-person.test.ts` (conventions checked against a real Three.js camera). Edited: `follow-camera.ts`, `index.ts`, `expedition.ts`, `world.css`.
 - Limits: not yet run through typecheck, the test suite, build or a browser. Interiors and the ground were tuned for a distant camera, so close-up texture detail and the visible map edge or horizon in first person are untested polish items. No head bob, hands or body shadow in first person.
 
+## Full vertical orbit camera — 14 Nov 2026
+
+- Removed the custom third-person polar-angle limits. OrbitControls now keeps its full pole-to-pole vertical range, while azimuth can continue through full horizontal turns. First-person pitch behavior is unchanged.
+- Validation: not run for this change.
+- Limit: vertical orbit reaches the underside of the target at its lower pole; a literal 360-degree vertical tumble would invert the camera and scene.
+
 ## Earth launch and Mars landing visuals — 14 Nov 2026
 
 - Added an in-bounds Earth launch pad, service tower, fallback launch vehicle and exhaust. The rocket has a perspective launch camera and a named `ARES_ROCKET_MODEL_SLOT`; call `earth.useLaunchVehicleModel(gltf.scene)` after a locally bundled, license-verified model is loaded. Until then, the authored fallback is visible.
