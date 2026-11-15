@@ -329,8 +329,9 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         const result = targetEl.requestPointerLock() as unknown;
         if (result && typeof (result as Promise<void>).catch === 'function') {
           (result as Promise<void>).catch(() => {
-            // Native lock rejected (e.g., sandboxed iframe or keyboard gesture); virtualLock remains active
-            updateLookUI();
+            // Native lock rejected (e.g. sandboxed iframe or re-lock right after Esc). First person keeps a
+            // virtual lock; third person falls back to normal drag-orbit so the camera never gets stuck.
+            if (!firstPerson) unlockMouse(); else updateLookUI();
           });
         }
       } catch {
@@ -460,9 +461,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       if (disposed || motionPaused || lastState?.phase==='paused' || journey !== null || flightStage !== null) return;
       const onScene = isSceneElement(event.target);
 
-      // Right-click toggles mouse lock in first person. In third person it is left to OrbitControls
-      // (right-drag orbits), so the camera never gets stuck in a hidden-cursor lock; it only unlocks here.
-      if (event.button === 2 && ((firstPerson && onScene) || isLocked())) {
+      // Right-click (button === 2) toggles mouse lock on/off in Follow or First-Person mode
+      if (event.button === 2 && (onScene || isLocked())) {
         event.preventDefault();
         event.stopImmediatePropagation();
         if (isLocked()) {
@@ -498,8 +498,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     };
 
     const onPointerLockError = () => {
-      // Keep virtualLock working even if browser denied native pointer lock
-      updateLookUI();
+      // First person keeps a virtual lock if the browser denies native lock; third person unlocks to drag-orbit.
+      if (!firstPerson) unlockMouse(); else updateLookUI();
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
