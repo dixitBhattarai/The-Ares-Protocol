@@ -125,12 +125,12 @@ export function createAvatarActionLayer(model: THREE.Object3D) {
       const jump = airborneWeight;
       if (jump > .001) {
         const rising = THREE.MathUtils.smoothstep(motion.verticalSpeed, -.3, .8);
-        rotate('LeftUpLeg', -.12 - rising * .3, 0, -.04, jump);
-        rotate('RightUpLeg', -.08 - rising * .18, 0, .04, jump);
-        rotate('LeftLeg', .18 + rising * .42, 0, 0, jump);
-        rotate('RightLeg', .18 + rising * .28, 0, 0, jump);
-        rotate('LeftArm', -.18 - rising * .25, 0, -.12, jump);
-        rotate('RightArm', -.18 - rising * .25, 0, .12, jump);
+        rotate('LeftUpLeg', -.2 - rising * .6, 0, -.04, jump);
+        rotate('RightUpLeg', -.12 - rising * .4, 0, .04, jump);
+        rotate('LeftLeg', .3 + rising * .75, 0, 0, jump);
+        rotate('RightLeg', .25 + rising * .55, 0, 0, jump);
+        rotate('LeftArm', -.3 - rising * .4, 0, -.12, jump);
+        rotate('RightArm', -.3 - rising * .4, 0, .12, jump);
         rotate('LeftForeArm', -.25, 0, 0, jump);
         rotate('RightForeArm', -.25, 0, 0, jump);
       }
@@ -141,7 +141,7 @@ export function createAvatarActionLayer(model: THREE.Object3D) {
           rotate(`${side}Leg`, .72, 0, 0, compression);
         }
         rotate('Spine', .14, 0, 0, compression);
-        lowerHips(.065, compression);
+        lowerHips(.10, compression);
         plantFeet();
       }
       if (workWeight <= .001) return;

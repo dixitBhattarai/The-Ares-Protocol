@@ -168,6 +168,7 @@ export interface WorldAdapter {
   setInterior?(station: StationId | null): void;
   setJourney?(progress: number | null): void;
   setObjective?(station: StationId | null): void;
+  setEmergencyPath?(target: StationId | Vec3 | null, options?: { emergency?: boolean; label?: string; color?: string }): void;
   setActivityProgress?(progress: number): void;
   setFlightStage?(stage: FlightStage | null, progress: number): void;
   setCabinSeatState?(state: CabinSeatState): void;

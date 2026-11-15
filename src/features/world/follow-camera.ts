@@ -8,7 +8,7 @@ import type { Look } from './first-person';
  * Third person orbits the player; first person sits at eye height and is driven by yaw/pitch.
  */
 export function createFollowCamera(canvas: HTMLCanvasElement) {
-  const camera = new THREE.PerspectiveCamera(55, 1, .08, 180);
+  const camera = new THREE.PerspectiveCamera(55, 1, .08, 1400);
   const view = camera.clone(); view.name='explorer-camera';
   view.rotation.order = 'YXZ';
   camera.position.set(0, 4.5, 8);
