@@ -2,77 +2,34 @@ import * as THREE from 'three';
 import { STATIONS } from '../../contracts';
 import { WorldResources, type ModelKit } from './resources';
 
-/** High-detail, 100% seamless procedural Martian regolith & dust texture based on NASA Mars photography. */
+/** Tileable value noise with irregular grains; no directional waves or woven pattern. */
 export function createDustTexture(resources: WorldResources): THREE.DataTexture {
-  const size = 256;
-  const pixels = new Uint8Array(size * size * 4);
-  const PI2 = Math.PI * 2;
-
-  // Authentic NASA Mars regolith color palette (Curiosity & Perseverance Mastcam observations):
-  // 1. Weathered dark basalt granules / shadow crevices
-  const rBasalt = 94, gBasalt = 48, bBasalt = 38;
-  // 2. Iron-oxide oxidized regolith (predominant Martian soil)
-  const rSoil = 186, gSoil = 94, bSoil = 60;
-  // 3. Fine windblown golden dune crest sand
-  const rDune = 212, gDune = 128, bDune = 82;
-  // 4. Sulfate/silica light mineral deposits
-  const rMineral = 224, gMineral = 172, bMineral = 142;
-
-  for (let y = 0; y < size; y++) {
-    const v = y / size;
-    const vAng = v * PI2;
-    for (let x = 0; x < size; x++) {
-      const u = x / size;
-      const uAng = u * PI2;
-
-      // Pure integer harmonic frequencies ensure 100% mathematical periodic tiling (zero edge seams)
-      // 1. Macro wind ripples oriented along Martian prevailing wind vector (~28 degrees)
-      const wave1 = Math.sin(uAng * 4 + vAng * 2) * 0.45;
-      const wave2 = Math.cos(uAng * 8 - vAng * 4 + wave1 * 1.4) * 0.28;
-
-      // 2. Intermediate sand wavelets
-      const ripple1 = Math.sin(uAng * 16 + vAng * 8) * 0.16;
-      const ripple2 = Math.cos(uAng * 24 - vAng * 12 + ripple1 * 2) * 0.11;
-
-      // 3. High-frequency regolith grain noise
-      const grain1 = Math.sin(uAng * 48 + Math.cos(vAng * 48)) * 0.07;
-      const grain2 = Math.cos(uAng * 64 - vAng * 32) * Math.sin(vAng * 64) * 0.05;
-
-      // Combined normalized height factor in [0, 1]
-      const hRaw = (wave1 + wave2 + ripple1 + ripple2 + grain1 + grain2 + 1.15) / 2.3;
-      const h = Math.max(0, Math.min(1, hRaw));
-
-      // Continuous natural gradient blending across authentic Martian soil layers
-      let r: number, g: number, b: number;
-      if (h < 0.35) {
-        const t = h / 0.35;
-        r = rBasalt + t * (rSoil - rBasalt);
-        g = gBasalt + t * (gSoil - gBasalt);
-        b = bBasalt + t * (bSoil - bBasalt);
-      } else if (h < 0.78) {
-        const t = (h - 0.35) / (0.78 - 0.35);
-        r = rSoil + t * (rDune - rSoil);
-        g = gSoil + t * (gDune - gSoil);
-        b = bSoil + t * (bDune - bSoil);
-      } else {
-        const t = (h - 0.78) / (1 - 0.78);
-        r = rDune + t * (rMineral - rDune);
-        g = gDune + t * (gMineral - gDune);
-        b = bDune + t * (bMineral - bDune);
-      }
-
-      const idx = (y * size + x) * 4;
-      pixels[idx] = Math.round(r);
-      pixels[idx + 1] = Math.round(g);
-      pixels[idx + 2] = Math.round(b);
-      pixels[idx + 3] = 255;
-    }
+  const size = 256, pixels = new Uint8Array(size * size * 4);
+  const hash = (x: number, y: number, cells: number) => {
+    let n = Math.imul((x + cells) % cells, 374761393) ^ Math.imul((y + cells) % cells, 668265263);
+    n = Math.imul(n ^ (n >>> 13), 1274126177);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const noise = (u: number, v: number, cells: number) => {
+    const x = u * cells, y = v * cells, ix = Math.floor(x), iy = Math.floor(y);
+    const sx = (x - ix) ** 2 * (3 - 2 * (x - ix)), sy = (y - iy) ** 2 * (3 - 2 * (y - iy));
+    return THREE.MathUtils.lerp(
+      THREE.MathUtils.lerp(hash(ix, iy, cells), hash(ix + 1, iy, cells), sx),
+      THREE.MathUtils.lerp(hash(ix, iy + 1, cells), hash(ix + 1, iy + 1, cells), sx), sy);
+  };
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const u = x / size, v = y / size;
+    const mottling = noise(u, v, 4) * .42 + noise(u, v, 13) * .28 + noise(u, v, 37) * .18 + noise(u, v, 101) * .12;
+    const grain = hash(x, y, size);
+    const value = 187 + mottling * 48 + (grain - .5) * 16;
+    const i = (y * size + x) * 4;
+    pixels[i] = value; pixels[i + 1] = value - 5; pixels[i + 2] = value - 10; pixels[i + 3] = 255;
   }
-
   const texture = resources.texture(new THREE.DataTexture(pixels, size, size));
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(24, 24);
+  texture.repeat.set(64, 64);
+  texture.anisotropy = 4;
   texture.magFilter = THREE.LinearFilter;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.generateMipmaps = true;
@@ -178,35 +135,14 @@ export function createSurfaceDetails(resources: WorldResources): THREE.Group {
   const footprints = new THREE.InstancedMesh(bootGeo, bootMat, bootCount);
   footprints.name = 'astronaut-footprints';
 
-  // Paths: Habitat (-8, -4) -> Solar (8, -4) and Habitat (-8, -4) -> Greenhouse (0, 8)
+  // Surveyed foot traffic follows the real doorway approaches, not the old module map.
   for (let i = 0; i < bootCount; i++) {
-    let px = 0;
-    let pz = 0;
-    let yaw = 0;
-
-    if (i < 40) {
-      // Trail from Habitat to Solar array
-      const t = i / 40;
-      px = -6.5 + t * 13;
-      pz = -3.2 + Math.sin(t * Math.PI * 3) * 0.35;
-      yaw = 0;
-    } else {
-      // Trail from Habitat to Greenhouse
-      const t = (i - 40) / 40;
-      px = -6.5 + t * 5.5 + Math.sin(t * Math.PI * 2) * 0.4;
-      pz = -2.5 + t * 9.5;
-      yaw = -Math.PI / 4;
-    }
-
-    const side = (i % 2 === 0 ? -1 : 1) * 0.16;
-    const footX = px + Math.cos(yaw + Math.PI / 2) * side;
-    const footZ = pz + Math.sin(yaw + Math.PI / 2) * side;
-
-    transform.position.set(footX, 0.012, footZ);
-    transform.rotation.set(0, -yaw, 0);
-    transform.scale.set(1, 1, 1);
-    transform.updateMatrix();
-    footprints.setMatrixAt(i, transform.matrix);
+    const station=STATIONS[Math.floor(i / 27) % STATIONS.length];
+    const t=(i % 27) / 26, endZ=station.position.z+3.6;
+    const x=station.position.x+(i%2 ? .13 : -.13), z=5+(endZ-5)*t;
+    transform.position.set(x,.012,z);
+    transform.rotation.set(0,0,0);transform.scale.set(1,1,1);transform.updateMatrix();
+    footprints.setMatrixAt(i,transform.matrix);
   }
   footprints.instanceMatrix.needsUpdate = true;
   group.add(footprints);

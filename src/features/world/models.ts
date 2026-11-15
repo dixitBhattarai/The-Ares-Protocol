@@ -64,7 +64,6 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
       polygonOffsetUnits: -2,
     })
   );
-  const paintMat = resources.material(new THREE.MeshBasicMaterial({ color: '#e5cfaa', transparent: true, opacity: 0.65 }));
 
   // =========================================================================
   // 1. SEAMLESS SCULPTED MARTIAN TERRAIN (SINGLE UNIFIED GROUND SURFACE)
@@ -87,7 +86,7 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
   for (let i = 0; i < vertCount; i++) {
     const x = pos.getX(i);
     const z = pos.getZ(i);
-    const r = Math.hypot(x, z);
+    const r = Math.max(Math.abs(x), Math.abs(z));
 
     if (r <= 18) {
       // Central research outpost plateau: strictly flat at Y=0
@@ -158,10 +157,10 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
   const norm = terrainGeo.attributes.normal as THREE.BufferAttribute;
   const colors = new Float32Array(vertCount * 3);
 
-  const cRegolith = new THREE.Color('#b65c3c');
-  const cDune = new THREE.Color('#d37d4f');
-  const cBasalt = new THREE.Color('#46241c');
-  const cRidge = new THREE.Color('#723427');
+  const cRegolith = new THREE.Color('#c38a66');
+  const cDune = new THREE.Color('#d8aa80');
+  const cBasalt = new THREE.Color('#65534a');
+  const cRidge = new THREE.Color('#91735e');
   const vertCol = new THREE.Color();
 
   for (let i = 0; i < vertCount; i++) {
@@ -199,9 +198,11 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
   const sculptedMat = resources.material(
     new THREE.MeshStandardMaterial({
       map: dustTex,
+      bumpMap: dustTex,
+      bumpScale: .055,
       vertexColors: true,
-      roughness: 0.94,
-      metalness: 0.05,
+      roughness: 1,
+      metalness: 0,
     })
   );
 
@@ -216,35 +217,17 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
   // Every layer has an explicit, non-overlapping elevation above Y=0 plus
   // hardware polygon offsets so the depth buffer resolves cleanly at all distances.
   // =========================================================================
-  // Walkway paths: top surface at Y = 0.018m
-  kit.box(terrain, pathMat, [12, 0.018, 2.1], [0, 0.009, 0]);
-  kit.box(terrain, pathMat, [2.1, 0.018, 11.8], [0, 0.009, -0.1]);
-
-  // Station circular pads at Y = 0.021m and protective rims at Y = 0.025m
-  const padGeometry = resources.geometry(new THREE.CircleGeometry(4.5, 48));
-  const rimGeometry = resources.geometry(new THREE.RingGeometry(4.4, 4.45, 48));
-
+  // Each path ends at the real +Z door threshold, rather than running under buildings.
   for (const station of STATIONS) {
-    const pad = new THREE.Mesh(padGeometry, padMat);
-    pad.rotation.x = -Math.PI / 2;
-    pad.position.set(station.position.x, 0.021, station.position.z);
-    const rim = new THREE.Mesh(rimGeometry, rimMat);
-    rim.rotation.x = -Math.PI / 2;
-    rim.position.set(station.position.x, 0.025, station.position.z);
-    terrain.add(pad, rim);
-  }
-
-  // Painted walkway guides: top surface at Y = 0.023m
-  for (const x of [-1.02, 1.02]) {
-    for (let z = -4.2; z <= 4; z += 0.7) {
-      kit.box(terrain, paintMat, [0.045, 0.004, 0.3], [x, 0.021, z]);
+    const zDoor = station.position.z + 3.3;
+    kit.flatBox(terrain, pathMat, [1.5, .018, 5 - zDoor], [station.position.x, .018, (5 + zDoor) / 2]);
+    const pad = kit.flatBox(terrain, padMat, [6.6, .018, 6.6], [station.position.x, .01, station.position.z]);
+    pad.name = `${station.id}-foundation`;
+    for (const side of [-1, 1]) {
+      kit.flatBox(terrain, rimMat, [.045, .008, 1.5], [station.position.x + side * .73, .033, zDoor + .8]);
     }
   }
-  for (const z of [-1.02, 1.02]) {
-    for (const x of [-3, -2.3, -1.6, 1.6, 2.3, 3]) {
-      kit.box(terrain, paintMat, [0.3, 0.004, 0.045], [x, 0.021, z]);
-    }
-  }
+  kit.flatBox(terrain, pathMat, [15.5, .018, 1.5], [0, .018, 5]);
 
   // Landing circle at Y = 0.026m
   const ring = resources.geometry(new THREE.RingGeometry(1.25, 1.35, 40));

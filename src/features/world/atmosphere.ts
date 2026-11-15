@@ -205,7 +205,7 @@ export function createMarsAtmosphere(scene: THREE.Scene, resources: WorldResourc
   // =========================================================================
   // 4. FLYING DUST PARTICLES & DUST STORM WIND
   // =========================================================================
-  const dustCount = 520;
+  const dustCount = 140;
   const dustPositions = new Float32Array(dustCount * 3);
   const dustVelocities: { x: number; y: number; z: number }[] = [];
 
@@ -230,12 +230,12 @@ export function createMarsAtmosphere(scene: THREE.Scene, resources: WorldResourc
   const dustMat = resources.material(
     new THREE.PointsMaterial({
       map: glowTexture(resources),
-      color: '#fbcfe8',
-      size: 0.22,
+      color: '#bc9c7a',
+      size: 0.065,
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.14,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: THREE.NormalBlending,
     })
   );
 

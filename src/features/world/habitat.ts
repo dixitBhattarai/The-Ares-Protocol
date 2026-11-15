@@ -7,7 +7,7 @@ export function createHabitatDome(kit: ModelKit, resources: WorldResources) {
  const shellMaterial=resources.material(new THREE.MeshPhysicalMaterial({color:'#9bdcdb',transparent:true,opacity:.09,roughness:.3,metalness:.1,side:THREE.DoubleSide,depthWrite:false}));
  const shell=new THREE.Mesh(resources.geometry(new THREE.SphereGeometry(H.radius,48,20,0,Math.PI*2,0,Math.PI/2)),shellMaterial);
  shell.position.z=H.centerZ;group.add(shell);
- const deck=resources.material(new THREE.MeshStandardMaterial({color:'#60746c',roughness:.85}));
+ const deck=resources.material(new THREE.MeshStandardMaterial({color:'#454b4c',roughness:.85}));
  kit.cylinder(group,deck,[H.radius,.06,H.radius],[0,-.027,H.centerZ]);
  const occluders:THREE.Object3D[]=[];
  const rib=resources.material(new THREE.MeshStandardMaterial({color:'#91b5b6',metalness:.6,roughness:.5}));
@@ -22,14 +22,16 @@ export function createHabitatDome(kit: ModelKit, resources: WorldResources) {
  const inner=gate(H.innerZ),outer=gate(H.outerZ);occluders.push(inner,outer);
  const rack=new THREE.Group();rack.name='EVA-suit-rack';rack.position.set(1.5,0,9);group.add(rack);
  kit.box(rack,kit.materials.trim,[1.3,2.1,.4],[0,1,0]);
- kit.sphere(rack,kit.materials.ivory,[.28,.28,.26],[0,1.65,.3]);kit.sphere(rack,kit.materials.dark,[.22,.16,.1],[0,1.65,.5]);
- kit.box(rack,kit.materials.ivory,[.5,.65,.22],[0,1.04,.3]);
- for(const x of [-.16,.16])kit.box(rack,kit.materials.ivory,[.19,.48,.23],[x,.48,.3]);
+ const suitFallback=new THREE.Group();rack.add(suitFallback);
+ kit.sphere(suitFallback,kit.materials.ivory,[.28,.28,.26],[0,1.65,.3]);kit.sphere(suitFallback,kit.materials.dark,[.22,.16,.1],[0,1.65,.5]);
+ kit.box(suitFallback,kit.materials.ivory,[.5,.65,.22],[0,1.04,.3]);
+ for(const x of [-.16,.16])kit.box(suitFallback,kit.materials.ivory,[.19,.48,.23],[x,.48,.3]);
  for(const [text,x,y,z] of [['EVA SUITS',1.5,2.4,9],['AIRLOCK',0,3,11.2]] as const){
   const canvas=document.createElement('canvas');canvas.width=256;canvas.height=64;const c=canvas.getContext('2d');
   if(c){c.fillStyle='#15303c';c.fillRect(0,0,256,64);c.fillStyle='#ffdf9b';c.font='bold 28px sans-serif';c.textAlign='center';c.fillText(text,128,42);}
   const texture=resources.texture(new THREE.CanvasTexture(canvas));texture.colorSpace=THREE.SRGBColorSpace;
   const sign=new THREE.Sprite(resources.material(new THREE.SpriteMaterial({map:texture,depthTest:true})));sign.scale.set(1.1,.275,1);sign.position.set(x,y,z);group.add(sign);
  }
- return {group,occluders,update(access:HabitatAccess){inner.position.x=access.phase==='inside'?-1.9:0;outer.position.x=access.phase==='outside'&&access.suited?-1.9:0;rack.visible=!access.suited;}};
+ const suitMount=new THREE.Group();suitMount.position.set(0,0,.35);rack.add(suitMount);
+ return {group,occluders,suitMount,suitFallback,update(access:HabitatAccess){inner.position.x=access.phase==='inside'?-1.9:0;outer.position.x=access.phase==='outside'&&access.suited?-1.9:0;rack.visible=!access.suited;}};
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref } from 'vue';
 import type { StationId } from '../../contracts';
+import PlantWatering from './PlantWatering.vue';
 import MaintenancePuzzle from './MaintenancePuzzle.vue';
 import StationMinigame from './StationMinigame.vue';
 defineProps<{station:StationId;title:string;steps:readonly string[];impact:string;progress:number;inside:boolean;feedback:string;paused:boolean}>();
@@ -21,7 +22,8 @@ function trap(event:KeyboardEvent){
 <template>
  <section ref="root" class="activity" aria-label="Station activity" tabindex="-1" @keydown.stop="trap">
   <button class="close" aria-label="Close task" @click="$emit('cancel')">✕</button>
-  <MaintenancePuzzle v-if="inside && (/shelter|reinforc/i.test(title)||station==='greenhouse')" :kind="station==='greenhouse'?'crops':'shield'" :stage="progress" :paused="paused" @complete="stage=>stage===progress&&$emit('control',steps[stage])" />
+  <PlantWatering v-if="inside && station==='greenhouse'" :stage="progress" :paused="paused" @complete="stage=>stage===progress&&$emit('control',steps[stage])" />
+  <MaintenancePuzzle v-else-if="inside && /shelter|reinforc/i.test(title)" kind="shield" :stage="progress" :paused="paused" @complete="stage=>stage===progress&&$emit('control',steps[stage])" />
   <StationMinigame v-else-if="inside" :station="station" :title="title" :progress="progress" :paused="paused" @complete="stage=>stage===progress&&$emit('control',steps[stage])"/>
   <div v-else class="approach"><h2>{{ title }}</h2><p>Enter the module to work.</p><button @click="$emit('enter')">Enter</button><button @click="$emit('travel')">Go to door</button></div>
   <footer><span class="reward">{{ impact.split(' · Prevents')[0].split(' · Shelter')[0].split(' · Builds')[0] }}</span><button @click="$emit('pause')">{{ paused?'▶ Resume':'Ⅱ Pause' }}</button></footer>

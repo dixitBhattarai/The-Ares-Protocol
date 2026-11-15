@@ -75,7 +75,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     scene.add(sun);
     const kit = createModelKit(resources);
     const earth = createEarthCampus(kit, resources);
-    cleanups.push(() => earth.scene.clear());
+    cleanups.push(() => earth.dispose());
     const follow = createFollowCamera(renderer.domElement);
     cleanups.push(() => follow.dispose());
     let cameraMode: 'follow' | 'overview' = 'follow';
@@ -83,8 +83,6 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     const nasa = createNasaLoader(resources);
     cleanups.push(() => nasa.dispose());
     // Scenic references stay outside the walkable boundary: no invisible indoor obstacles.
-    const warehouse = new THREE.Group(); warehouse.position.set(28, 0, 2); earth.scene.add(warehouse);
-    void nasa.attach(warehouse, 'warehouse', 14, undefined, true);
     const rover = new THREE.Group(); rover.position.set(21, 0, 7); rover.rotation.y = -Math.PI / 3; scene.add(rover);
     void nasa.attach(rover, 'curiosity', 3.2, undefined, true);
     const volcano = new THREE.Group(); volcano.position.set(0, -4.5, -58); scene.add(volcano);
@@ -246,8 +244,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         if(markerId!==nearest.id){markerId=nearest.id;const c=markerCanvas.getContext('2d');if(c){c.fillStyle='#143340';c.fillRect(0,0,256,64);c.strokeStyle='#ffe3a0';c.lineWidth=3;c.strokeRect(2,2,252,60);c.fillStyle='#fff4d0';c.font='bold 26px sans-serif';c.textAlign='center';c.fillText('E · '+nearest.id.toUpperCase(),128,42);markerMaterial.map!.needsUpdate=true;}}
       }
     }
-    const suitExhibit=new THREE.Group();suitExhibit.name='space-man-suit-exhibit';suitExhibit.position.set(2,-1,.2);stations.find(s=>s.id==='solar')!.visual.group.add(suitExhibit);
-    void nasa.attach(suitExhibit,'spaceMan',1.55);
+    // One grounded suit lives at the actual equip point; no unrelated suit in the solar lab.
+    void nasa.attach(dome.suitMount,'spaceMan',1.8,dome.suitFallback);
     function activateWork(id:MachineId){
       if(!interaction.activate(id))return false;
       const group=machineGroups.find(group=>group.userData.machineId===id);if(group)group.userData.pressRemaining=.18;
