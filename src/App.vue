@@ -214,6 +214,38 @@ function startMissionAfterGuide(){
 }
 let remoteConsole = false;
 
+// === Emergency Path Trailer ===
+// Derives the correct shelter/station to route to based on the active hazard warning.
+const emergencyPathVisible = ref(false);
+const emergencyPathDistance = ref(0);
+
+/** Map hazard notice keywords → target station. Sandstorms and solar events → Habitat shelter. */
+function hazardStation(notice: string | undefined): StationId | null {
+  if (!notice) return null;
+  const n = notice.toLowerCase();
+  if (n.includes('solar storm') || n.includes('air leak') || n.includes('storm')) return 'habitat';
+  if (n.includes('dust fault') || n.includes('power')) return 'solar';
+  if (n.includes('crop stress') || n.includes('plant')) return 'greenhouse';
+  return 'habitat'; // safe fallback
+}
+
+const emergencyRouteTarget = computed<StationId | null>(() => {
+  if (state.value.phase !== 'running' || !arrivalComplete) return null;
+  return hazardStation(state.value.upcomingHazardNotice);
+});
+
+function toggleEmergencyPath() {
+  if (!emergencyRouteTarget.value) { emergencyPathVisible.value = false; return; }
+  emergencyPathVisible.value = !emergencyPathVisible.value;
+}
+
+function activateEmergencyRoute() {
+  if (!emergencyRouteTarget.value || state.value.phase !== 'running') return;
+  emergencyPathVisible.value = true;
+  travelToDoor(emergencyRouteTarget.value);
+}
+// ===
+
 function updateFlightStage(stage: FlightStage | null, progress = 0) {
   if(stage)deckVisible.value=true;
   flightStage.value = stage;
@@ -524,6 +556,16 @@ function trapDeck(event:KeyboardEvent){
 watch(()=>[deckVisible.value,state.value.phase,preparation.value],async()=>{
  if(!deckVisible.value||activeActivity.value||scienceOpen.value||showLogin.value||showSplash.value)return;
  await nextTick();if(!scienceOpen.value&&commandPanel.value?.getClientRects().length)commandPanel.value.focus();
+});
+
+// Auto-activate emergency path when a hazard warning appears; hide it when it clears.
+watch(emergencyRouteTarget, (target) => {
+  if (target) {
+    emergencyPathVisible.value = true;
+  } else {
+    emergencyPathVisible.value = false;
+    world?.setEmergencyPath?.(null);
+  }
 });
 
 function onSplashDone() {
@@ -858,6 +900,11 @@ onMounted(async () => {
       world!.setAvatarActivity?.({action:sample?.stage==='digging'?'dig':sample?.stage==='researching'?'research':'none',progress:Math.min(1,(sample?.elapsed??0)/6)});
       world!.setPlayerPose(pose);
       world!.setState(state.value);
+      // Emergency path trailer — update route each frame so chevrons always originate at the player.
+      {
+        const pathTarget = emergencyPathVisible.value ? emergencyRouteTarget.value : null;
+        world!.setEmergencyPath?.(pathTarget, { emergency: true });
+      }
       if (state.value.phase === 'running') {
         const offerId=`${mission.id}:station-work`;
         world!.setAvailableTasks?.(availableTaskStations.value,offerId);
@@ -987,6 +1034,23 @@ onBeforeUnmount(() => {
         <DoorPanel v-if="!activeActivity && !showFieldPanel && !nearMachine && !nearSuitRack && !airlockOccupied && arrivalComplete && state.phase === 'running' && !preparation && flightProgress === null"
           :station="interior ?? nearby" :inside="!!interior" :open="!!doorsOpen[interior ?? nearby ?? 'habitat']"
           :ready="doorReady" :paused="false" @toggle="toggleDoor" @enter="enterModule()" @exit="leaveModule" @travel="travelToDoor" />
+        <!-- Emergency Route HUD — appears whenever a hazard warning is active on Mars -->
+        <div
+          v-if="arrivalComplete && state.phase === 'running' && !activeActivity && !flightStage && emergencyRouteTarget"
+          class="emergency-route-hud"
+          role="alert"
+          aria-live="polite"
+        >
+          <span class="emergency-route-icon" aria-hidden="true">⚠</span>
+          <span class="emergency-route-label">
+            <strong>{{ emergencyPathVisible ? 'EVACUATION TRAIL ACTIVE' : 'HAZARD WARNING' }}</strong>
+            <span class="emergency-route-sub">→ {{ { habitat: 'Habitat Shelter', solar: 'Solar Array', greenhouse: 'Greenhouse' }[emergencyRouteTarget] }}</span>
+          </span>
+          <button class="emergency-route-btn" @click="toggleEmergencyPath" :aria-pressed="emergencyPathVisible">
+            {{ emergencyPathVisible ? 'Hide trail' : 'Show trail' }}
+          </button>
+          <button class="emergency-route-btn emergency-route-btn--go" @click="activateEmergencyRoute">Go now</button>
+        </div>
         <section v-if="arrivalComplete && state.phase==='running' && !activeActivity && (nearSuitRack || airlockOccupied)" class="airlock-panel" aria-label="Habitat airlock">
           <strong>{{ airlockOccupied ? 'AIRLOCK' : 'EVA SUIT' }}</strong>
           <p role="status">{{ airlockNotice || (habitatAccess.remaining>0 ? 'Doors sealed · changing pressure…' : airlockOccupied ? habitatAccess.phase==='outside'?'Mars door open':'Base door open' : habitatAccess.suited?'Helmet sealed · air pack ready':'Suit up to explore Mars') }}</p>
@@ -1211,6 +1275,87 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
   .header-controls { width: 100%; justify-content: space-between; }
   .surface-header, .surface-footer { font-size: 7px; padding: 12px; }
   .surface-footer span:last-child { max-width: 130px; text-align: right; }
+}
+
+/* === Emergency Route HUD === */
+.emergency-route-hud {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 170px;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  max-width: calc(100% - 32px);
+  padding: 9px 12px;
+  border: 1px solid #ffb347cc;
+  border-left: 3px solid #ff9800;
+  border-radius: 8px;
+  background: #2c1800ef;
+  color: #ffe0a0;
+  font: 12px/1.4 ui-monospace, monospace;
+  letter-spacing: .04em;
+  box-shadow: 0 4px 18px #0005, 0 0 0 1px #ff980018, inset 0 1px #fff1c420;
+  pointer-events: auto;
+}
+.emergency-route-icon {
+  font-size: 18px;
+  color: #ffb347;
+  animation: emergency-pulse 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes emergency-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .emergency-route-icon { animation: none; }
+}
+.emergency-route-label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.emergency-route-label strong {
+  font-size: 11px;
+  letter-spacing: .1em;
+  color: #ffcc70;
+}
+.emergency-route-sub {
+  font-size: 11px;
+  color: #ffd69e;
+  opacity: .85;
+}
+.emergency-route-btn {
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid #c88040;
+  border-radius: 6px;
+  background: #3d1e00;
+  color: #ffd690;
+  font: 600 11px ui-monospace, monospace;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.emergency-route-btn:hover { background: #562c00; }
+.emergency-route-btn:focus-visible { outline: 3px solid #ffe0a0; outline-offset: 2px; }
+.emergency-route-btn--go {
+  background: #7a3400;
+  border-color: #e88c3a;
+  color: #fff3cf;
+  font-weight: 700;
+}
+.emergency-route-btn--go:hover { background: #9a4400; }
+@media (max-width: 640px) {
+  .emergency-route-hud { bottom: 190px; left: 10px; right: 10px; max-width: none; transform: none; font-size: 11px; }
+  .emergency-route-btn { font-size: 10px; padding: 5px 8px; min-height: 32px; }
+}
+@media (max-height: 480px) {
+  .emergency-route-hud { bottom: 100px; }
 }
 </style>
 

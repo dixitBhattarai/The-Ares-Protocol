@@ -24,6 +24,7 @@ import { createFollowCamera } from './follow-camera';
 import { createEarthCampus } from './earth';
 import { createMarsAtmosphere } from './atmosphere';
 import { createWorkInteraction, createWorkPrompt, WORK_MACHINES, type WorkWorldAdapter, type MachineId } from './interactables';
+import { createEmergencyPath } from './emergency-path';
 
 export function createWorld(host: HTMLElement, onInteract: (station: StationId) => void): WorldAdapter & WorkWorldAdapter {
   const resources = new WorldResources();
@@ -106,6 +107,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     const dome=createHabitatDome(kit,resources);scene.add(dome.group);
     let habitatAccess=freshHabitatAccess();
     const sampleSite=createExpeditionSite(kit,resources),wayfinding=createVisualUpgrade(kit,resources);scene.add(sampleSite.group,wayfinding.group);
+    const emergencyPath=createEmergencyPath(kit,resources);scene.add(emergencyPath.group);
     let sampleStage:FieldSample['stage']|'empty'='empty',sampleProgress=0;
     const astronaut = createAstronaut(kit);
     const suit = new THREE.Group(); suit.position.y = -.8; astronaut.group.add(suit);
@@ -816,6 +818,10 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         if (disposed || selected === (id ?? undefined)) return;
         selected = id ?? undefined; updateHighlights(); updateHint();
       },
+      setEmergencyPath(target, options) {
+        if (disposed) return;
+        emergencyPath.setRoute({ x: playerPose.x, y: playerPose.y, z: playerPose.z }, target ?? null, options);
+      },
       setPlayerPose(pose: Vec3) {
         if (disposed || ![pose.x, pose.y, pose.z].every(Number.isFinite)) return;
         const dx = pose.x - playerPose.x;
@@ -836,6 +842,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         else if(avatarActivity.action==='research')astronaut.group.rotation.y=Math.PI;
         playerShadow.position.set(pose.x, .014, pose.z);
         if (redrawShadow) renderer!.shadowMap.needsUpdate = true;
+        // Keep the path trailer origin up-to-date with player position so chevrons always start from the player.
+        if (emergencyPath.isActive()) emergencyPath.setRoute(pose, emergencyPath.getTarget());
       },
       setState(state) {
         if (disposed || state === lastState) return;
@@ -873,7 +881,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         previousAnimationTime = now;
         const pausedOrEnded = motionPaused || document.hidden || lastState?.phase === 'paused' || lastState?.phase === 'won' || lastState?.phase === 'lost';
         const active = !pausedOrEnded;
-        sampleSite.update(sampleStage==='researching'?'collected':sampleStage,sampleProgress,delta,active,reduceMotion);wayfinding.update(delta,active,reduceMotion);
+        sampleSite.update(sampleStage==='researching'?'collected':sampleStage,sampleProgress,delta,active,reduceMotion);wayfinding.update(delta,active,reduceMotion);emergencyPath.update(delta,active,reduceMotion);
         container.classList.toggle('ares-world--paused',!active);atmosphere.update(delta,active,reduceMotion);
         machineGroups.forEach(group=>{let remaining=group.userData.pressRemaining??0;if(reduceMotion)remaining=0;else if(active)remaining=Math.max(0,remaining-Math.min(.05,delta));group.userData.pressRemaining=remaining;group.scale.setScalar(1-Math.sin(remaining/.18*Math.PI)*.025);});
         if (isLocked() && (pausedOrEnded || journey !== null)) {
