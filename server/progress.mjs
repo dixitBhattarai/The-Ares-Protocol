@@ -169,10 +169,17 @@ function copyState(value) {
     if (!isRecord(r)||!isRecord(r.pose)||!finite(r.pose.x,-73,73)||!finite(r.pose.z,-73,73)||!finite(r.pose.y,0,5)||!finite(r.heading,-1_000_000,1_000_000)||!finite(r.battery,0,100))return null;
     result.rover={pose:{x:r.pose.x,y:r.pose.y,z:r.pose.z},heading:r.heading,battery:r.battery,driving:false};
   }
+  if (value.survey !== undefined) {
+    const s=value.survey,ids=['rim','basin','ejecta'];
+    const valid=list=>Array.isArray(list)&&list.length<=3&&new Set(list).size===list.length&&list.every(id=>ids.includes(id));
+    if(!isRecord(s)||!valid(s.scanned)||!valid(s.cargo)||!valid(s.analyzed)||s.cargo.length>2||[...s.cargo,...s.analyzed].some(id=>!s.scanned.includes(id))||s.cargo.some(id=>s.analyzed.includes(id)))return null;
+    result.survey={scanned:[...s.scanned],cargo:[...s.cargo],analyzed:[...s.analyzed]}; // Interrupted scans restart.
+  }
   if (value.fieldSample !== undefined) {
     const f=value.fieldSample;
     if(!isRecord(f)||!['digging','collected','researching','researched'].includes(f.stage)||typeof f.runId!=='string'||!/^[a-z0-9:_-]{1,100}$/.test(f.runId)||!finite(f.elapsed,0,6)||!integer(f.researchStep,0,3)||(f.remote!==undefined&&typeof f.remote!=='boolean'))return null;
-    result.fieldSample={stage:f.stage,runId:f.runId,elapsed:f.elapsed,researchStep:f.researchStep,remote:!!f.remote};
+    if(f.surveySite!==undefined&&(!['rim','basin','ejecta'].includes(f.surveySite)||!result.survey||!(f.stage==='researched'?result.survey.analyzed:result.survey.cargo).includes(f.surveySite)))return null;
+    result.fieldSample={stage:f.stage,runId:f.runId,elapsed:f.elapsed,researchStep:f.researchStep,remote:!!f.remote,...(f.surveySite?{surveySite:f.surveySite}:{})};
   }
   if (value.log !== undefined) {
     if (!Array.isArray(value.log) || value.log.length > 100 || !value.log.every(item => text(item, 500) !== null)) return null;

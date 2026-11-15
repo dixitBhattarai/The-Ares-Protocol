@@ -64,3 +64,10 @@ it('preserves rover parking, battery, sample cargo and storm preparations',()=>{
  input.state.taskRun.stormPrep={shutters:true,secured:false,dusty:true};
  const saved=normalizeProgressSnapshot(input);expect(saved.state.rover).toEqual({...input.state.rover,driving:false});expect(saved.state.fieldSample).toEqual(input.state.fieldSample);expect(saved.state.taskRun.stormPrep).toEqual(input.state.taskRun.stormPrep);
 });
+
+it('validates specimen capacity and IDs and restarts interrupted scans on restore',()=>{
+ const input=validSave();input.state.survey={scanned:['rim','basin','ejecta'],cargo:['rim','basin'],analyzed:[],scanning:{id:'ejecta',elapsed:1}};input.state.fieldSample={stage:'collected',runId:'1:2:sample:rim',elapsed:0,researchStep:0,remote:true,surveySite:'rim'};
+ const saved=normalizeProgressSnapshot(input);expect(saved.state.survey.scanning).toBeUndefined();expect(saved.state.survey.cargo).toEqual(['rim','basin']);expect(saved.state.fieldSample.surveySite).toBe('rim');
+ for(const cargo of [['rim','basin','ejecta'],['unknown'],['rim','rim']]){const invalid=structuredClone(input);invalid.state.survey.cargo=cargo;expect(normalizeProgressSnapshot(invalid)).toBeNull();}
+ const invalid=structuredClone(input);invalid.state.fieldSample.surveySite='ejecta';expect(normalizeProgressSnapshot(invalid)).toBeNull();
+});

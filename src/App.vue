@@ -7,6 +7,8 @@ import { SAMPLE_SITE, SAMPLE_LAB } from './contracts/exploration';
 import { fieldBusy, nearSampleLocation } from './features/game/field-sample';
 import FieldWorkPanel from './features/ui/FieldWorkPanel.vue';
 import ExpeditionControls from './features/ui/ExpeditionControls.vue';
+import SurveyControls from './features/ui/SurveyControls.vue';
+import {SURVEY_SITES,freshSurvey,type SurveySiteId} from './contracts/survey';
 import {freshRover,ROVER_DOCK,REMOTE_SAMPLE,STORM_CONTROLS,type StormControlId} from './contracts/expedition';
 import { SPACECRAFT_SEAT, STATIONS } from './contracts';
 import type { LandingFlightSnapshot, LaunchFlightSnapshot, FlightStage, GravityBody, GameAction, PhysicsAdapter, Vec3, WorldAdapter, StationId, MissionData } from './contracts';
@@ -124,11 +126,19 @@ function trapScience(event:KeyboardEvent){
  else if(!event.shiftKey&&(document.activeElement===last||document.activeElement===scienceDialog.value)){event.preventDefault();first.focus();}
 }
 const doingFieldWork=computed(()=>fieldBusy(state.value));
-const showFieldPanel=computed(()=>!rover.value.driving&&!preparing.value&&!activeActivity.value && (nearSampleSite.value||nearSampleLab.value||doingFieldWork.value));
+const showFieldPanel=computed(()=>!nearSurvey.value&&!survey.value.scanning&&!rover.value.driving&&!preparing.value&&!activeActivity.value && (nearSampleSite.value||nearSampleLab.value||doingFieldWork.value));
 function samplePose(){return physics?.getPlayerPose()??{x:0,y:0,z:0};}
 
 const rover=computed(()=>state.value.rover??freshRover()),nearRover=ref(false),nearPrep=ref<typeof STORM_CONTROLS[number]>();
+const survey=computed(()=>state.value.survey??freshSurvey()),nearSurvey=ref<typeof SURVEY_SITES[number]>();
 const preparing=ref<{id:StormControlId;elapsed:number}|null>(null),roverTarget=ref('');let expeditionSeconds=0;
+function useSurvey(id:SurveySiteId){
+ if(!physics||survey.value.scanning||activeActivity.value||doingFieldWork.value||preparing.value)return;
+ const before=state.value;const action=survey.value.scanned.includes(id)?'SURVEY_COLLECT':'SURVEY_START';
+ dispatch({type:action,id,pose:samplePose(),suited:habitatAccess.value.suited,grounded:physics.getMotionState?.().grounded??false});
+ if(state.value!==before){startMissionAfterGuide();(document.activeElement as HTMLElement)?.blur();if(survey.value.scanning)physics.pauseInput?.();else {soundFX.playDecision();physics.resumeInput?.();}}
+}
+function cancelSurvey(){dispatch({type:'SURVEY_CANCEL'});physics?.resumeInput?.();}
 function toggleRover(){
  if(!physics||state.value.phase!=='running'||doingFieldWork.value||activeActivity.value||preparing.value)return;
  if(rover.value.driving){
@@ -170,7 +180,7 @@ function observeSample(control:string){
  const sample=state.value.fieldSample;if(!sample)return;const before=state.value;
  dispatch({type:'SAMPLE_RESEARCH_STEP',runId:sample.runId,pose:samplePose(),control});
  fieldNotice.value=state.value===before?'Look at the small, loose grains.':'';
- if(state.value.fieldSample?.stage==='researched')physics?.resumeInput?.();
+ if(state.value.turn>before.turn){physics?.resumeInput?.();soundFX.playDecision();showCompletionNotice('Observation saved','+2 science · '+(survey.value.cargo.length?'Next specimen ready at the microscope.':'Field note added to the mission.'));}
 }
 function cancelSample(){pendingSampleAction=null;state.value=reduceGame(state.value,{type:'CANCEL_SAMPLE'},mission);physics?.resumeInput?.();fieldNotice.value='';}
 function jump(){pendingSampleAction=null;if(!doingFieldWork.value&&!activeActivity.value&&state.value.phase==='running')physics?.requestJump?.();}
@@ -505,7 +515,7 @@ function syncMovementInput(){
  const focused=document.activeElement as HTMLElement|null;
  const editing=!!focused?.closest('input,textarea,select,[contenteditable]');
  const deckFocused=!!commandPanel.value?.contains(focused)&&!!commandPanel.value?.getClientRects().length;
- const free=!preparing.value&&!document.hidden&&!gamePaused.value&&!exploringSite.value&&!scienceOpen.value&&!activeActivity.value&&!doingFieldWork.value&&!cabinSeated.value&&!flightStage.value&&!editing&&!deckFocused
+ const free=!survey.value.scanning&&!preparing.value&&!document.hidden&&!gamePaused.value&&!exploringSite.value&&!scienceOpen.value&&!activeActivity.value&&!doingFieldWork.value&&!cabinSeated.value&&!flightStage.value&&!editing&&!deckFocused
   &&(state.value.phase==='running'||!!preparation.value)&&!showLogin.value&&!showSplash.value;
  if(free)physics?.resumeInput?.();else physics?.pauseInput?.();
 }
@@ -629,6 +639,7 @@ function operateControl(control: string) {
     return;
   }
   activityProgress.value = next;
+  if(task.taskId==='power')soundFX.playTool();
   world?.setActivityProgress?.(next);
   activityFeedback.value = `Step ${next} complete.`;
   if (next === task.steps.length) {
@@ -728,6 +739,7 @@ function restoreProgress(snapshot: GameProgressSnapshot): boolean {
   mission = { ...loadMission(), gameplayMode: 'station-tasks', hazardSeed: snapshot.missionSeed };
   const resumedState = { ...snapshot.state, taskRun: snapshot.state.taskRun ? { ...snapshot.state.taskRun, protections: { ...snapshot.state.taskRun.protections }, completedIds: [...snapshot.state.taskRun.completedIds] } : undefined };
   if (resumedState.phase === 'running' && resumedState.taskRun) resumedState.phase = 'paused';
+  if(resumedState.survey)resumedState.survey={...resumedState.survey,scanning:undefined};
   if(resumedState.rover)resumedState.rover={...resumedState.rover,driving:false};
   if(resumedState.fieldSample?.stage==='digging'){resumedState.fieldSample=undefined;if(resumedState.taskRun)resumedState.taskRun.activeTaskId=undefined;}
   if(resumedState.fieldSample?.stage==='researching')resumedState.fieldSample={...resumedState.fieldSample,stage:'collected',elapsed:0,researchStep:0};
@@ -993,6 +1005,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
   }
   // A focused button only needs Space/Enter; it must not swallow E (use/interact) after you click a HUD control.
   if ((event.target as HTMLElement | null)?.closest(event.code === 'KeyE' ? 'input, textarea, select, [contenteditable]' : 'button, input, textarea, select, [contenteditable]')) return;
+  if(arrivalComplete&&state.value.phase==='running'&&!rover.value.driving&&nearSurvey.value&&!activeActivity.value&&!doingFieldWork.value&&event.code==='KeyE'){event.preventDefault();if(!event.repeat)useSurvey(nearSurvey.value.id);return;}
   if(arrivalComplete&&state.value.phase==='running'&&!rover.value.driving&&nearSampleSite.value&&!state.value.fieldSample&&event.code==='KeyE'){event.preventDefault();if(!event.repeat)startDig();return;}
   if(arrivalComplete&&state.value.phase==='running'&&!preparation.value&&!flightStage.value&&event.code==='KeyE'&&!activeActivity.value&&!doingFieldWork.value&&(rover.value.driving||nearRover.value||nearPrep.value)){
    event.preventDefault();if(!event.repeat){if(rover.value.driving||nearRover.value)toggleRover();else if(nearPrep.value)prepareStorm(nearPrep.value.id);}return;
@@ -1167,12 +1180,15 @@ onMounted(async () => {
       nearSampleSite.value=(nearSampleLocation(physics!.getPlayerPose(),SAMPLE_SITE)||nearSampleLocation(physics!.getPlayerPose(),REMOTE_SAMPLE));nearSampleLab.value=interior.value==='solar'&&nearSampleLocation(physics!.getPlayerPose(),SAMPLE_LAB);
       nearSuitRack.value=atSuitRack(physics!.getPlayerPose());airlockOccupied.value=inAirlock(physics!.getPlayerPose());
       let pose = physics!.getPlayerPose();
+      nearSurvey.value=!rover.value.driving?SURVEY_SITES.find(site=>Math.hypot(pose.x-site.x,pose.z-site.z)<=1.8):undefined;
       nearRover.value=!rover.value.driving&&Math.hypot(pose.x-rover.value.pose.x,pose.z-rover.value.pose.z)<2.8;
       nearPrep.value=STORM_CONTROLS.find(p=>Math.hypot(pose.x-p.x,pose.z-p.z)<1.8);
-      const target=state.value.fieldSample?ROVER_DOCK:REMOTE_SAMPLE;
+      const nextSite=SURVEY_SITES.find(site=>!survey.value.scanned.includes(site.id))??SURVEY_SITES.find(site=>!survey.value.cargo.includes(site.id)&&!survey.value.analyzed.includes(site.id));
+      const target=survey.value.cargo.length>=2||!nextSite||state.value.fieldSample&&!state.value.fieldSample.surveySite?ROVER_DOCK:nextSite;
       const bearing=Math.atan2(target.x-pose.x,target.z-pose.z)-(physics!.getRoverHeading?.()??rover.value.heading);const turn=Math.atan2(Math.sin(bearing),Math.cos(bearing));
-      roverTarget.value=(Math.abs(turn)<.3?'↑ ':Math.abs(turn)>2.7?'↶ ':turn>0?'← ':'→ ')+(state.value.fieldSample?.stage==='researched'?'Dock / recharge':state.value.fieldSample?.stage==='collected'?'Return to dock':'Sample site')+' · '+Math.round(Math.hypot(pose.x-target.x,pose.z-target.z))+' m';
+      roverTarget.value=(Math.abs(turn)<.3?'↑ ':Math.abs(turn)>2.7?'↶ ':turn>0?'← ':'→ ')+(target===ROVER_DOCK?'Dock / solar lab':nextSite?.name??'Sample site')+' · '+Math.round(Math.hypot(pose.x-target.x,pose.z-target.z))+' m';
       if(arrivalComplete&&state.value.phase==='running'&&!document.hidden){
+        if(survey.value.scanning){const scanning=survey.value.scanning.id;state.value=reduceGame(state.value,{type:'SURVEY_TICK',seconds:Math.min(.1,elapsed),pose,suited:habitatAccess.value.suited,grounded:physics!.getMotionState?.().grounded??false},mission);if(!survey.value.scanning){physics!.resumeInput?.();if(survey.value.scanned.includes(scanning)){soundFX.playScan();showCompletionNotice('Surface scan saved',survey.value.scanned.length+'/3 spots scanned · choose specimens for the lab.');}}}
         expeditionSeconds+=elapsed;
         if(expeditionSeconds>=1){expeditionSeconds-=1;state.value=reduceGame(state.value,{type:'ROVER_TICK',seconds:1,pose,heading:physics!.getRoverHeading?.()??rover.value.heading},mission);}
         if(preparing.value){preparing.value.elapsed+=elapsed;if(preparing.value.elapsed>=2){dispatch({type:'PREPARE_STORM',id:preparing.value.id,pose});cancelPreparation();soundFX.playDecision();}}
@@ -1212,6 +1228,7 @@ onMounted(async () => {
       const sample=state.value.fieldSample;
       world!.setSampleStage?.(sample?.stage??'empty',Math.min(1,(sample?.elapsed??0)/6));
       world!.setAvatarActivity?.({action:sample?.stage==='digging'?'dig':sample?.stage==='researching'?'research':'none',progress:Math.min(1,(sample?.elapsed??0)/6)});
+      world!.setBatteryRepair?.(activeActivity.value?.taskId==='power'?activityProgress.value:(state.value.taskRun?.protections.solar??-1)>(state.value.taskRun?.elapsed??0)?3:null);
       world!.setPlayerPose(pose);
       world!.setState(state.value);
       // Emergency path trailer — update route each frame so chevrons always originate at the player.
@@ -1385,7 +1402,8 @@ onBeforeUnmount(() => {
           <button v-if="nearSuitRack && !airlockOccupied" @click="equipSuit">{{ habitatAccess.suited?'E · Stow suit':'E · Equip suit' }}</button>
           <button v-else :disabled="habitatAccess.remaining>0 || !habitatAccess.suited" @click="useAirlock">{{ habitatAccess.phase==='inside'?'E · Cycle to Mars':'E · Cycle to base' }}</button>
         </section>
-        <ExpeditionControls v-if="arrivalComplete&&(state.phase==='running'||state.phase==='paused')&&!scienceOpen&&!activeActivity&&!doingFieldWork&&(rover.driving||nearRover||nearPrep||preparing||rover.battery<=0||state.fieldSample?.stage==='collected')" :rover="rover" :power="state.resources.power" :near-rover="nearRover&&!(nearSampleSite&&!state.fieldSample)" :target="roverTarget" :near-prep="nearPrep" :prep="state.taskRun?.stormPrep" :preparing="preparing?.elapsed??0" :paused="gamePaused" :carrying="state.fieldSample?.stage==='collected'" @rover="toggleRover" @recover="recoverRover" @prepare="prepareStorm" @cancel="cancelPreparation"/>
+        <SurveyControls v-if="arrivalComplete&&nearSurvey&&!rover.driving&&!doingFieldWork&&!activeActivity&&!scienceOpen&&(state.phase==='running'||state.phase==='paused')" :site="nearSurvey" :survey="survey" :rover-near="Math.hypot(rover.pose.x-nearSurvey.x,rover.pose.z-nearSurvey.z)<=8" :near-rover="nearRover" :paused="gamePaused" :suited="habitatAccess.suited" @scan="useSurvey" @collect="useSurvey" @cancel="cancelSurvey" @board="toggleRover"/>
+        <ExpeditionControls v-if="!nearSurvey&&arrivalComplete&&(state.phase==='running'||state.phase==='paused')&&!scienceOpen&&!activeActivity&&!doingFieldWork&&(rover.driving||nearRover||nearPrep||preparing||rover.battery<=0||state.fieldSample?.stage==='collected')" :rover="rover" :power="state.resources.power" :near-rover="nearRover&&!(nearSampleSite&&!state.fieldSample)" :target="roverTarget" :near-prep="nearPrep" :prep="state.taskRun?.stormPrep" :preparing="preparing?.elapsed??0" :paused="gamePaused" :carrying="state.fieldSample?.stage==='collected'" @rover="toggleRover" @recover="recoverRover" @prepare="prepareStorm" @cancel="cancelPreparation"/>
         <FieldWorkPanel v-if="arrivalComplete && (state.phase==='running'||state.phase==='paused') && showFieldPanel" :sample="state.fieldSample" :near-site="nearSampleSite" :near-lab="nearSampleLab" :suited="habitatAccess.suited" :paused="state.phase==='paused'" :notice="fieldNotice" @dig="startDig" @research="startSampleResearch" @check="observeSample" @cancel="cancelSample" @science="openScience" @pause="dispatch({type:state.phase==='paused'?'RESUME':'PAUSE'})"/>
         <button v-if="arrivalComplete && state.phase==='running' && !activeActivity && !doingFieldWork && !rover.driving" class="jump-control" aria-label="Jump" @click="jump">↑ Jump <kbd>Space</kbd></button>
         <LaunchControls v-if="launchFlight" :flight="launchFlight" :paused="preparationPaused" @ignite="igniteLaunch" @hold="holdLaunch" @nudge="nudgeLaunch" @throttle="setLaunchThrottle" @pause="togglePreparationPause" @reset="beginLaunchSequence" />

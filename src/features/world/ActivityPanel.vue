@@ -5,6 +5,7 @@ import ScienceWorkbench from './ScienceWorkbench.vue';
 import PlantWatering from './PlantWatering.vue';
 import MaintenancePuzzle from './MaintenancePuzzle.vue';
 import StationMinigame from './StationMinigame.vue';
+import BatteryRepair from './BatteryRepair.vue';
 defineProps<{station:StationId;title:string;steps:readonly string[];impact:string;progress:number;inside:boolean;feedback:string;paused:boolean}>();
 const emit=defineEmits<{control:[value:string];travel:[];enter:[];exit:[];cancel:[];pause:[]}>();
 const root=ref<HTMLElement>();
@@ -27,6 +28,7 @@ function trap(event:KeyboardEvent){
   <ScienceWorkbench v-if="inside && station==='solar' && /science|survey|research/i.test(title)" :stage="progress" :paused="paused" @complete="stage=>stage===progress&&$emit('control',steps[stage])" />
   <PlantWatering v-else-if="inside && station==='greenhouse'" :stage="progress" :paused="paused" @complete="stage=>stage===progress&&$emit('control',steps[stage])" />
   <MaintenancePuzzle v-else-if="inside && /shelter|reinforc/i.test(title)" kind="shield" :stage="progress" :paused="paused" @complete="stage=>stage===progress&&$emit('control',steps[stage])" />
+  <BatteryRepair v-else-if="inside && station==='solar'" :stage="progress" :paused="paused" @complete="stage=>stage===progress&&$emit('control',steps[stage])"/>
   <StationMinigame v-else-if="inside" :station="station" :title="title" :progress="progress" :paused="paused" @complete="stage=>stage===progress&&$emit('control',steps[stage])"/>
   <div v-else class="approach"><h2>{{ title }}</h2><p>Enter the module to work.</p><button @click="$emit('enter')">Enter</button><button @click="$emit('travel')">Go to door</button></div>
   <footer><span class="reward">{{ impact.split(' · Prevents')[0].split(' · Shelter')[0].split(' · Builds')[0] }}</span><button @click="$emit('pause')">{{ paused?'▶ Resume':'Ⅱ Pause' }}</button></footer>

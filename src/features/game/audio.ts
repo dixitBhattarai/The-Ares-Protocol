@@ -14,6 +14,13 @@ export class SoundFX {
     }
   }
 
+  playTool() { this.toolTone(190,95,.09); }
+  playScan() { this.toolTone(580,1160,.24); }
+  private toolTone(from:number,to:number,duration:number) {
+    if(!this.enabled)return;this.init();if(!this.ctx)return;
+    try{const osc=this.ctx.createOscillator(),gain=this.ctx.createGain();osc.type='triangle';osc.frequency.setValueAtTime(from,this.ctx.currentTime);osc.frequency.exponentialRampToValueAtTime(to,this.ctx.currentTime+duration);gain.gain.setValueAtTime(.045,this.ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.001,this.ctx.currentTime+duration);osc.connect(gain);gain.connect(this.ctx.destination);osc.onended=()=>{osc.disconnect();gain.disconnect();};osc.start();osc.stop(this.ctx.currentTime+duration);}catch{}
+  }
+
   playStart() {
     if (!this.enabled) return;
     this.init();

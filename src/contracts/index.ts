@@ -115,6 +115,7 @@ export interface PendingDelayedEffect {
 }
 
 export interface GameState {
+  survey?: import('./survey').SurveyState;
   rover?: import('./expedition').RoverState;
   fieldSample?: import('./exploration').FieldSample;
   taskRun?: {
@@ -140,7 +141,7 @@ export interface GameState {
   lastHazardNotice?: string;
   upcomingHazardNotice?: string;
 }
-export type GameAction = import('./expedition').ExpeditionAction
+export type GameAction = import('./survey').SurveyAction | import('./expedition').ExpeditionAction
   | { type: 'START_DIG'; pose: Vec3; suited: boolean; grounded: boolean }
   | { type: 'START_SAMPLE_RESEARCH'; pose: Vec3; grounded: boolean }
   | { type: 'FIELD_TICK'; runId: string; seconds: number; pose: Vec3; suited: boolean; grounded: boolean }
@@ -156,6 +157,7 @@ export type GameAction = import('./expedition').ExpeditionAction
   | { type: 'RESTART' }
   | { type: 'CHOOSE'; choiceId: string };
 export interface WorldAdapter {
+  setBatteryRepair?(stage: number | null): void;
   setRover?(state: import('./expedition').RoverState, carrying: boolean): void;
   setSampleStage?(stage: import('./exploration').FieldSample['stage'] | 'empty', progress: number): void;
   setPlayerMotion?(motion: import('./exploration').PlayerMotion): void;

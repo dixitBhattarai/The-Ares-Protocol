@@ -5,7 +5,7 @@ export function reduceExpedition(state:Readonly<GameState>,action:GameAction):Ga
  if(state.phase!=='running'||!state.taskRun)return state;
  const rover=state.rover??freshRover();
  if(action.type==='ROVER_ENTER'){
-  if(rover.driving||rover.battery<=0||!action.suited||state.fieldSample?.stage==='digging'||state.fieldSample?.stage==='researching'||state.taskRun.activeTaskId&&!(state.taskRun.activeTaskId==='survey'&&state.fieldSample?.stage==='collected')||!near(action.pose,rover.pose,2.8))return state;
+  if(state.survey?.scanning||rover.driving||rover.battery<=0||!action.suited||state.fieldSample?.stage==='digging'||state.fieldSample?.stage==='researching'||state.taskRun.activeTaskId&&!(state.taskRun.activeTaskId==='survey'&&state.fieldSample?.stage==='collected')||!near(action.pose,rover.pose,2.8))return state;
   return {...state,rover:{...rover,driving:true}};
  }
  if(action.type==='ROVER_EXIT')return rover.driving?{...state,rover:{...rover,driving:false}}:state;

@@ -80,7 +80,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     scene.add(sun);
     const weather = createMarsWeather(scene, resources); cleanups.push(() => weather.dispose());
     const kit = createModelKit(resources);
-    const fieldExpedition=createFieldExpedition(kit,resources);scene.add(fieldExpedition.group);let roverState=freshRover();
+    const fieldExpedition=createFieldExpedition(kit,resources);scene.add(fieldExpedition.group);let roverState=freshRover();let batteryRepairStage:number|null|undefined;
     const earth = createEarthCampus(kit, resources);
     cleanups.push(() => earth.dispose());
     const follow = createFollowCamera(renderer.domElement);
@@ -784,6 +784,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         follow.setWorkFocus(activity.action);
         avatarActivity=activity;setAstronautActivity(astronaut,activity);
       },
+      setBatteryRepair(stage){if(disposed||stage===batteryRepairStage)return;batteryRepairStage=stage;machineGroups.find(group=>group.name==='work-power')?.userData.repair?.(stage);renderer!.shadowMap.needsUpdate=true;},
       setRover(state,carrying){roverState=state;fieldExpedition.update(state,carrying,lastState?.taskRun?.stormPrep);astronaut.group.visible=!state.driving&&!firstPerson;},
       setSampleStage(stage,progress){fieldExpedition.remote.update(stage==='researching'?'collected':stage,progress,0,true,true);sampleStage=stage;sampleProgress=Number.isFinite(progress)?Math.max(0,Math.min(1,progress)):0;carriedSample.visible=stage==='collected';},
       setHabitatAccess(access) { habitatAccess=access;dome.update(access); },
@@ -879,7 +880,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       setState(state) {
         if (disposed || state === lastState) return;
         if(state.phase==='ready'&&lastState?.phase!=='ready'){resetAstronautActions(astronaut);avatarTools.reset();}
-        weather.setState(state);fieldExpedition.update(roverState,state.fieldSample?.stage==='collected',state.taskRun?.stormPrep);
+        weather.setState(state);fieldExpedition.updateSurvey(state.survey);fieldExpedition.update(roverState,state.fieldSample?.stage==='collected',state.taskRun?.stormPrep);
         const notice = getWorldEventNotice(state);
         if (notice !== eventNotice || state.turn !== lastState?.turn) eventReport.open = false;
         eventNotice = notice;

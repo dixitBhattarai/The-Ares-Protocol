@@ -12,6 +12,7 @@ import type {
   TurnRecord,
 } from '../../contracts';
 import { reduceExpedition } from './expedition';
+import {reduceSurvey,queuedSample} from './survey';
 import { reduceFieldSample } from './field-sample';
 import { reduceStationGame, taskHazardNotice } from './station-game';
 export { STATION_TASKS, TASK_REPEAT_COOLDOWN_SECONDS, taskCompletionId, taskCooldownRemaining } from './station-game';
@@ -94,10 +95,17 @@ export function getCurrentEvent(mission: MissionData, state: Readonly<GameState>
 // Pure turn-based reducer. Only this module changes simulation state.
 export function reduceGame(state: Readonly<GameState>, action: GameAction, mission: MissionData): GameState {
   if(mission.gameplayMode==='station-tasks') {
+    const survey=reduceSurvey(state,action);if(survey)return survey;
     const expedition=reduceExpedition(state,action);if(expedition)return expedition;
     const field=reduceFieldSample(state,action,prepared=>{
       const result=reduceStationGame(prepared,{type:'COMPLETE_TASK',completionId:`${prepared.taskRun!.session}:${prepared.turn}:survey`},mission,()=>createInitialState(mission));
       if(result.turn===prepared.turn)return result;
+      const site=prepared.fieldSample?.surveySite;
+      if(site&&result.survey){
+        const cargo=result.survey.cargo.filter(id=>id!==site);
+        result.survey={...result.survey,cargo,analyzed:[...result.survey.analyzed,site]};
+        if(cargo[0])result.fieldSample=queuedSample(result,cargo[0]);
+      }
       const explanation='Collected, sealed and examined a practice regolith sample. Loose grains observed; composition is unknown. +2 science.';
       return {...result,log:[...result.log.slice(0,-1),explanation],history:result.history?.map((record,index)=>index===result.history!.length-1?{...record,choiceLabel:'Collect and examine regolith',explanation}:record)};
     });
