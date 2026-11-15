@@ -13,7 +13,7 @@ import type {
 } from '../../contracts';
 import { reduceFieldSample } from './field-sample';
 import { reduceStationGame, taskHazardNotice } from './station-game';
-export { STATION_TASKS, taskCompletionId } from './station-game';
+export { STATION_TASKS, TASK_REPEAT_COOLDOWN_SECONDS, taskCompletionId, taskCooldownRemaining } from './station-game';
 
 export function getChoicePresentation(choice: Choice, event?: MissionEvent): ChoicePresentation {
   if (choice.presentation) return choice.presentation;
@@ -72,7 +72,7 @@ export function getUpcomingHazardNotice(mission: MissionData, turn: number): str
 
 export function createInitialState(mission: MissionData): GameState {
   return {
-    ...(mission.gameplayMode === 'station-tasks' ? {taskRun:{session:0,elapsed:0,completedIds:[],protections:{}}} : {}),
+    ...(mission.gameplayMode === 'station-tasks' ? {taskRun:{session:0,elapsed:0,completedIds:[],cooldowns:{},protections:{}}} : {}),
     phase: 'ready',
     turn: 0,
     resources: { ...mission.initialResources },

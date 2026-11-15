@@ -15,8 +15,11 @@ export function createFollowCamera(canvas: HTMLCanvasElement) {
   const controls = new OrbitControls(camera, canvas);
   controls.enablePan = false;
   controls.enableDamping = false;
-  // Keep OrbitControls' full pole-to-pole vertical orbit instead of stopping
-  // at the old shallow look-up limit. Azimuth remains free for full turns.
+  // Azimuth remains free for full turns; the vertical orbit is limited below.
+  // Keep the orbit above the ground: stop just over the horizon of the look-at point so the
+  // camera can never dip under the floor. minPolarAngle avoids the exact pole where the heading flips.
+  controls.minPolarAngle = .12;
+  controls.maxPolarAngle = Math.PI / 2 - .05;
   controls.minDistance = 2.5;
   controls.maxDistance = 18;
   controls.rotateSpeed = .65;
