@@ -1,8 +1,20 @@
 import * as THREE from 'three';
 import { STATIONS, type StationId } from '../../contracts';
+import { ROAM_LIMIT } from '../../contracts/open-world';
+import { MARS_WALKABLE_HALF_SIZE } from '../../contracts/exploration';
 import { WorldResources, type ModelKit } from './resources';
-import { createDustTexture, createSurfaceDetails, createAlienRockFormations } from './landscape';
+import { createDustTexture, createSurfaceDetails, createAbandonedEquipment, createAlienRockFormations } from './landscape';
 import { createSlidingDoor } from './doors';
+
+/** Terrain is dead flat out to just past the walkable edge, then blends into dunes, craters and mountains. */
+const ARENA_RADIUS=Math.max(ROAM_LIMIT,MARS_WALKABLE_HALF_SIZE);
+const FLAT_RADIUS = ARENA_RADIUS + 2;
+const BLEND_WIDTH = 34;
+const EDGE = ARENA_RADIUS + .8;
+const EDGE_STEP = EDGE * 2 / 12;
+/** Radius that puts a point `extra` metres outside the square arena along a direction. */
+const beyondArena = (angle: number, extra: number) =>
+  (ARENA_RADIUS + extra) / Math.max(Math.abs(Math.cos(angle)), Math.abs(Math.sin(angle)));
 
 export interface StationVisual {
   screens: THREE.MeshStandardMaterial[];
@@ -88,12 +100,12 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
     const z = pos.getZ(i);
     const r = Math.max(Math.abs(x), Math.abs(z));
 
-    if (r <= 74) {
+    if (r <= FLAT_RADIUS) {
       // Central research outpost plateau: strictly flat at Y=0
       pos.setY(i, 0);
     } else {
       // Quintic smootherstep departure from base plateau: zero slope at r=18 and r=36
-      const blend = smootherstep(74, 96, r);
+      const blend = smootherstep(FLAT_RADIUS, FLAT_RADIUS + BLEND_WIDTH, r);
 
       // Barchan sand dunes: rotated along prevailing Martian wind vector (~26 degrees)
       const uDune = x * 0.07 + z * 0.035;
@@ -104,8 +116,8 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
         Math.sin(uDune * 1.7 - vDune * 0.5) * 0.55
       ) * blend;
 
-      // Primary Impact Crater at (-42, 36): smooth C1 continuous bowl and raised ejecta rim
-      const d1 = Math.hypot(x - (-42), z - 36);
+      // Primary Impact Crater at (-100, 84), beyond the walkable arena: smooth C1 continuous bowl and raised ejecta rim
+      const d1 = Math.hypot(x - (-100), z - 84);
       let crater1 = 0;
       if (d1 < 15) {
         // Smooth parabolic bowl depression
@@ -117,8 +129,8 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
         crater1 += 1.85 * Math.pow(Math.sin(rimPhase * Math.PI), 2);
       }
 
-      // Secondary Impact Crater at (46, -34)
-      const d2 = Math.hypot(x - 46, z - (-34));
+      // Secondary Impact Crater at (104, -80)
+      const d2 = Math.hypot(x - 104, z - (-80));
       let crater2 = 0;
       if (d2 < 11) {
         crater2 = -2.6 * (1 - smootherstep(0, 11, d2));
@@ -246,18 +258,18 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
   terrain.add(landing);
 
   // Outer perimeter survey markers at Y = 0.022m
-  for (const x of [-18.8, 18.8]) {
-    for (let z = -18.8; z <= 18.8; z += 4.7) kit.box(terrain, pathMat, [0.12, 0.016, 0.65], [x, 0.014, z]);
+  for (const x of [-EDGE, EDGE]) {
+    for (let z = -EDGE; z <= EDGE + 1e-6; z += EDGE_STEP) kit.box(terrain, pathMat, [0.12, 0.016, 0.65], [x, 0.014, z]);
   }
-  for (const z of [-18.8, 18.8]) {
-    for (let x = -18.8; x <= 18.8; x += 4.7) kit.box(terrain, pathMat, [0.65, 0.016, 0.12], [x, 0.014, z]);
+  for (const z of [-EDGE, EDGE]) {
+    for (let x = -EDGE; x <= EDGE + 1e-6; x += EDGE_STEP) kit.box(terrain, pathMat, [0.65, 0.016, 0.12], [x, 0.014, z]);
   }
 
   // =========================================================================
   // 3. SURFACE DETAILS, ABANDONED EQUIPMENT & ALIEN ROCK FORMATIONS
   // =========================================================================
   terrain.add(createSurfaceDetails(resources));
-  // Discovery landmarks replace the old uncollidable scenic equipment.
+  terrain.add(createAbandonedEquipment(kit,resources)); // Preserved concurrent solid landmarks.
   const horizonRocks=createAlienRockFormations(kit,resources);horizonRocks.scale.set(2,1,2);terrain.add(horizonRocks);
 
   // =========================================================================
@@ -284,8 +296,8 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
   // Rust-orange oxidized boulders outside central base area
   for (let i = 0; i < rockCount; i++) {
     const angle = i * 2.399963;
-    const radius = 22 + ((i * 19) % 45);
-    const size = 0.08 + ((i * 13) % 11) * 0.012;
+    const radius = beyondArena(angle, 4 + ((i * 19) % 45));
+    const size = 0.28 + ((i * 13) % 11) * 0.16;
     // Naturally embedded into the terrain surface
     transform.position.set(Math.cos(angle) * radius, -0.09, Math.sin(angle) * radius);
     transform.scale.set(size * 1.4, size * 0.7, size * 1.1);
@@ -299,8 +311,8 @@ export function createTerrain(kit: ModelKit, resources: WorldResources): THREE.G
   // Deep dark basalt rocks around ridges and craters
   for (let i = 0; i < darkRockCount; i++) {
     const angle = (i + 0.5) * 2.51327;
-    const radius = 26 + ((i * 23) % 40);
-    const size = 0.08 + ((i * 17) % 7) * 0.02;
+    const radius = beyondArena(angle, 4 + ((i * 23) % 40));
+    const size = 0.35 + ((i * 17) % 7) * 0.22;
     transform.position.set(Math.cos(angle) * radius, -0.06, Math.sin(angle) * radius);
     transform.scale.set(size * 1.2, size * 0.85, size * 1.3);
     transform.rotation.set(i * 0.3, i * 0.8, -0.2);

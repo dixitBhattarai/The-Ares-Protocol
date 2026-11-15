@@ -3,6 +3,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { Vec3 } from '../../contracts';
 import { FIRST_PERSON_FOV, applyLook, eyePosition, wrapYaw } from './first-person';
 import type { Look } from './first-person';
+import {
+  FLOOR_ABOVE_FEET, PLAYER_CENTER_HEIGHT, clampOrbitPitch, facingYaw, orbitOffset, orbitUp, pitchRange, yawDirection,
+} from './orbit';
 
 /** A player-following perspective camera. App still owns all frame scheduling.
  * Third person orbits the player; first person sits at eye height and is driven by yaw/pitch.
@@ -15,12 +18,13 @@ export function createFollowCamera(canvas: HTMLCanvasElement) {
   const controls = new OrbitControls(camera, canvas);
   controls.enablePan = false;
   controls.enableDamping = false;
-  // Full vertical orbit (pole to pole) and free azimuth. The view is kept above the ground
-  // separately by keepAboveGround(), so the orbit itself is never limited.
+  // OrbitControls clamps its polar angle to [0, PI], so it can never carry the camera over the top.
+  // It keeps zoom (wheel, pinch, buttons), distance limits and the `enabled` flag; rotation is done here
+  // with a yaw/pitch pair whose up vector rolls through the poles (see orbit.ts).
+  controls.enableRotate = false;
   controls.minDistance = 2.5;
   controls.maxDistance = 18;
   controls.rotateSpeed = .65;
-  controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
   const target = new THREE.Vector3();
   const up = new THREE.Vector3(0, 1, 0);
   let context = '';
@@ -29,21 +33,55 @@ export function createFollowCamera(canvas: HTMLCanvasElement) {
   let pendingYaw = 0;
   let look: Look = { yaw: 0, pitch: 0 };
   const ray = new THREE.Raycaster();
-  let groundY = 0;
-  /** If the orbit swings below the floor, slide the rendered camera along the ground circle at the
-   * same distance and keep looking at the player, so it is always seen from above the ground. */
-  const keepAboveGround = () => {
-    const floor = groundY + .3;
-    if (view.position.y >= floor) return;
-    const dx = view.position.x - controls.target.x, dy = view.position.y - controls.target.y, dz = view.position.z - controls.target.z;
-    const dist = Math.hypot(dx, dy, dz);
-    const rise = floor - controls.target.y;
-    const flat = Math.sqrt(Math.max(0, dist * dist - rise * rise));
-    const az = controls.getAzimuthalAngle();
-    view.position.set(controls.target.x + Math.sin(az) * flat, floor, controls.target.z + Math.cos(az) * flat);
-    view.lookAt(controls.target);
-    view.updateMatrixWorld();
+  let groundY = 0; // height of the floor under the player's feet
+  let yaw = 0, pitch = Math.atan2(2.5, 8), dist = Math.hypot(2.5, 8);
+
+  /** Put the camera on its orbit sphere. Pitch is limited so the camera never drops below the floor,
+   * but it may pass straight over the top and come down the far side (upside down). */
+  const place = () => {
+    pitch = clampOrbitPitch(pitch, pitchRange(target.y - (groundY + FLOOR_ABOVE_FEET), dist));
+    const o = orbitOffset(yaw, pitch), u = orbitUp(yaw, pitch);
+    camera.up.set(u.x, u.y, u.z);
+    camera.position.set(target.x + o.x * dist, target.y + o.y * dist, target.z + o.z * dist);
+    camera.lookAt(target);
   };
+  const orbit = (dyaw: number, dpitch: number) => {
+    if (!Number.isFinite(dyaw) || !Number.isFinite(dpitch)) return;
+    // Pointer right turns the view right; pointer down raises the camera, as OrbitControls drag did.
+    yaw = wrapYaw(yaw - dyaw * yawDirection(pitch));
+    pitch += dpitch;
+    controls.dispatchEvent({ type: 'change' });
+  };
+
+  // Drag / one-finger orbit. Two fingers are left to OrbitControls for pinch zoom.
+  const pointers = new Set<number>();
+  let dragPointer = -1, lastX = 0, lastY = 0;
+  const onPointerDown = (event: PointerEvent) => {
+    if (!controls.enabled || firstPerson || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    if (event.pointerType === 'mouse') pointers.clear();
+    pointers.add(event.pointerId);
+    if (pointers.size === 1) {
+      dragPointer = event.pointerId; lastX = event.clientX; lastY = event.clientY;
+      try { canvas.setPointerCapture(event.pointerId); } catch { /* capture is a convenience only */ }
+    } else dragPointer = -1;
+  };
+  const onPointerMove = (event: PointerEvent) => {
+    if (event.pointerId !== dragPointer || !controls.enabled || firstPerson) return;
+    const dx = event.clientX - lastX, dy = event.clientY - lastY;
+    lastX = event.clientX; lastY = event.clientY;
+    const scale = Math.PI * 2 * controls.rotateSpeed / Math.max(1, canvas.clientHeight);
+    orbit(dx * scale, dy * scale);
+  };
+  const onPointerEnd = (event: PointerEvent) => {
+    pointers.delete(event.pointerId);
+    if (event.pointerId === dragPointer) dragPointer = -1;
+  };
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointermove', onPointerMove);
+  canvas.addEventListener('pointerup', onPointerEnd);
+  canvas.addEventListener('pointercancel', onPointerEnd);
+  canvas.addEventListener('lostpointercapture', onPointerEnd);
+
   return {
     camera:view, controls,
     setWorkFocus(value:'none'|'dig'|'research'){if(value===workFocus)return;workFocus=value;context='';},
@@ -58,51 +96,62 @@ export function createFollowCamera(canvas: HTMLCanvasElement) {
         view.updateProjectionMatrix(); view.updateMatrixWorld();
         return;
       }
-      groundY = pose.y; target.set(pose.x, pose.y + .45, pose.z);
+      groundY = pose.y - PLAYER_CENTER_HEIGHT; target.set(pose.x, pose.y + .45, pose.z);
       if (context !== nextContext) {
         context = nextContext;
         const offset = new THREE.Vector3(workFocus==='research'?-2.4:workFocus==='dig'?2.4:0, workFocus!=='none'?1.65:nextContext === 'room' ? 3.5 : 2.5, workFocus==='research'?-2.4:workFocus==='dig'?3:nextContext === 'room' ? 5 : 8).applyAxisAngle(up, pendingYaw);
         pendingYaw = 0;
-        camera.position.copy(target).add(offset);
-        controls.target.copy(target);
+        dist = offset.length();
+        yaw = Math.atan2(offset.x, offset.z);
+        pitch = Math.asin(offset.y / dist);
         controls.maxDistance = nextContext === 'room' ? 9 : 18;
       } else {
-        camera.position.add(new THREE.Vector3().subVectors(target, controls.target));
-        controls.target.copy(target);
+        // Wheel, pinch and the zoom buttons change the camera's radius inside OrbitControls.
+        dist = THREE.MathUtils.clamp(camera.position.distanceTo(controls.target), controls.minDistance, controls.maxDistance);
       }
-      camera.aspect = Math.max(.1, aspect); camera.updateProjectionMatrix(); controls.update();
-      view.copy(camera);view.name='explorer-camera';view.updateMatrixWorld();keepAboveGround();
+      controls.target.copy(target);
+      place();
+      camera.aspect = Math.max(.1, aspect); camera.updateProjectionMatrix();
+      view.copy(camera);view.name='explorer-camera';view.updateMatrixWorld();
     },
     avoidOcclusion(objects:THREE.Object3D[]) {
       if (firstPerson) return;
       const offset=new THREE.Vector3().subVectors(view.position,controls.target),distance=offset.length();
       ray.set(controls.target,offset.normalize());
       const hit=ray.intersectObjects(objects,true).find(hit=>{let obj:THREE.Object3D|null=hit.object;while(obj){if(!obj.visible)return false;obj=obj.parent;}return true;});
-      if(hit && hit.distance<distance) {view.position.copy(controls.target).addScaledVector(offset,Math.max(.45,hit.distance-.2));view.updateMatrixWorld();keepAboveGround();}
+      // Moving along the ray toward the target can only bring the camera closer to the target's height, so the floor limit still holds.
+      if(hit && hit.distance<distance) {view.position.copy(controls.target).addScaledVector(offset,Math.max(.45,hit.distance-.2));view.updateMatrixWorld();}
     },
     /** Switch viewpoint. The heading carries over so the player keeps facing the same way. */
     setFirstPerson(next: boolean) {
       if (next === firstPerson) return;
-      if (next) look = { yaw: wrapYaw(controls.getAzimuthalAngle()), pitch: -.08 };
+      if (next) look = { yaw: wrapYaw(facingYaw(yaw, pitch)), pitch: -.08 };
       else { pendingYaw = look.yaw; context = ''; }
       firstPerson = next;
     },
     isFirstPerson: () => firstPerson,
     /** Pointer deltas in pixels. Ignored outside first person. */
     look(dx: number, dy: number) { if (firstPerson) look = applyLook(look, dx, dy); },
-    // OrbitControls subtracts these angles: positive mouse X must turn the view right.
+    // Positive mouse X must turn the view right, positive Y raises the camera (matches OrbitControls drag).
     orbitLook(dx: number, dy: number) {
-      controls.rotateLeft(dx * .0022);
-      controls.rotateUp(dy * .0022);
-      controls.update();
+      if (firstPerson) return;
+      orbit(dx * .0022, dy * .0022);
     },
-    yaw: () => firstPerson ? look.yaw : controls.getAzimuthalAngle(),
+    /** Screen-relative heading used for WASD: stays continuous over the top, so W is always "up the screen". */
+    yaw: () => firstPerson ? look.yaw : yaw,
     reset() { context = ''; if (firstPerson) look = { yaw: look.yaw, pitch: -.08 }; },
     rotate(angle: number) {
       if (firstPerson) { look = { yaw: wrapYaw(look.yaw + angle), pitch: look.pitch }; return; }
-      controls.rotateLeft(angle); controls.update();
+      orbit(angle, 0);
     },
-    zoom(closer: boolean) { if (firstPerson) return; if (closer) controls.dollyIn(1 / 1.2); else controls.dollyOut(1 / 1.2); controls.update(); },
-    dispose() { controls.dispose(); },
+    zoom(closer: boolean) { if (firstPerson) return; if (closer) controls.dollyIn(1 / 1.2); else controls.dollyOut(1 / 1.2); },
+    dispose() {
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      canvas.removeEventListener('pointermove', onPointerMove);
+      canvas.removeEventListener('pointerup', onPointerEnd);
+      canvas.removeEventListener('pointercancel', onPointerEnd);
+      canvas.removeEventListener('lostpointercapture', onPointerEnd);
+      controls.dispose();
+    },
   };
 }

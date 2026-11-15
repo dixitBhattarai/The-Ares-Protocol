@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { STATIONS } from '../../contracts';
+import { MARS_LANDMARKS } from '../../contracts/exploration';
 import { WorldResources, type ModelKit } from './resources';
 
 /** Tileable value noise with irregular grains; no directional waves or woven pattern. */
@@ -194,7 +195,7 @@ export function createAbandonedEquipment(kit: ModelKit, resources: WorldResource
   // 1. Abandoned Retro Lander Descent Stage (Northeast dune field: x: 36, z: -26)
   const lander = new THREE.Group();
   lander.name = 'retro-lander-wreckage';
-  lander.position.set(36, 0.4, -26);
+  lander.position.set(MARS_LANDMARKS.lander.x, 0.4, MARS_LANDMARKS.lander.z); // solid in physics (MARS_OBSTACLES)
   lander.rotation.set(0.12, 0.4, -0.08);
 
   // Octagonal descent base wrapped in thermal foil
@@ -221,7 +222,7 @@ export function createAbandonedEquipment(kit: ModelKit, resources: WorldResource
   // 2. Deployable Meteorological Sensor Station (Southwest mesa edge: x: -25, z: 22)
   const weatherStation = new THREE.Group();
   weatherStation.name = 'weather-sensor-station';
-  weatherStation.position.set(-25, 0.2, 22);
+  weatherStation.position.set(MARS_LANDMARKS.weatherStation.x, 0.2, MARS_LANDMARKS.weatherStation.z); // solid in physics
 
   // Tripod base
   for (let i = 0; i < 3; i++) {
@@ -244,7 +245,7 @@ export function createAbandonedEquipment(kit: ModelKit, resources: WorldResource
 
   // 3. Seismic Sensor Pod (Southeast regolith: x: 14, z: 24)
   const seismicPod = new THREE.Group();
-  seismicPod.position.set(14, 0.08, 24);
+  seismicPod.position.set(MARS_LANDMARKS.seismicPod.x, 0.08, MARS_LANDMARKS.seismicPod.z); // solid in physics
   kit.cylinder(seismicPod, goldFoilMat, [0.65, 0.35, 0.65], [0, 0.18, 0]);
   kit.sphere(seismicPod, sensorGlowMat, [0.08, 0.08, 0.08], [0, 0.38, 0]);
   kit.cylinder(seismicPod, antennaMetalMat, [0.02, 1.2, 0.02], [0.2, 0.6, 0]);
@@ -282,7 +283,7 @@ export function createAlienRockFormations(kit: ModelKit, resources: WorldResourc
 
   // 1. Wind-carved Yardang Spire (Northwest ridge: x: -44, z: -32)
   const yardang1 = new THREE.Mesh(yardangGeo, rockMat);
-  yardang1.position.set(-44, 4.5, -32);
+  yardang1.position.set(-76, 4.5, -56); // rock formations sit just outside the walkable arena (no colliders)
   yardang1.scale.set(1.4, 1.2, 2.2);
   yardang1.rotation.set(0.15, -0.4, 0.1);
   yardang1.castShadow = true;
@@ -290,7 +291,7 @@ export function createAlienRockFormations(kit: ModelKit, resources: WorldResourc
   group.add(yardang1);
 
   const yardang2 = new THREE.Mesh(yardangGeo, darkRockMat);
-  yardang2.position.set(-38, 3.8, -38);
+  yardang2.position.set(-72, 3.8, -74);
   yardang2.scale.set(1.1, 1.0, 1.8);
   yardang2.rotation.set(0.12, -0.35, 0.08);
   yardang2.castShadow = true;
@@ -299,7 +300,7 @@ export function createAlienRockFormations(kit: ModelKit, resources: WorldResourc
 
   // 2. Balancing Hoodoos (Southeast desert: x: 38, z: 36)
   const hoodoo = new THREE.Group();
-  hoodoo.position.set(38, 0.8, 36);
+  hoodoo.position.set(68, 0.8, 50);
 
   const pillar = new THREE.Mesh(hoodooPillarGeo, darkRockMat);
   pillar.position.y = 3.25;
@@ -319,7 +320,7 @@ export function createAlienRockFormations(kit: ModelKit, resources: WorldResourc
 
   // 3. Natural Rock Arch (East-northeast ridge: x: 52, z: -8)
   const arch = new THREE.Group();
-  arch.position.set(52, 2.0, -8);
+  arch.position.set(78, 2.0, -8);
   arch.rotation.y = -0.35;
 
   const archLeg1 = new THREE.Mesh(yardangGeo, darkRockMat);

@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+import { MARS_LANDMARKS, MARS_WALKABLE_HALF_SIZE } from '../../contracts/exploration';
 import {
   ASTRONAUT_SPEED,
   BOUNDARY_MAX,
@@ -194,35 +195,63 @@ describe('Reset, Pause, Focus and Lifecycle Hooks', () => {
   it('enforces boundaries strictly during continuous movement in simulation', async () => {
     const physics = await createPhysics();
 
-    // Test X max boundary (18)
-    physics.reset!({ x: 17.5, y: 0.8, z: 0 });
+    // Mars is the large arena (Earth keeps the original 18 m campus, tested below)
+    // Test X max boundary
+    physics.reset!({ x: MARS_WALKABLE_HALF_SIZE - .5, y: 0.8, z: 0 });
     // Simulate walking right (+X)
+    window.dispatchEvent({ type: 'keydown', code: 'KeyD' } as any);
+    for (let i = 0; i < 60; i++) physics.step(1 / 60);
+    expect(physics.getPlayerPose().x).toBe(MARS_WALKABLE_HALF_SIZE);
+    window.dispatchEvent({ type: 'keyup', code: 'KeyD' } as any);
+
+    // Test X min boundary (-18)
+    physics.reset!({ x: -MARS_WALKABLE_HALF_SIZE + .5, y: 0.8, z: 0 });
+    window.dispatchEvent({ type: 'keydown', code: 'KeyA' } as any);
+    for (let i = 0; i < 60; i++) physics.step(1 / 60);
+    expect(physics.getPlayerPose().x).toBe(-MARS_WALKABLE_HALF_SIZE);
+    window.dispatchEvent({ type: 'keyup', code: 'KeyA' } as any);
+
+    // Test Z max boundary (18)
+    physics.reset!({ x: 0, y: 0.8, z: MARS_WALKABLE_HALF_SIZE - .5 });
+    window.dispatchEvent({ type: 'keydown', code: 'KeyS' } as any);
+    for (let i = 0; i < 60; i++) physics.step(1 / 60);
+    expect(physics.getPlayerPose().z).toBe(MARS_WALKABLE_HALF_SIZE);
+    window.dispatchEvent({ type: 'keyup', code: 'KeyS' } as any);
+
+    // Test Z min boundary (-18)
+    physics.reset!({ x: 0, y: 0.8, z: -MARS_WALKABLE_HALF_SIZE + .5 });
+    window.dispatchEvent({ type: 'keydown', code: 'KeyW' } as any);
+    for (let i = 0; i < 60; i++) physics.step(1 / 60);
+    expect(physics.getPlayerPose().z).toBe(-MARS_WALKABLE_HALF_SIZE);
+    window.dispatchEvent({ type: 'keyup', code: 'KeyW' } as any);
+
+    physics.dispose();
+  });
+
+  it('keeps Earth inside its original campus boundary even though Mars is larger', async () => {
+    const physics = await createPhysics();
+    physics.setGravityBody?.('earth');
+    physics.reset!({ x: BOUNDARY_MAX - .5, y: 0.8, z: 0 });
     window.dispatchEvent({ type: 'keydown', code: 'KeyD' } as any);
     for (let i = 0; i < 60; i++) physics.step(1 / 60);
     expect(physics.getPlayerPose().x).toBe(BOUNDARY_MAX);
     window.dispatchEvent({ type: 'keyup', code: 'KeyD' } as any);
+    physics.dispose();
+  });
 
-    // Test X min boundary (-18)
-    physics.reset!({ x: -17.5, y: 0.8, z: 0 });
-    window.dispatchEvent({ type: 'keydown', code: 'KeyA' } as any);
-    for (let i = 0; i < 60; i++) physics.step(1 / 60);
-    expect(physics.getPlayerPose().x).toBe(BOUNDARY_MIN);
-    window.dispatchEvent({ type: 'keyup', code: 'KeyA' } as any);
+  it('lets the astronaut walk across the large Mars arena but stops at solid landmarks', async () => {
+    const physics = await createPhysics();
+    physics.reset!({ x: 45, y: 0.8, z: -45 });
+    physics.walkPath?.([{ x: 55, y: 0.8, z: -55 }]);
+    for (let i = 0; i < 360; i++) physics.step(1 / 60);
+    expect(physics.getPlayerPose().x).toBeGreaterThan(54.5);
+    expect(physics.getPlayerPose().y).toBeCloseTo(GROUND_Y, 2);
 
-    // Test Z max boundary (18)
-    physics.reset!({ x: 0, y: 0.8, z: 17.5 });
-    window.dispatchEvent({ type: 'keydown', code: 'KeyS' } as any);
-    for (let i = 0; i < 60; i++) physics.step(1 / 60);
-    expect(physics.getPlayerPose().z).toBe(BOUNDARY_MAX);
-    window.dispatchEvent({ type: 'keyup', code: 'KeyS' } as any);
-
-    // Test Z min boundary (-18)
-    physics.reset!({ x: 0, y: 0.8, z: -17.5 });
-    window.dispatchEvent({ type: 'keydown', code: 'KeyW' } as any);
-    for (let i = 0; i < 60; i++) physics.step(1 / 60);
-    expect(physics.getPlayerPose().z).toBe(BOUNDARY_MIN);
-    window.dispatchEvent({ type: 'keyup', code: 'KeyW' } as any);
-
+    const rover = MARS_LANDMARKS.rover;
+    physics.reset!({ x: rover.x - 8, y: 0.8, z: rover.z });
+    physics.walkPath?.([{ x: rover.x + 8, y: 0.8, z: rover.z }]);
+    for (let i = 0; i < 300; i++) physics.step(1 / 60);
+    expect(physics.getPlayerPose().x).toBeLessThan(rover.x - rover.halfX + .1);
     physics.dispose();
   });
 

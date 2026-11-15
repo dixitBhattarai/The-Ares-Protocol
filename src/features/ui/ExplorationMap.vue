@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed,ref} from 'vue';
-import {DISCOVERY_SITES,type DiscoveryId} from '../../contracts/open-world';
+import {DISCOVERY_SITES,DISCOVERY_TRAILS,type DiscoveryId} from '../../contracts/open-world';
 import type {Vec3} from '../../contracts';
 const props=defineProps<{pose:Vec3;found:readonly DiscoveryId[];target:DiscoveryId|null;nearby?:string;busy:boolean}>();
 const emit=defineEmits<{select:[id:DiscoveryId];study:[];home:[]}>();
@@ -15,7 +15,7 @@ const distance=computed(()=>destination.value?Math.round(Math.hypot(props.pose.x
    <header><strong>ARES EXPANSE</strong><span>N ↑</span></header>
    <svg viewBox="-80 -80 160 160" role="group" aria-label="Mars exploration map. Select a landmark to track it.">
     <rect x="-80" y="-80" width="160" height="160" rx="5" fill="#233a3b"/><path v-for="i in 6" :key="i" :d="`M-80 ${-65+i*22}q50-30 90 0t80-20`" stroke="#46605a" fill="none" opacity=".4"/>
-    <path d="M0 16V24H-38L-33-36 37-32 36 30 0 24" fill="none" stroke="#a4b4a0" stroke-width=".6" stroke-dasharray="2 2"/>
+    <path v-for="(segment,i) in DISCOVERY_TRAILS" :key="'trail'+i" :d="`M${segment[0][0]} ${segment[0][1]}L${segment[1][0]} ${segment[1][1]}`" fill="none" stroke="#a4b4a0" stroke-width=".6" stroke-dasharray="2 2"/>
     <circle cy="-2" r="14" fill="#72988c" fill-opacity=".3" stroke="#a5c6af" stroke-width=".7"/><text x="0" y="0" text-anchor="middle" font-size="4" fill="#d0e2c7">BASE</text>
     <path v-if="destination" :d="`M${pose.x} ${pose.z}L${destination.x} ${destination.z}`" stroke="#ffdd9e" stroke-width=".6" stroke-dasharray="1 2"/>
     <g v-for="site in DISCOVERY_SITES" :key="site.id" tabindex="0" role="button" :aria-label="`Track ${site.name}${found.includes(site.id)?', discovered':''}`" :transform="`translate(${site.x} ${site.z})`" @click="emit('select',site.id)" @keydown.enter.stop.prevent="emit('select',site.id)" @keydown.space.stop.prevent="emit('select',site.id)">

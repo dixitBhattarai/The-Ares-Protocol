@@ -1,14 +1,13 @@
 import * as THREE from 'three';
-import {DISCOVERY_SITES} from '../../contracts/open-world';
+import {DISCOVERY_SITES,DISCOVERY_TRAILS} from '../../contracts/open-world';
 import type {ModelKit,WorldResources} from './resources';
 export function createOpenLandscape(kit:ModelKit,resources:WorldResources){
  const group=new THREE.Group();group.name='open-mars-discovery-trails';
  const trail=resources.material(new THREE.MeshStandardMaterial({color:'#b28d6d',roughness:1}));
  const rock=resources.material(new THREE.MeshStandardMaterial({color:'#56483d',roughness:1}));
  const metal=kit.materials.trim;
- const route=[[0,16],[0,24],[-38,24],[-33,-36],[37,-32],[36,30],[0,24]];
- for(let i=1;i<route.length;i++){
-  const [ax,az]=route[i-1],[bx,bz]=route[i],length=Math.hypot(bx-ax,bz-az),angle=Math.atan2(bx-ax,bz-az);
+ for(const [[ax,az],[bx,bz]] of DISCOVERY_TRAILS){
+  const length=Math.hypot(bx-ax,bz-az),angle=Math.atan2(bx-ax,bz-az);
   const path=kit.flatBox(group,trail,[1.7,.008,length],[(ax+bx)/2,.009,(az+bz)/2]);path.rotation.y=angle;
   for(let t=4;t<length;t+=8){const x=ax+(bx-ax)*t/length+Math.cos(angle)*1.2,z=az+(bz-az)*t/length-Math.sin(angle)*1.2;kit.cylinder(group,metal,[.025,.55,.025],[x,.275,z]);kit.box(group,kit.materials.orange,[.16,.08,.045],[x,.55,z]);}
  }

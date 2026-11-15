@@ -5,7 +5,7 @@ import { createVisualUpgrade } from './visual-upgrade';
 import type { FieldSample } from '../../contracts/exploration';
 import { createHabitatDome } from './habitat';
 import { createAvatarTools } from './avatar-tools';
-import { SAMPLE_SITE } from '../../contracts/exploration';
+import { MARS_LANDMARKS, SAMPLE_SITE } from '../../contracts/exploration';
 import type { AvatarActivity, PlayerMotion } from '../../contracts/exploration';
 import { createEvaEquipment } from './eva-suit';
 import { freshHabitatAccess } from '../../contracts/habitat';
@@ -67,7 +67,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     const atmosphere=createMarsAtmosphere(scene,resources);cleanups.push(()=>atmosphere.dispose());
     scene.add(new THREE.HemisphereLight('#c3d9dc', '#64504a', 2.05));
     const sun = new THREE.DirectionalLight('#fff2de', 2.8);
-    sun.position.set(-18,10,-35);sun.shadow.radius=2.5;
+    sun.position.set(-18,10,-35);sun.shadow.radius=2.5;scene.add(sun.target);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
     Object.assign(sun.shadow.camera, { left: -25, right: 25, top: 25, bottom: -25, near: .5, far: 65 });
@@ -84,7 +84,9 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     let earthOutside = false;
     const nasa = createNasaLoader(resources);
     cleanups.push(() => nasa.dispose());
-    // Distant scenery remains beyond the exploration boundary.
+    // The rover is a solid landmark inside the Mars arena (matching MARS_OBSTACLES collider in physics).
+    const fieldRover = new THREE.Group(); fieldRover.position.set(MARS_LANDMARKS.rover.x, 0, MARS_LANDMARKS.rover.z); fieldRover.rotation.y = -Math.PI / 3; scene.add(fieldRover);
+    void nasa.attach(fieldRover, 'curiosity', 3.2, undefined, true);
     const volcano = new THREE.Group();
     volcano.name = 'olympus-mons-distant';
     volcano.position.set(-70, -22, -430); scene.add(volcano);
@@ -858,6 +860,12 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         if(avatarActivity.action==='dig')astronaut.group.rotation.y=Math.atan2(SAMPLE_SITE.x-pose.x,SAMPLE_SITE.z-pose.z);
         else if(avatarActivity.action==='research')astronaut.group.rotation.y=Math.PI;
         playerShadow.position.set(pose.x, .014, pose.z);
+        // Keep the sun's shadow box centred near the player so shadows reach across the larger Mars arena.
+        const sunX = Math.round(pose.x / 2) * 2, sunZ = Math.round(pose.z / 2) * 2;
+        if (sunX !== sun.target.position.x || sunZ !== sun.target.position.z) {
+          sun.target.position.set(sunX, 0, sunZ); sun.position.set(sunX - 18, 10, sunZ - 35);
+          sun.target.updateMatrixWorld(); renderer!.shadowMap.needsUpdate = true;
+        }
         if (redrawShadow) renderer!.shadowMap.needsUpdate = true;
         // Keep the path trailer origin up-to-date with player position so chevrons always start from the player.
         if (emergencyPath.isActive()) emergencyPath.setRoute(pose, emergencyPath.getTarget());

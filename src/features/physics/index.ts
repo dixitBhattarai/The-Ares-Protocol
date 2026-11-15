@@ -3,6 +3,7 @@ import { ROAM_LIMIT, SITE_OBSTACLES } from '../../contracts/open-world';
 import { constrainHabitatMotion } from './habitat';
 import type { HabitatAccess } from '../../contracts/habitat';
 import type { PlayerMotion } from '../../contracts/exploration';
+import { MARS_OBSTACLES, MARS_WALKABLE_HALF_SIZE } from '../../contracts/exploration';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { BUILDING_HALF_SIZE, DOOR_HALF_WIDTH, STATIONS } from '../../contracts';
 import type { GravityBody, GravityInfo, PhysicsAdapter, StationId, Vec3 } from '../../contracts';
@@ -86,9 +87,10 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   const gravity = { x: 0, y: -MARS_GRAVITY, z: 0 };
   const world = new RAPIER.World(gravity);
 
-  // Shared flat floor supports the enlarged Mars map. Runtime bounds still restrict Earth and mission mode.
+  // Both Mars modes share a flat floor; Earth keeps its original clamp.
+  const groundHalf=Math.max(ROAM_LIMIT,MARS_WALKABLE_HALF_SIZE)+4;
   world.createCollider(
-    RAPIER.ColliderDesc.cuboid(ROAM_LIMIT+2, 0.1, ROAM_LIMIT+2)
+    RAPIER.ColliderDesc.cuboid(groundHalf,0.1,groundHalf)
       .setTranslation(0, -0.1, 0)
       .setFriction(0)
       .setRestitution(0),
@@ -115,6 +117,13 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
     if(station.id==='greenhouse')for(const px of [-1.65,1.65])box(.525,.34,1.15,px,.34,.6);
     if(station.id==='habitat')box(.625,.9,1,-2,.9,-.1);
     if(station.id==='solar')for(const px of [-2,2])box(.4,.8,.55,px,.8,.2);
+  }
+
+  // Landmarks inside the Mars arena. World draws them at the same spots (contracts MARS_LANDMARKS).
+  for (const o of MARS_OBSTACLES) {
+    marsOnlyColliders.push(world.createCollider(
+      RAPIER.ColliderDesc.cuboid(o.halfX, o.height / 2, o.halfZ).setTranslation(o.x, o.height / 2, o.z).setFriction(0),
+    ));
   }
 
   // Solid envelope around the Earth launch vehicle and its service gantry.
@@ -295,8 +304,9 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       world.step();
 
       const pose = body.translation();
-      const min = outsidePose ? -2.6 : gravityBody==='mars'&&freeRoam?-ROAM_LIMIT:BOUNDARY_MIN;
-      const max = outsidePose ? 2.6 : gravityBody==='mars'&&freeRoam?ROAM_LIMIT:BOUNDARY_MAX;
+      const arena=gravityBody==='mars'?(freeRoam?Math.max(ROAM_LIMIT,MARS_WALKABLE_HALF_SIZE):MARS_WALKABLE_HALF_SIZE):BOUNDARY_MAX;
+      const min=outsidePose?-2.6:-arena;
+      const max=outsidePose?2.6:arena;
       let clampedX = Math.max(min, Math.min(max, pose.x));
       let clampedZ = Math.max(min, Math.min(max, pose.z));
       let clampedY = pose.y;
