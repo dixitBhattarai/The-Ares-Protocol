@@ -26,6 +26,7 @@ import {createLandingFlight,createFinalApproach,stepLandingFlight,landingGuidanc
 import {createLaunchFlight,stepLaunchFlight,SPACE_ALTITUDE} from './features/physics/launch-flight';
 import SplashScreen from './features/ui/SplashScreen.vue';
 import LoginScreen from './features/ui/LoginScreen.vue';
+import PauseScreen from './features/ui/PauseScreen.vue';
 import ActivityPanel from './features/world/ActivityPanel.vue';
 import { advanceActivity, type Activity } from './features/game/activities';
 import VisualPreflightMinigame from './features/game/VisualPreflightMinigame.vue';
@@ -340,13 +341,32 @@ function operateFlightControl(key: FlightControlKey) {
   if (result.complete && stage === 'landing') updateFlightStage('touchdown', 0);
 }
 
-function togglePreparationPause() {
-  clearLaunchInput();
-  preparationPaused.value = !preparationPaused.value;
-  music?.setPaused(preparationPaused.value);
-  if (preparationPaused.value) { physics?.pauseInput?.(); flightSim?.pause(); }
-  else { if (!flightStage.value && !cabinSeated.value) physics?.resumeInput?.(); if (mayResumeFlightSim()) flightSim?.resume(); }
-  world?.setMotionPaused?.(preparationPaused.value || state.value.phase === 'paused');
+const gamePaused=computed(()=>preparationPaused.value || state.value.phase==='paused');
+function requestPause(){
+ if(gamePaused.value)return;
+ clearLaunchInput();physics?.pauseInput?.();world?.setMotionPaused?.(true);music?.setPaused(true);
+ if(preparation.value||flightStage.value){preparationPaused.value=true;flightSim?.pause();}
+ else if(state.value.phase==='running')dispatch({type:'PAUSE'});
+}
+function resumeGame(){
+ if(!gamePaused.value)return;
+ clearLaunchInput();preparationPaused.value=false;
+ if(state.value.phase==='paused')dispatch({type:'RESUME'});
+ music?.setPaused(false);world?.setMotionPaused?.(false);
+ if(mayResumeFlightSim())flightSim?.resume();
+ void nextTick(()=>{
+  // Hidden/focused controls must not keep swallowing movement after Resume.
+  (document.activeElement as HTMLElement)?.blur();host.value?.focus({preventScroll:true});syncMovementInput();
+ });
+}
+function togglePreparationPause(){if(gamePaused.value)resumeGame();else requestPause();}
+function syncMovementInput(){
+ const focused=document.activeElement as HTMLElement|null;
+ const editing=!!focused?.closest('input,textarea,select,[contenteditable]');
+ const deckFocused=!!commandPanel.value?.contains(focused)&&!!commandPanel.value?.getClientRects().length;
+ const free=!document.hidden&&!gamePaused.value&&!scienceOpen.value&&!activeActivity.value&&!doingFieldWork.value&&!cabinSeated.value&&!flightStage.value&&!editing&&!deckFocused
+  &&(state.value.phase==='running'||!!preparation.value)&&!showLogin.value&&!showSplash.value;
+ if(free)physics?.resumeInput?.();else physics?.pauseInput?.();
 }
 function enterEarthLab(accessible = true) {
   if (preparation.value !== 'earth' || preparationPaused.value || !earthOutside.value) return;
@@ -493,7 +513,8 @@ const showSplash = ref(true);
 const showLogin = ref(true);
 
 function trapDeck(event:KeyboardEvent){
- if(event.key==='Escape'){event.preventDefault();if(state.value.phase==='paused')dispatch({type:'RESUME'});else deckVisible.value=false;return;}
+ if(event.code==='KeyP'){event.preventDefault();if(!event.repeat)requestPause();return;}
+ if(event.key==='Escape'){event.preventDefault();deckVisible.value=false;(document.activeElement as HTMLElement)?.blur();host.value?.focus();return;}
  if(event.key!=='Tab')return;
  const nodes=Array.from(commandPanel.value?.querySelectorAll<HTMLElement>('button:not(:disabled),summary,a[href],input:not(:disabled),select,[tabindex="0"]')??[]).filter(node=>node.getClientRects().length);
  const first=nodes[0],last=nodes[nodes.length-1];if(!first)return;
@@ -551,7 +572,7 @@ function dispatch(action: GameAction) {
     world?.setObjective?.(task.station);physics?.pauseInput?.();deckVisible.value=false;return;
   }
   if (action.type === 'RESTART') { pendingSampleAction=null;scienceOpen.value=false;scienceAbort?.abort();fieldNotice.value='';habitatAccess.value=freshHabitatAccess();airlockNotice.value='';missionTimerActive.value=false;arrivalGuide.value=false;clearLandingFlight();clearLaunchFlight();missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; preparationProgress.value=0;nearCabinSeat.value=false;cabinSeated.value=false;world?.setCabinSeatState?.('hidden');arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
-  if (action.type === 'PAUSE' && state.value.phase === 'running') {pendingSampleAction=null;deckVisible.value=true;music?.setPaused(true);}
+  if (action.type === 'PAUSE' && state.value.phase === 'running') {world?.setMotionPaused?.(true);pendingSampleAction=null;deckVisible.value=true;music?.setPaused(true);}
   if (action.type === 'RESUME' && !directDecisionMode.value) deckVisible.value=false;
   if (action.type === 'RESUME' && state.value.phase === 'paused') music?.setPaused(false);
   const previousState = state.value;
@@ -594,11 +615,7 @@ function advanceMissionTime(elapsed:number) {
   }else missionSeconds=0;
 }
 
-function pauseWhenHidden() {
-  if(document.hidden)clearLaunchInput();
-  if (document.hidden && (preparation.value || flightStage.value)) { preparationPaused.value = true; physics?.pauseInput?.(); flightSim?.pause(); music?.setPaused(true); }
-  if (document.hidden) dispatch({ type: 'PAUSE' });
-}
+function pauseWhenHidden(){if(document.hidden)requestPause();}
 
 let lastCheckedPose = { x: 999, y: 999, z: 999 };
 function checkStationProximity(pose: Vec3) {
@@ -634,6 +651,10 @@ function checkStationProximity(pose: Vec3) {
 }
 
 function handleGlobalKeydown(event: KeyboardEvent) {
+  if((event.code==='KeyP'||event.code==='Escape')&&!(event.target as HTMLElement|null)?.closest('input:not([type=range]),textarea,select,[contenteditable]')&&!showLogin.value&&!showSplash.value&&!scienceOpen.value){
+    event.preventDefault();if(!event.repeat && (preparation.value||flightStage.value||state.value.phase==='running'||gamePaused.value)){if(gamePaused.value)resumeGame();else requestPause();}return;
+  }
+  if(gamePaused.value)return;
   if(landingFlight.value&&flightStage.value==='landing'&&!(event.target as HTMLElement|null)?.closest('input,textarea,select,[contenteditable]')){
     if(event.code==='KeyP'){event.preventDefault();if(!event.repeat)togglePreparationPause();return;}
     if(['KeyW','KeyS','KeyA','KeyD','KeyQ','KeyE'].includes(event.code)){event.preventDefault();holdLanding(event.code as FlightControlKey,true);return;}
@@ -745,6 +766,7 @@ onMounted(async () => {
     });
     world.onInteract?.(id=>dispatch({type:'START_TASK',taskId:id}));
     physics = await createPhysics();
+    syncMovementInput();
     setGravity(preparation.value==='earth'?'earth':preparation.value==='space'?'orbit':'mars');
     world.setConsoleHandler?.(index => {
       if (preparation.value === 'space') {
@@ -789,7 +811,8 @@ onMounted(async () => {
         }
         if (flightStage.value === stage) world!.setFlightStage?.(stage, flightProgress.value ?? 0);
       }
-      if (!document.hidden && ((state.value.phase === 'running' && !activeActivity.value && !doingFieldWork.value && !scienceOpen.value) || (preparation.value && !preparationPaused.value && !cabinSeated.value))) {
+      syncMovementInput();
+      if (!document.hidden && !gamePaused.value && ((state.value.phase === 'running' && !activeActivity.value && !doingFieldWork.value && !scienceOpen.value) || (preparation.value && !preparationPaused.value && !cabinSeated.value))) {
         physics!.setCameraYaw?.(world!.getCameraYaw?.() ?? 0);
         accumulator = Math.min(accumulator + elapsed, 0.1);
         while (accumulator >= 1 / 60) {
@@ -885,6 +908,7 @@ onBeforeUnmount(() => {
 <template>
   <SplashScreen v-if="showSplash" @finished="onSplashDone" />
   <LoginScreen v-if="showLogin" @start="onLoginStart" @explore="quickStartMars" />
+  <PauseScreen v-if="gamePaused && !scienceOpen" :context="preparation==='earth'?'EARTH':preparation==='space'?'FLIGHT CABIN':flightStage?'SPACEFLIGHT':'MARS OUTPOST'" @resume="resumeGame" />
   <main class="ares-app" :class="{'console-open':scienceOpen || activeActivity || (deckVisible && (preparation || flightStage || state.phase!=='running' || directDecisionMode)),'mars-play':arrivalComplete && state.phase==='running','launch-active':!!launchFlight}">
 
     <div v-if="scienceOpen" ref="scienceDialog" class="science-modal" role="dialog" aria-modal="true" aria-label="NASA science console" tabindex="-1" @keydown.stop="trapScience">
@@ -903,7 +927,7 @@ onBeforeUnmount(() => {
       </div>
       <div class="header-controls">
         <span class="prototype-label">Junior explorer program</span><button v-if="!launchFlight && !landingFlight" @click="openScience">NASA</button>
-        <button v-if="state.taskRun && (state.phase==='running'||state.phase==='paused')" @click="dispatch({type:state.phase==='paused'?'RESUME':'PAUSE'})">{{ state.phase==='paused'?'Resume':'Pause' }}</button>
+        <button v-if="!launchFlight && !landingFlight && (preparation || flightStage || state.phase==='running' || gamePaused)" @click="gamePaused?resumeGame():requestPause()">{{ gamePaused?'Resume':'Pause' }}</button>
         <button
           type="button"
           v-if="!launchFlight && !landingFlight" class="mode-btn"
@@ -946,6 +970,7 @@ onBeforeUnmount(() => {
         <div
           ref="host"
           class="viewport"
+          tabindex="-1"
           role="region"
           :aria-label="flightStage ? 'Rocket ascent, transfer or Mars landing view' : preparation === 'earth' ? 'Interactive Earth launch site' : preparation === 'space' ? 'Interactive zero-gravity rocket cabin' : 'Interactive 3D Mars Outpost Viewport'"
         />
@@ -1000,14 +1025,14 @@ onBeforeUnmount(() => {
 
         <!-- Coherent In-Viewport Overlay Host for Shell UI Panels -->
         <section
-          v-show="deckVisible && !activeActivity && !launchFlight && !landingFlight && (!!preparation || !!flightStage || state.phase !== 'running' || directDecisionMode || !!graphicsError)"
+          v-show="!gamePaused && deckVisible && !activeActivity && !launchFlight && !landingFlight && (!!preparation || !!flightStage || state.phase !== 'running' || directDecisionMode || !!graphicsError)"
           ref="commandPanel"
           class="command-panel in-viewport-deck"
           role="dialog" aria-label="Mission controls"
           tabindex="0"
           @keydown.stop="trapDeck"
-          @focusin="physics?.pauseInput?.()"
-          @focusout="!scienceOpen && !cabinSeated && !activeActivity && (state.phase === 'running' || (preparation && !preparationPaused)) && physics?.resumeInput?.()"
+          @focusin="syncMovementInput"
+          @focusout="nextTick(syncMovementInput)"
         >
           <div v-if="!activeActivity" class="command-heading">
             <span>ARES</span>

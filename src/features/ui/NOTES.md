@@ -113,3 +113,7 @@ Shortened briefing/pause text, collapsed debrief history/coaching, and moved sou
 
 ### 15 November — visible fieldwork and real science console
 Added FieldWorkPanel, connected the NASA ScienceConsole, and added a direct Mars field-mission entry alongside the complete flight path. Work controls sit to the side on desktop and above the avatar on mobile. The science modal pauses/resumes the game or preflight, traps keyboard focus, cancels outstanding refreshes on close/unmount and retains a labelled archive when blocked. The default path keeps prompts short; source dates, image credits and the NASA statement remain available in the science console.
+
+### 15 November — explicit pause and resume screen
+
+The user requested a pause/resume screen plus camera/input fixes. Himamshu's coordinated slice adds `PauseScreen.vue`, composed by App for Mars, Earth preparation, cabin and flight. It provides a focused Resume button, Tab containment, P/Escape resumption, visible focus, cursor-release instructions and a 360px layout. App freezes motion/flight/music and releases pointer capture while paused; returning from hidden tabs requires explicit Resume. It resumes with neutral viewport focus instead of leaving keys trapped in a hidden console. Validation: browser Mars/Earth/launch pause/resume, focus trap, movement restoration, visibility-change handler and 360px layout; all 214 tests/typecheck/build pass. Dixit retains subsequent UI ownership.

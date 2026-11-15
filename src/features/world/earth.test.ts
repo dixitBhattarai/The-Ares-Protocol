@@ -58,3 +58,13 @@ describe('Realistic Earth Campus Environment', () => {
     resources.dispose();
   });
 });
+
+it('leaves an actual hole in the apron beneath the lab floor',()=>{
+ const resources=new WorldResources(),earth=createEarthCampus(createModelKit(resources),resources);
+ earth.scene.updateMatrixWorld(true);
+ const apron=earth.scene.getObjectByName('apron-with-lab-opening')!;
+ const ray=new THREE.Raycaster(new THREE.Vector3(-7,2,0),new THREE.Vector3(0,-1,0));
+ expect(ray.intersectObject(apron)).toHaveLength(0);
+ ray.set(new THREE.Vector3(-11,2,0),new THREE.Vector3(0,-1,0));expect(ray.intersectObject(apron)).toHaveLength(1);
+ earth.dispose();resources.dispose();
+});

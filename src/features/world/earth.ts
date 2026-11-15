@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createEarthSurface } from './earth-surface';
 import { STATIONS } from '../../contracts';
 import { createStation } from './models';
 import type { ModelKit, WorldResources } from './resources';
@@ -12,7 +13,7 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   scene.add(new THREE.HemisphereLight('#d9eafa', '#7c7a65', 2.1));
   const sun = new THREE.DirectionalLight('#fff0d5', 3.2);
   sun.position.set(-35, 48, 22);sun.castShadow=true;
-  sun.shadow.mapSize.set(1024,1024);sun.shadow.normalBias=.025;sun.shadow.bias=-.0002;
+  sun.shadow.mapSize.set(2048,2048);sun.shadow.normalBias=.06;sun.shadow.bias=-.00035;
   Object.assign(sun.shadow.camera,{left:-32,right:32,top:32,bottom:-32,near:.5,far:160});
   scene.add(sun);
   const concrete = resources.material(new THREE.MeshStandardMaterial({color:'#9da6a6',roughness:.95}));
@@ -22,17 +23,19 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   const steel = resources.material(new THREE.MeshStandardMaterial({color:'#364f5c',metalness:.45,roughness:.65}));
   const paint = resources.material(new THREE.MeshBasicMaterial({color:'#eee0b4'}));
   const glass = resources.material(new THREE.MeshStandardMaterial({color:'#497b89',metalness:.3,roughness:.25}));
-  const ground = new THREE.Mesh(resources.geometry(new THREE.PlaneGeometry(440,440)),sand);
-  ground.rotation.x=-Math.PI/2;ground.position.y=-.025;ground.receiveShadow=true;scene.add(ground);
+  const ground=createEarthSurface(resources,440);ground.position.y=-.025;scene.add(ground);
   const apron=new THREE.Group();apron.name='crew-operations-apron';scene.add(apron);
-  kit.flatBox(apron,concrete,[39,.025,39],[0,-.0125,-1]);
-  // Broad slabs, quiet joints, and a marked pedestrian route to the launch pad.
-  for(let x=-18;x<=18;x+=6)kit.flatBox(apron,asphalt,[.025,.003,37],[x,.002,-1]);
-  for(let z=-18;z<=16;z+=6)kit.flatBox(apron,asphalt,[37,.003,.025],[0,.002,z]);
-  kit.flatBox(apron,asphalt,[9,.025,120],[23,0,-36]);
-  for(let z=-80;z<24;z+=5)kit.flatBox(apron,paint,[.12,.005,2],[23,.017,z]);
-  for(const x of [-8,-6])kit.flatBox(apron,paint,[.09,.005,12],[x,.01,10]);
-  for(let z=5;z<16;z+=1.5)kit.flatBox(apron,paint,[1.7,.005,.3],[-7,.012,z]);
+  // One apron with an actual opening for the crew building: no coincident floor faces.
+  const outline=new THREE.Shape();outline.moveTo(-12,-5);outline.lineTo(-2,-5);outline.lineTo(-2,5);outline.lineTo(-12,5);outline.closePath();
+  const labOpening=new THREE.Path();labOpening.moveTo(-10.3,-3.3);labOpening.lineTo(-10.3,3.3);labOpening.lineTo(-3.7,3.3);labOpening.lineTo(-3.7,-3.3);labOpening.closePath();outline.holes.push(labOpening);
+  const apronSurface=new THREE.Mesh(resources.geometry(new THREE.ShapeGeometry(outline)),concrete);apronSurface.rotation.x=-Math.PI/2;apronSurface.name='apron-with-lab-opening';apron.add(apronSurface);
+  // Narrow paved routes leave the coastal grass/sand visible throughout the walkable map.
+  kit.flatBox(apron,concrete,[2.4,.025,12],[-7,-.0125,11]);
+  kit.flatBox(apron,concrete,[20,.025,2.4],[2.5,-.0125,5]);
+  kit.flatBox(apron,concrete,[2.4,.025,15],[12,-.0125,-2.5]);
+  for(let z=6;z<16;z+=1.5)kit.flatBox(apron,paint,[1.7,.004,.22],[-7,.008,z]);
+  kit.flatBox(apron,asphalt,[7,.025,120],[23,-.0125,-36]);
+  for(let z=-80;z<24;z+=5)kit.flatBox(apron,paint,[.12,.005,2],[23,.008,z]);
 
   // Only one occupiable Earth building. Keep its doorway/console coordinates aligned with physics.
   const station=STATIONS.find(s=>s.id==='habitat')!;

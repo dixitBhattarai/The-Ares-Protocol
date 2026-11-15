@@ -81,13 +81,13 @@ export function addRocketFlightSeat(parent: THREE.Object3D, kit: ModelKit, resou
     kit.flatBox(seat, kit.materials.trim, [.16, .09, .55], [side * .44, 1.02, .03]);
     kit.box(seat, kit.materials.orange, [.1, .11, .16], [side * .42, .8, -.2]);
   }
-  kit.flatBox(seat, kit.materials.trim, [.68, .12, .46], [0, .1, -.08]);
+  kit.flatBox(seat, kit.materials.trim, [.68, .12, .46], [0, .28, -.55]);
 
   const harness = new THREE.Group();
   harness.name = 'seat harness';
   for (const side of [-1, 1]) {
-    const strap = kit.box(harness, kit.materials.orange, [.09, .8, .055], [side * .2, 1.1, -.1]);
-    strap.rotation.z = side * .48;
+    const strap = kit.box(harness, kit.materials.orange, [.055, .45, .04], [side * .16, 1.065, -.12]);
+    strap.rotation.z = -side * .2;
   }
   kit.box(harness, kit.materials.orange, [.54, .09, .055], [0, .84, -.1]);
   const buckle = kit.box(harness, kit.materials.ivory, [.14, .12, .06], [0, .84, -.14]);

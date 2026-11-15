@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { AvatarActivity, PlayerMotion } from '../../contracts/exploration';
+import { createCabinPosture } from './cabin-posture';
 import { createAvatarActionLayer } from './avatar-action';
 
 /** AnimationMixer blending, following Three.js's skinning/blending example.
@@ -42,16 +43,15 @@ export function createLocomotion(model: THREE.Object3D, clips: readonly THREE.An
   let playerMotion: PlayerMotion = {grounded:true,verticalSpeed:0,body:'mars'};
   let activity: AvatarActivity = {action:'none',progress:0};
   let posture:'ground'|'float'|'seated'='ground';
-  const posed: {bone:THREE.Object3D;rest:THREE.Quaternion;kind:string}[]=[];
-  model.traverse(bone=>{const kind=bone.name.replace(/^.*[:]/,'').replace(/^mixamorig\d*/, '');if(/^(Left|Right)(UpLeg|Leg)$/.test(kind))posed.push({bone,rest:bone.quaternion.clone(),kind});});
-  function pose(){if(posture==='ground')return;for(const {bone,rest,kind} of posed){const seated=posture==='seated';const x=/UpLeg$/.test(kind)?(seated?-1.15:-.16):(seated?1.4:.3);const z=0;bone.quaternion.copy(rest).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(x,0,z)));}}
+  const cabinPosture=createCabinPosture(model);
+  const pose=()=>cabinPosture.apply(posture);
   return {
     mixer,
     setMotion(motion: PlayerMotion) { playerMotion = motion; actionLayer.setMotion(motion); },
     setActivity(next: AvatarActivity) { activity = next; actionLayer.setActivity(next); },
     resetActions() { actionLayer.reset(); playerMotion={grounded:true,verticalSpeed:0,body:'mars'}; activity={action:'none',progress:0}; moving = false; sinceMovement = Infinity; },
     getActionState: actionLayer.getState,
-    setPosture(value:'ground'|'float'|'seated'){if(posture===value)return;actionLayer.beforeMixer();for(const {bone,rest} of posed)bone.quaternion.copy(rest);posture=value;moving=false;sinceMovement=Infinity;mixer.update(0);pose();},
+    setPosture(value:'ground'|'float'|'seated'){if(posture===value)return;cabinPosture.restore();actionLayer.beforeMixer();posture=value;moving=false;sinceMovement=Infinity;mixer.update(0);pose();},
     actions: actions as ReadonlyMap<string, THREE.AnimationAction>,
     setMoving(value: boolean) { moving = value; if (value) sinceMovement = 0; },
     update(seconds: number, active: boolean, reduceMotion: boolean) {
@@ -62,7 +62,7 @@ export function createLocomotion(model: THREE.Object3D, clips: readonly THREE.An
           current = actions.get('Idle')!;
           current.reset().setEffectiveWeight(1).play();
         }
-        actionLayer.beforeMixer();
+        cabinPosture.restore();actionLayer.beforeMixer();
         mixer.update(0);
         pose();
         actionLayer.update(0, true, true, posture==='ground');
@@ -80,11 +80,11 @@ export function createLocomotion(model: THREE.Object3D, clips: readonly THREE.An
         current.crossFadeTo(next, .2, false);
         current = next;
       }
-      actionLayer.beforeMixer();
+      cabinPosture.restore();actionLayer.beforeMixer();
       mixer.update(delta);
       pose();
       actionLayer.update(delta, true, false, posture==='ground');
     },
-    dispose() { actionLayer.reset(); mixer.stopAllAction(); mixer.uncacheRoot(model); },
+    dispose() { cabinPosture.restore();actionLayer.reset(); mixer.stopAllAction(); mixer.uncacheRoot(model); },
   };
 }
