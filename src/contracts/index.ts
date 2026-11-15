@@ -116,10 +116,13 @@ export interface PendingDelayedEffect {
 export interface GameState {
   fieldSample?: import('./exploration').FieldSample;
   taskRun?: {
+    radiationExposure?: number;
     session: number;
     elapsed: number;
     completedIds: readonly string[];
     activeTaskId?: string;
+    /** Task IDs remain unavailable until these active-time expiries. */
+    cooldowns?: Readonly<Record<string, number>>;
     protections: Partial<Record<StationId, number>>;
   };
   phase: Phase;

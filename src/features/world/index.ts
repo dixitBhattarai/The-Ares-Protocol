@@ -4,7 +4,7 @@ import { createVisualUpgrade } from './visual-upgrade';
 import type { FieldSample } from '../../contracts/exploration';
 import { createHabitatDome } from './habitat';
 import { createAvatarTools } from './avatar-tools';
-import { SAMPLE_SITE } from '../../contracts/exploration';
+import { MARS_LANDMARKS, SAMPLE_SITE } from '../../contracts/exploration';
 import type { AvatarActivity, PlayerMotion } from '../../contracts/exploration';
 import { createEvaEquipment } from './eva-suit';
 import { freshHabitatAccess } from '../../contracts/habitat';
@@ -32,7 +32,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
   container.className = 'ares-world';
   const scene = new THREE.Scene();
   scene.name = 'mars-outpost';
-  const camera = new THREE.OrthographicCamera(-10, 10, 7, -7, .1, 220);
+  const camera = new THREE.OrthographicCamera(-10, 10, 7, -7, .1, 1400);
   const playerPose = new THREE.Vector3(0, .8, 5);
   const cleanups: Array<() => void> = [];
   let renderer: THREE.WebGLRenderer | undefined;
@@ -66,7 +66,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     const atmosphere=createMarsAtmosphere(scene,resources);cleanups.push(()=>atmosphere.dispose());
     scene.add(new THREE.HemisphereLight('#c3d9dc', '#64504a', 2.05));
     const sun = new THREE.DirectionalLight('#fff2de', 2.8);
-    sun.position.set(-18,10,-35);sun.shadow.radius=2.5;
+    sun.position.set(-18,10,-35);sun.shadow.radius=2.5;scene.add(sun.target);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
     Object.assign(sun.shadow.camera, { left: -25, right: 25, top: 25, bottom: -25, near: .5, far: 65 });
@@ -83,11 +83,26 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     let earthOutside = false;
     const nasa = createNasaLoader(resources);
     cleanups.push(() => nasa.dispose());
-    // Scenic references stay outside the walkable boundary: no invisible indoor obstacles.
-    const rover = new THREE.Group(); rover.position.set(21, 0, 7); rover.rotation.y = -Math.PI / 3; scene.add(rover);
+    // The rover is a solid landmark inside the Mars arena (matching MARS_OBSTACLES collider in physics).
+    const rover = new THREE.Group(); rover.position.set(MARS_LANDMARKS.rover.x, 0, MARS_LANDMARKS.rover.z); rover.rotation.y = -Math.PI / 3; scene.add(rover);
     void nasa.attach(rover, 'curiosity', 3.2, undefined, true);
-    const volcano = new THREE.Group(); volcano.position.set(0, -4.5, -58); scene.add(volcano);
-    void nasa.attach(volcano, 'olympus', 58, undefined, true);
+    const volcano = new THREE.Group();
+    volcano.name = 'olympus-mons-distant';
+    volcano.position.set(-70, -22, -430); scene.add(volcano);
+    void nasa.attach(volcano, 'olympus', 560, undefined, true).then(() => {
+      if (disposed) return;
+      volcano.traverse(object => {
+        if (!(object instanceof THREE.Mesh)) return;
+        object.castShadow = false; object.receiveShadow = false;
+        for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+          if (!(material instanceof THREE.MeshStandardMaterial)) continue;
+          // Explicit distant haze: the base's short-range dust fog would erase this landmark.
+          material.fog = false; material.color.set('#aa9185');
+          material.emissive.set('#b87d69'); material.emissiveIntensity = .32;
+          material.roughness = 1;
+        }
+      });
+    });
     const expedition = createExpeditionViews(kit, resources, nasa);
     cleanups.push(() => expedition.dispose());
     const launchView=createLaunchView(kit,resources,nasa);cleanups.push(()=>launchView.dispose());
@@ -331,8 +346,9 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         const result = targetEl.requestPointerLock() as unknown;
         if (result && typeof (result as Promise<void>).catch === 'function') {
           (result as Promise<void>).catch(() => {
-            // Native lock rejected (e.g., sandboxed iframe or keyboard gesture); virtualLock remains active
-            updateLookUI();
+            // Native lock rejected (e.g. sandboxed iframe or re-lock right after Esc). First person keeps a
+            // virtual lock; third person falls back to normal drag-orbit so the camera never gets stuck.
+            if (!firstPerson) unlockMouse(); else updateLookUI();
           });
         }
       } catch {
@@ -499,8 +515,8 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     };
 
     const onPointerLockError = () => {
-      // Keep virtualLock working even if browser denied native pointer lock
-      updateLookUI();
+      // First person keeps a virtual lock if the browser denies native lock; third person unlocks to drag-orbit.
+      if (!firstPerson) unlockMouse(); else updateLookUI();
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -647,7 +663,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
       [document.createElement('button'), 'Reset camera', () => follow.reset()],
     ];
     const cameraMenu=document.createElement('details');const cameraSummary=document.createElement('summary');cameraSummary.textContent='Camera';cameraMenu.appendChild(cameraSummary);
-    const cameraKey=(event:KeyboardEvent)=>event.stopPropagation();cameraMenu.addEventListener('keydown',cameraKey);cleanups.push(()=>cameraMenu.removeEventListener('keydown',cameraKey));
+    const cameraKey=(event:KeyboardEvent)=>{if(event.code==='Space'||event.code==='Enter'||event.code==='Escape')event.stopPropagation();};cameraMenu.addEventListener('keydown',cameraKey);cleanups.push(()=>cameraMenu.removeEventListener('keydown',cameraKey));
     const cameraOptions=document.createElement('div');cameraOptions.className='ares-world__camera-options';cameraMenu.appendChild(cameraOptions);cameraBar.appendChild(cameraMenu);
     for(const [button,label,action] of buttons) {
       button.type='button';button.textContent=label;button.setAttribute('aria-label',label);button.addEventListener('click',action);cameraOptions.appendChild(button);cleanups.push(()=>button.removeEventListener('click',action));
@@ -841,6 +857,12 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
         if(avatarActivity.action==='dig')astronaut.group.rotation.y=Math.atan2(SAMPLE_SITE.x-pose.x,SAMPLE_SITE.z-pose.z);
         else if(avatarActivity.action==='research')astronaut.group.rotation.y=Math.PI;
         playerShadow.position.set(pose.x, .014, pose.z);
+        // Keep the sun's shadow box centred near the player so shadows reach across the larger Mars arena.
+        const sunX = Math.round(pose.x / 2) * 2, sunZ = Math.round(pose.z / 2) * 2;
+        if (sunX !== sun.target.position.x || sunZ !== sun.target.position.z) {
+          sun.target.position.set(sunX, 0, sunZ); sun.position.set(sunX - 18, 10, sunZ - 35);
+          sun.target.updateMatrixWorld(); renderer!.shadowMap.needsUpdate = true;
+        }
         if (redrawShadow) renderer!.shadowMap.needsUpdate = true;
         // Keep the path trailer origin up-to-date with player position so chevrons always start from the player.
         if (emergencyPath.isActive()) emergencyPath.setRoute(pose, emergencyPath.getTarget());

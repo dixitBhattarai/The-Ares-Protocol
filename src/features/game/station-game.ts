@@ -9,6 +9,9 @@ export const STATION_TASKS: readonly StationTask[] = [
   {id:'survey',station:'solar',title:'Record surface science',steps:['Connect the sensor','Match the signal','Save the observations'],reward:{science:2},benefit:'+2 science',prevention:'Builds mission progress. For dust protection, service the solar panels.'},
 ];
 
+/** One active mission minute gives players time to service another system before repeating work. */
+export const TASK_REPEAT_COOLDOWN_SECONDS = 60;
+
 const KEYS = ['power','oxygen','supplies'] as const;
 const HAZARDS: readonly {title:string;station?:StationId;loss:Partial<Resources>;advice:string}[] = [
   {title:'Air leak',station:'habitat',loss:{oxygen:-14},advice:'Service the air system'},
@@ -33,6 +36,14 @@ export function taskHazardNotice(elapsed:number,seed=1,session=0):string|undefin
 
 export function taskCompletionId(state:Readonly<GameState>,taskId:string):string {
   return `${state.taskRun?.session??0}:${state.turn}:${taskId}`;
+}
+
+/** Remaining repeat delay in active mission seconds; pauses and hidden tabs do not consume it. */
+export function taskCooldownRemaining(state:Readonly<GameState>,taskId:string):number {
+  const run=state.taskRun;
+  const availableAt=run?.cooldowns?.[taskId];
+  if(!run||typeof availableAt!=='number'||!Number.isFinite(availableAt))return 0;
+  return Math.max(0,Math.ceil(availableAt-run.elapsed));
 }
 
 function apply(resources:Resources,effect:Partial<Resources> = {}):Resources {
@@ -70,7 +81,8 @@ export function reduceStationGame(state:Readonly<GameState>,action:GameAction,mi
   if(state.phase!=='running'||!run)return state;
   if(action.type==='CHOOSE')return state; // Old card actions cannot bypass station work.
   if(action.type==='START_TASK') {
-    if(run.activeTaskId||!STATION_TASKS.some(task=>task.id===action.taskId))return state;
+    const task=STATION_TASKS.find(task=>task.id===action.taskId);
+    if(run.activeTaskId||!task||taskCooldownRemaining(state,task.id)>0)return state;
     return {...state,taskRun:{...run,activeTaskId:action.taskId}};
   }
   if(action.type==='COMPLETE_TASK') {
@@ -80,27 +92,30 @@ export function reduceStationGame(state:Readonly<GameState>,action:GameAction,mi
     const science=state.science+(task.reward.science??0),shielding=Math.min(100,state.shielding+(task.reward.shielding??0));
     const explanation=`${task.title} completed: ${task.benefit}. ${task.prevention}`;
     const protections={...run.protections};
+    const cooldowns={...run.cooldowns,[task.id]:run.elapsed+TASK_REPEAT_COOLDOWN_SECONDS};
     if(['air','power','plants'].includes(task.id))protections[task.station]=run.elapsed+60;
     return finish({...state,turn:state.turn+1,resources,science,shielding,
-      taskRun:{...run,activeTaskId:undefined,protections,completedIds:[...run.completedIds,action.completionId]},
+      taskRun:{...run,activeTaskId:undefined,cooldowns,protections,completedIds:[...run.completedIds,action.completionId]},
       log:[...state.log,explanation],history:[...(state.history??[]),{turn:state.turn,shift:state.turn+1,eventId:'station-work',eventTitle:'Station work',choiceId:task.id,choiceLabel:task.title,explanation,resources:{...resources},science,shielding}],
     },mission);
   }
   if(action.type!=='TICK'||!Number.isFinite(action.seconds)||action.seconds<=0||action.seconds>1)return state;
   const elapsed=run.elapsed+action.seconds;
   let resources={...state.resources},notice=state.lastHazardNotice;
+  let radiationExposure=run.radiationExposure??0;
+  if(state.shielding>=15)radiationExposure=Math.max(0,radiationExposure-action.seconds*.5);
   const notes:string[]=[];
   if(Math.floor(elapsed/20)>Math.floor(run.elapsed/20)){
-    resources=apply(resources,{power:-4,oxygen:-4,supplies:-3});
+    resources=apply(resources,{power:-4,oxygen:-4,supplies:radiationExposure>=40?-5:-3});
     notes.push('Outpost systems used 4 power, 4 air and 3 supplies during the last 20 active seconds.');
   }
   const event=scheduledHazard(Math.floor(elapsed/45),mission.hazardSeed??1,run.session);
   if(event && run.elapsed<event.at && elapsed>=event.at){
     const hazard=HAZARDS[event.index];
     const protectedNow=hazard.station?(run.protections[hazard.station]??-1)>=elapsed:state.shielding>=15;
-    if(!protectedNow)resources=apply(resources,hazard.loss);
+    if(!protectedNow){resources=apply(resources,hazard.loss);if(hazard.title==='Solar storm')radiationExposure=Math.min(100,radiationExposure+50);}
     notice=protectedNow?`${hazard.title} prevented · maintenance protected you.`:`${hazard.title} hit · ${Object.entries(hazard.loss).map(([key,value])=>`${key} ${value}`).join(' · ')}`;
     notes.push(notice);
   }
-  return finish({...state,resources,taskRun:{...run,elapsed},lastHazardNotice:notice,upcomingHazardNotice:taskHazardNotice(elapsed,mission.hazardSeed??1,run.session),log:[...state.log,...notes]},mission);
+  return finish({...state,resources,taskRun:{...run,elapsed,radiationExposure},lastHazardNotice:notice,upcomingHazardNotice:taskHazardNotice(elapsed,mission.hazardSeed??1,run.session),log:[...state.log,...notes]},mission);
 }

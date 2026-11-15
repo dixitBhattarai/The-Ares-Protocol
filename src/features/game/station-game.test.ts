@@ -81,8 +81,18 @@ describe('station work instead of decision cards',()=>{
     state={...state,resources:{power:100,oxygen:100,supplies:100}};state=work(state,'air');expect(state.resources.oxygen).toBe(100);expect(state.science).toBe(1);
   });
   it('six jobs win and an unattended outpost loses; terminal time and work are ignored',()=>{
-    let state=start();for(const id of ['air','shelter','power','plants','survey','air'])state=work(state,id);
+    let state=start();for(const id of ['air','shelter','power','plants','survey'])state=work(state,id);state=work(tick(state,60),'air');
     expect(state.phase).toBe('won');expect(state.debrief?.verdict).toBe('won');expect(tick(state,90)).toBe(state);
     state=tick(start(),500);expect(state.phase).toBe('lost');expect(state.debrief?.verdict).toBe('depleted');expect(work(state,'air')).toBe(state);
   });
+});
+
+it('models repeated unprotected storms as a game condition with extra food use and shelter recovery',()=>{
+ const event=Array.from({length:100},(_,slot)=>scheduledHazard(slot)).find(e=>e?.index===2)!;
+ let state=start();state={...state,taskRun:{...state.taskRun!,radiationExposure:0,elapsed:event.at-1}};
+ state=tick(state,1);expect(state.taskRun!.radiationExposure).toBe(50);
+ const protectedState={...state,shielding:18};const recovered=tick(protectedState,30);
+ expect(recovered.taskRun!.radiationExposure).toBe(35);
+ const paused=reduceGame(state,{type:'PAUSE'},mission);expect(tick(paused,30)).toBe(paused);
+ const restarted=reduceGame(state,{type:'RESTART'},mission);expect(restarted.taskRun!.radiationExposure??0).toBe(0);
 });

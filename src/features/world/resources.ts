@@ -61,7 +61,7 @@ export function createModelKit(resources: WorldResources) {
     return item;
   }
   return {
-    materials,
+    resources, materials,
     box: (parent: THREE.Object3D, material: THREE.Material, size: readonly number[], position: readonly number[]) => mesh(parent, box, material, size, position),
     flatBox: (parent: THREE.Object3D, material: THREE.Material, size: readonly number[], position: readonly number[]) => mesh(parent, flatBox, material, size, position),
     sphere: (parent: THREE.Object3D, material: THREE.Material, size: readonly number[], position: readonly number[]) => mesh(parent, sphere, material, size, position),

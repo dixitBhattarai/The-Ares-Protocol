@@ -15,7 +15,7 @@
 .world-panel :deep(.ares-world__heading),.world-panel :deep(.ares-world__hint),.world-panel :deep(.ares-world__look-hint),.world-panel :deep(.ares-world__task-toast),.world-panel :deep(.ares-world__status){display:none}
 .world-panel :deep(.ares-world__camera-controls){top:auto;bottom:112px;left:16px;right:auto;transform:none;z-index:10;max-width:210px}
 .world-panel :deep(.ares-world__camera-controls summary){min-height:40px;box-sizing:border-box;padding:10px 14px;border-radius:8px;background:#17353ee8;border:1px solid #91b3ac80;font-size:12px;color:#e6f5e7}
-.world-panel :deep(.ares-world__camera-options){top:auto;bottom:48px}
+.world-panel :deep(.ares-world__camera-options){top:auto;bottom:48px;left:0;right:auto;width:min(225px,calc(100vw - 32px))}
 .world-panel :deep(.ares-world__label){font-size:12px;min-height:36px;width:130px;padding:7px 9px;border-radius:7px;border:1px solid #c3d8c080;background:#193a40d9;backdrop-filter:none;animation:none;box-shadow:0 3px 8px #0003}
 .world-panel :deep(.ares-world__readout){display:none}
 .world-panel :deep(.ares-world__work-prompt){left:50%;right:auto;bottom:112px;transform:translateX(-50%);max-width:calc(100% - 340px);min-height:44px;padding:10px 18px;font-size:14px;border-radius:8px;background:#234841ef;backdrop-filter:none;box-shadow:0 3px 0 #0b2028}
