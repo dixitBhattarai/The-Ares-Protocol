@@ -446,3 +446,10 @@ Merged codex/doorway-surface-fix (f58fb7e). Open exterior door leaves were nearl
 
 ### 15 November — published branch merge sweep
 Merged origin/feat/immersive-mars-science, tip 782a20b, with original feature/merge history preserved. This was the only published branch with commits outside main. Clean automatic merge; includes the already-completed dome/EVA airlock, avatar actions and jump telemetry, sample expedition, compact instruments, cabin checks and NASA science console. The separate uncommitted codex/pressurized-outpost worktree was left untouched, per user instruction. Validation: npm run build (includes typecheck) passed; 35 focused tests across airlock, field sample, EVA suit, avatar actions, physics motion and science client passed. Existing large-chunk advisory remains. No additional implementation, full suite or browser walkthrough performed in this merge-only request.
+
+### 15 November — PR #2 environment cleanup and hands-on station tasks
+
+- User explicitly requested merging PR #2. Merged `fix/environment-and-hands-on-tasks` (tip `1ea3aee10394a69f50f0e4d2176e2f6abfd00798`) into latest `main` with merge commit `253f3d43f920ede265ed46cb2769b62390256a40`, preserving Himamshu Bhandari's feature commit and identity. No conflicts.
+- Scope: world terrain/atmosphere, coastal Earth spaceport, aligned Mars paths and suit rack, direct animated watering and shelter plate repairs; coordinated physics changes remove deleted Earth-building colliders and restore Mars collision/door state. Exact paths and handoff recorded in world/physics notes.
+- Post-merge validation in the clean coordinating main checkout: `npm run typecheck` passed; `npm test` passed (39 files, 208 tests); `npm run build` passed. Chromium checked the production build's Earth launch-prep entry and Mars field-mission entry, with no uncaught page errors. Detailed task interactions were checked on the feature branch as recorded in its notes. Full launch/landing sequence was not rerun. Existing bundle-size warning remains.
+- Git main publication is authorized by the user's merge request; no environment configuration publication or deployment was performed.
