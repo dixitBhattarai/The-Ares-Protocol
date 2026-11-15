@@ -88,3 +88,5 @@ EVA helmet/visor geometry, procedural reflected-horizon texture and backpack det
 15 Nov: dust-front texture/particles/sheets, haze transitions and full-body jump overlays authored in code. Dust fronts are visualizations of authored game hazards, not real weather forecasts or measured Mars wind/dose values. Extended Earth launch uses the existing credited Earth image with compressed scenic scale/orientation; no new imagery/model/animation license introduced.
 
 15 Nov expedition assets: crew buggy, dock, cargo box, storm-control props and the illustrated microscope grain field authored in code. Practice observations and battery/storm tuning are fictional game mechanics; not NASA measurements or forecasts. Existing scientific rover/model/music credits unchanged.
+
+Crater survey surface, beacons, specimen trays/cargo cassettes and battery-repair illustration: procedural original project artwork, 15 November 2026. Practice geology and microscope imagery are authored game content, not NASA observations or a reconstructed Mars crater. No new downloaded assets.

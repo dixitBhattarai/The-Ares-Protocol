@@ -50,12 +50,16 @@ export function createWorkMachines(station: StationId, room: THREE.Group, kit: M
       kit.box(group, glow, [.16, .24, .025], [0, 1.32, .185]);
     } else if (item.id === 'power') {
       kit.box(group, rubber, [1.05, .8, .17], [0, 1.32, 0]);
+      const cells=new THREE.Group();cells.name='swappable-battery';group.add(cells);
+      const cellMaterial=resources.material(new THREE.MeshStandardMaterial({color:'#d39b78',metalness:.45,roughness:.5}));
+      const leads=new THREE.Group();group.add(leads);
+      group.userData.repair=(stage:number|null)=>{cells.visible=stage!==1;leads.visible=stage!==1;cells.position.z=stage===0?.08:0;cellMaterial.color.set(stage!==null&&stage>=2?'#9ed9c6':'#d39b78');};
       for (let i = 0; i < 3; i++) {
         const x = -.3 + i * .3;
-        kit.cylinder(group, metal, [.1, .5, .1], [x, 1.35, .18]);
-        kit.cylinder(group, glow, [.105, .055, .105], [x, 1.53, .18]);
-        kit.box(group, kit.materials.orange, [.055, .06, .06], [x, 1.63, .18]);
-        pipe(group, [[x, 1.08, .18], [x, .99, .22], [x + .1, .99, .24], [x + .1, 1.13, .24]], .018, i % 2 ? kit.materials.orange : kit.materials.blue);
+        kit.cylinder(cells, cellMaterial, [.1, .5, .1], [x, 1.35, .18]);
+        kit.cylinder(cells, glow, [.105, .055, .105], [x, 1.53, .18]);
+        kit.box(cells, kit.materials.orange, [.055, .06, .06], [x, 1.63, .18]);
+        pipe(leads, [[x, 1.08, .18], [x, .99, .22], [x + .1, .99, .24], [x + .1, 1.13, .24]], .018, i % 2 ? kit.materials.orange : kit.materials.blue);
       }
     } else {
       kit.box(group, rubber, [1, .75, .2], [0, 1.3, 0]);

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import {ref,onMounted} from 'vue';
+import {SURVEY_SITES} from '../../contracts/survey';
 import type {FieldSample} from '../../contracts/exploration';
 const props=defineProps<{sample:FieldSample;paused:boolean}>();const emit=defineEmits<{check:[control:string];close:[];pause:[]}>();
-let seed=7193;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+let seed=7193+(SURVEY_SITES.findIndex(site=>site.id===props.sample.surveySite)+1)*893;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
 const grains=Array.from({length:70},(_,i)=>({i,x:15+random()*370,y:15+random()*210,rx:2+random()*5,ry:1.5+random()*3,angle:random()*180}));
 const focus=ref(20),message=ref(''),panel=ref<HTMLElement>();
 onMounted(()=>panel.value?.focus());
@@ -11,7 +12,7 @@ function choose(fine:boolean){if(!fine){message.value='Look at the scale: these 
 </script>
 <template>
  <div class="lab-backdrop" @keydown.stop="key"><section ref="panel" class="sample-lab" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="sample-title">
-  <header><span>ARES · SAMPLE LAB</span><button aria-label="Close microscope" @click="emit('close')">✕</button></header>
+  <header><span>ARES · SAMPLE LAB<span v-if="sample.surveySite"> · {{ SURVEY_SITES.find(s=>s.id===sample.surveySite)?.sample }}</span></span><button aria-label="Close microscope" @click="emit('close')">✕</button></header>
   <h2 id="sample-title">{{ ['Focus the microscope','Describe what you see','Save the observation'][sample.researchStep] }}</h2>
   <div class="instrument" :class="{captured:sample.researchStep>0}">
    <svg viewBox="0 0 400 240" role="img" aria-label="Practice microscope view of small loose grains">

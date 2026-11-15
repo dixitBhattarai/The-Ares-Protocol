@@ -19,6 +19,7 @@ export const MARS_LANDMARKS = Object.freeze({
 export const MARS_OBSTACLES: readonly MarsObstacle[] = Object.values(MARS_LANDMARKS);
 
 export interface FieldSample {
+  surveySite?: import('./survey').SurveySiteId;
   remote?: boolean;
   stage: 'digging' | 'collected' | 'researching' | 'researched';
   runId: string;

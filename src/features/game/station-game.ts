@@ -4,7 +4,7 @@ import type { GameAction, GameState, MissionData, Resources, StationId, StationT
 export const STATION_TASKS: readonly StationTask[] = [
   {id:'air',station:'habitat',title:'Service the air system',steps:['Inspect air panels','Patch the leak','Check the air loop'],reward:{resources:{oxygen:20},science:1},benefit:'+20 air · +1 science',prevention:'Prevents air-leak damage for 60 active seconds.'},
   {id:'shelter',station:'habitat',title:'Reinforce the storm shelter',steps:['Inspect the shield panels','Secure the barrier','Test shelter seals'],reward:{shielding:18,science:1},benefit:'+18 shelter · +1 science',prevention:'Shelter score 15 prevents solar-storm damage.'},
-  {id:'power',station:'solar',title:'Clean and connect solar panels',steps:['Check the power cells','Match the connections','Test the battery feed'],reward:{resources:{power:22},science:1},benefit:'+22 power · +1 science',prevention:'Prevents dust-fault damage for 60 active seconds.'},
+  {id:'power',station:'solar',title:'Clean and connect solar panels',steps:['Isolate and remove the worn battery','Fit the replacement battery','Reconnect and test the feed'],reward:{resources:{power:22},science:1},benefit:'+22 power · +1 science',prevention:'Prevents dust-fault damage for 60 active seconds.'},
   {id:'plants',station:'greenhouse',title:'Care for crops and food stores',steps:['Set seedling conditions','Balance root water and light','Check mature crop conditions'],reward:{resources:{supplies:20,oxygen:5},science:1},benefit:'+20 supplies · +5 air · +1 science',prevention:'Prevents crop-stress damage for 60 active seconds.'},
   {id:'survey',station:'solar',title:'Record surface science',steps:['Connect the sensor','Match the signal','Save the observations'],reward:{science:2},benefit:'+2 science',prevention:'Builds mission progress. For dust protection, service the solar panels.'},
 ];
@@ -82,7 +82,7 @@ export function reduceStationGame(state:Readonly<GameState>,action:GameAction,mi
   if(state.phase!=='running'||!run)return state;
   if(action.type==='CHOOSE')return state; // Old card actions cannot bypass station work.
   if(action.type==='START_TASK') {
-    if(state.rover?.driving)return state;
+    if(state.rover?.driving||state.survey?.scanning)return state;
     const task=STATION_TASKS.find(task=>task.id===action.taskId);
     if(run.activeTaskId||!task||taskCooldownRemaining(state,task.id)>0)return state;
     return {...state,taskRun:{...run,activeTaskId:action.taskId}};
