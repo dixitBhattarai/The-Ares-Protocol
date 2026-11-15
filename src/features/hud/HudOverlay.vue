@@ -83,6 +83,20 @@ const stagePercent = computed(() => {
   return max > 0 ? Math.min(100, Math.max(0, value / max * 100)) : 0;
 });
 const hasStageProgress = computed(() => (props.stageProgress?.max ?? 0) > 0);
+const stageProgressBump = ref(false);
+let stageProgressTimer: ReturnType<typeof setTimeout> | undefined;
+watch(
+  () => [props.stage, props.stageProgress?.value ?? 0] as const,
+  ([stage, value], [previousStage, previousValue]) => {
+    if (stage !== previousStage || value <= previousValue || (stage !== 'earth' && stage !== 'space')) return;
+    stageProgressBump.value = true;
+    if (stageProgressTimer) clearTimeout(stageProgressTimer);
+    stageProgressTimer = setTimeout(() => {
+      stageProgressBump.value = false;
+      stageProgressTimer = undefined;
+    }, 720);
+  },
+);
 const stageCopy = computed(() => {
   if (props.stage === 'launch') return { label: 'EARTH · LAUNCH PAD', title: 'Rocket launch', detail: 'Ignition · thrust · steer · center' };
   if (props.stage === 'orbit-autopilot') return { label: 'EARTH ORBIT · GUIDANCE', title: 'Orbital guidance', detail: 'The flight computer is lining up your Mars route' };
@@ -247,6 +261,7 @@ onUnmounted(() => {
   for (const timer of Object.values(reserveTimers)) if (timer) clearTimeout(timer);
   for (const timer of Object.values(statPopTimers)) if (timer) clearTimeout(timer);
   if (hazardTimer) clearTimeout(hazardTimer);
+  if (stageProgressTimer) clearTimeout(stageProgressTimer);
   if (gameViewport) {
     gameViewport.removeEventListener('pointermove', onViewportPointerMove);
     gameViewport.removeEventListener('pointerleave', resetViewportPointer);
@@ -396,12 +411,12 @@ function toggleStat(id: ProgressStat): void {
       <span :style="{ width: `${shiftPercent}%` }" />
     </div>
 
-    <div v-if="stageCopy" class="stage-progress" :class="`stage-${stage}`">
+    <div v-if="stageCopy" class="stage-progress" :class="[`stage-${stage}`, { 'is-bumping': stageProgressBump }]">
       <div class="stage-progress-copy"><span>{{ stageCopy.detail }}</span><strong v-if="hasStageProgress && stage !== 'transit' && stage !== 'transfer'">{{ stageProgress?.value ?? 0 }}<i>/{{ stageProgress?.max }}</i></strong><strong v-else-if="hasStageProgress">{{ Math.round(stagePercent) }}<i>%</i></strong></div>
       <div v-if="hasStageProgress" class="stage-track" role="progressbar" :aria-label="stage === 'transit' || stage === 'transfer' ? 'Journey progress' : `${stageCopy.title} progress`" :aria-valuemin="0" :aria-valuemax="stage === 'transit' || stage === 'transfer' ? 100 : stageProgress?.max" :aria-valuenow="stage === 'transit' || stage === 'transfer' ? Math.round(stagePercent) : (stageProgress?.value ?? 0)" :aria-valuetext="stage === 'transit' || stage === 'transfer' ? `${Math.round(stagePercent)} percent complete` : `${stageProgress?.value ?? 0} of ${stageProgress?.max} controls complete`"><span :style="{ width: `${stagePercent}%` }" /></div>
     </div>
 
-    <div v-if="!stageCopy" class="reserve-grid" aria-label="Outpost reserves">
+    <div v-if="!stageCopy || stage === 'earth' || stage === 'space'" class="reserve-grid" :class="{ 'journey-reserves': stageCopy }" :aria-label="stageCopy ? 'Crew reserves' : 'Outpost reserves'">
       <article
         v-for="resource in resources"
         :key="resource.id"
@@ -559,7 +574,8 @@ function toggleStat(id: ProgressStat): void {
 .hud-header, .brand, .secondary-heading { display: flex; align-items: center; }
 .brand, .secondary-heading { display: flex; align-items: center; }
 .instrument-row { box-sizing: border-box; position: absolute; left: 16px; right: 16px; bottom: 14px; display: grid; grid-template-columns: 164px minmax(0, 1fr) minmax(170px, 190px); grid-template-rows: auto auto; align-items: center; gap: .36rem 12px; pointer-events: none; }
-.instrument-row.journey-row { top: 16px; right: auto; bottom: auto; width: min(330px, calc(100% - 32px)); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; gap: .4rem; }
+.instrument-row.journey-row { top: 16px; left: 16px; right: 16px; bottom: 14px; width: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; align-content: start; gap: .4rem; }
+.journey-row .hud-header, .journey-row .stage-progress { width: min(330px, 100%); }
 .hud-header { box-sizing: border-box; position: static; grid-column: 1; grid-row: 1; width: auto; min-height: 42px; padding: .42rem .58rem; justify-content: space-between; gap: .5rem; margin: 0; border: 1px solid rgb(138 204 255 / 56%); border-radius: 11px; background: rgb(9 25 41 / 86%); box-shadow: 0 5px 20px rgb(0 0 0 / 24%), inset 0 1px 0 rgb(255 255 255 / 12%), 0 0 14px rgb(73 173 255 / 12%); backdrop-filter: blur(7px); }
 .hud-header { translate: var(--hud-header-x, 0px) var(--hud-header-y, 0px); }
 .brand { min-width: 0; gap: .35rem; }
@@ -573,14 +589,21 @@ function toggleStat(id: ProgressStat): void {
 .shift-track { translate: var(--hud-shift-x, 0px) var(--hud-shift-y, 0px); }
 .shift-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ffe184, #ffbb59 55%, #fff4bc); box-shadow: 0 0 9px rgb(255 199 88 / 80%); transition: width 260ms ease; }
 .stage-progress { position: static; grid-column: 1; grid-row: 2; display: grid; gap: .34rem; width: auto; padding: .48rem .58rem .54rem; border: 1px solid rgb(125 219 255 / 42%); border-radius: 11px; background: rgb(9 25 41 / 78%); box-shadow: 0 5px 18px rgb(0 0 0 / 24%), inset 0 1px 0 rgb(255 255 255 / 10%); backdrop-filter: blur(6px); animation: stage-arrive 360ms cubic-bezier(.2,.8,.25,1.15) both; }
+.stage-progress.is-bumping { animation: stage-bounce 520ms cubic-bezier(.2,.9,.25,1.2); }
 .stage-progress-copy { display: flex; align-items: center; justify-content: space-between; gap: .5rem; color: #e7f4ff; font-size: .62rem; font-weight: 750; }
 .stage-progress-copy > span { min-width: 0; }
 .stage-progress-copy > strong { flex: 0 0 auto; color: #fff3ba; font-size: .78rem; font-weight: 950; }
+.stage-progress.is-bumping .stage-progress-copy > strong { animation: stage-count-pop 540ms cubic-bezier(.2,.9,.25,1.25); }
 .stage-progress-copy i { color: #b5d6e9; font-size: .7rem; font-style: normal; }
-.stage-track { height: 9px; overflow: hidden; border: 1px solid rgb(132 215 245 / 58%); border-radius: 999px; background: repeating-linear-gradient(90deg, #182c3b 0 9px, #304758 9px 11px); box-shadow: inset 0 1px 3px rgb(0 0 0 / 48%); }
+.stage-track { position: relative; height: 10px; overflow: hidden; border: 1px solid rgb(132 215 245 / 58%); border-radius: 999px; background: repeating-linear-gradient(90deg, #182c3b 0 9px, #304758 9px 11px); box-shadow: inset 0 1px 3px rgb(0 0 0 / 48%); }
 .stage-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #42cfda, #75e7fa 58%, #d5fcff); box-shadow: 0 0 9px rgb(84 225 244 / 75%); transition: width 420ms cubic-bezier(.2,.75,.25,1); }
+.stage-progress.is-bumping .stage-track > span { filter: brightness(1.2) saturate(1.16); }
+.stage-track::after { position: absolute; inset: -60% auto -60% -45%; width: 34%; background: linear-gradient(90deg, transparent, rgb(255 255 255 / 88%), transparent); content: ''; opacity: 0; transform: skewX(-18deg); pointer-events: none; }
+.stage-progress.is-bumping .stage-track::after { animation: stage-shine 620ms ease-out; }
 .stage-space .stage-track > span { background: linear-gradient(90deg, #a77aff, #f0a1ff 58%, #fff0ff); box-shadow: 0 0 9px rgb(208 126 255 / 72%); }
 .stage-transit .stage-track > span { background: linear-gradient(90deg, #ff9b54, #ffcf6c 58%, #fff4bc); box-shadow: 0 0 9px rgb(255 188 93 / 78%); }
+.journey-row .journey-reserves { position: absolute; left: 0; bottom: 0; width: min(520px, calc(100% - 12px)); grid-column: auto; grid-row: auto; }
+.journey-reserves .reserve-card { min-height: 40px; }
 .journey-hud .reserve-card { filter: saturate(.96); }
 .active-task-cue { box-sizing: border-box; position: absolute; top: 16px; left: 16px; display: grid; grid-template-columns: 2rem minmax(0, 1fr) .7rem; align-items: center; gap: .48rem; width: min(242px, calc(100% - 32px)); min-height: 47px; padding: .38rem .55rem; border: 1px solid rgb(125 219 255 / 58%); border-radius: 11px; background: linear-gradient(110deg, rgb(10 35 50 / 92%), rgb(15 28 48 / 90%)); box-shadow: 0 5px 18px rgb(0 0 0 / 28%), inset 0 1px 0 rgb(255 255 255 / 14%); animation: task-cue-in 300ms cubic-bezier(.2,.8,.25,1.15) both; }
 .task-cue-icon { display: grid; place-items: center; width: 1.9rem; height: 1.9rem; border: 1px solid rgb(150 224 250 / 58%); border-radius: 9px; background: rgb(109 194 225 / 18%); font-size: 1.05rem; }
@@ -698,6 +721,9 @@ function toggleStat(id: ProgressStat): void {
 @keyframes reserve-critical-pulse { 0%, 100% { box-shadow: inset 0 1px 2px rgb(0 0 0 / 20%); } 50% { box-shadow: 0 0 7px color-mix(in srgb, var(--reserve-color), transparent 52%), inset 0 1px 2px rgb(0 0 0 / 20%); } }
 @keyframes toast-in { 0% { opacity: 0; transform: translate(-50%, -18px) scale(.72); } 68% { opacity: 1; transform: translate(-50%, 4px) scale(1.035); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
 @keyframes stage-arrive { from { opacity: 0; transform: translateY(-7px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes stage-bounce { 0%, 100% { transform: scale(1); } 34% { transform: scale(1.025) rotate(-.35deg); } 68% { transform: scale(1.012) rotate(.25deg); } }
+@keyframes stage-count-pop { 0% { transform: scale(1); } 42% { color: #fff; text-shadow: 0 0 11px #8ceaff; transform: scale(1.34) rotate(-3deg); } 100% { transform: scale(1); } }
+@keyframes stage-shine { 0% { left: -45%; opacity: 0; } 18% { opacity: .95; } 100% { left: 115%; opacity: 0; } }
 @keyframes task-cue-in { from { opacity: 0; transform: translateY(-5px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes task-spark { 50% { transform: rotate(25deg) scale(1.15); opacity: .68; } }
 @keyframes toast-pulse { 0%, 100% { box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 24px rgb(244 196 104 / 25%), inset 0 1px 0 rgb(255 248 220 / 22%); } 50% { box-shadow: 0 18px 70px rgb(0 0 0 / 52%), 0 0 35px rgb(255 215 133 / 58%), inset 0 1px 0 rgb(255 248 220 / 35%); } }
@@ -705,7 +731,8 @@ function toggleStat(id: ProgressStat): void {
 @keyframes spark-spin { 50% { transform: rotate(40deg) scale(1.25); } }
 @media (max-width: 760px) {
   .instrument-row { left: 8px; right: 8px; bottom: 8px; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; gap: .3rem; }
-  .instrument-row.journey-row { top: 10px; left: 10px; right: auto; bottom: auto; width: min(240px, 43vw); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; gap: .24rem; }
+  .instrument-row.journey-row { top: 10px; left: 10px; right: 10px; bottom: 8px; width: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; gap: .24rem; }
+  .journey-row .hud-header, .journey-row .stage-progress { width: min(240px, 43vw); }
   .hud-header { grid-column: 1; grid-row: 1; min-height: 36px; padding: .28rem .45rem; padding-right: 5.6rem; }
   .journey-row .hud-header { min-height: 32px; padding: .18rem .35rem; padding-right: .35rem; }
   .journey-row .brand-mark { width: 1.3rem; height: 1.3rem; font-size: .72rem; }
@@ -717,6 +744,8 @@ function toggleStat(id: ProgressStat): void {
   .journey-row .stage-progress-copy > span { display: none; }
   .journey-row .stage-progress-copy > strong { font-size: .66rem; }
   .journey-row .stage-track { height: 5px; }
+  .journey-row .journey-reserves { bottom: 0; left: 0; width: min(500px, 100%); gap: .24rem; }
+  .journey-row .journey-reserves .reserve-card { min-height: 34px; }
   .reserve-grid { grid-column: 1; grid-row: 3; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .24rem; width: auto; }
   .reserve-card { grid-template-columns: 23px minmax(0, 1fr) 24px; min-height: 31px; padding: .08rem .2rem; }
   .reserve-icon svg { width: 27px; height: 27px; }
@@ -740,6 +769,6 @@ function toggleStat(id: ProgressStat): void {
   .shift-track > span, .reserve-fill, .science-track > span, .icon-tooltip, .stat-widget, .stat-detail, .stat-icon-button { transition: none; }
   .hud-header, .shift-track, .stage-progress, .active-task-cue, .reserve-grid, .science-widget, .shelter-widget, .feedback, .delayed-effects, .achievement-toast { translate: none !important; }
   .progress-pop { translate: 0 -50% !important; }
-  .stage-progress, .active-task-cue, .task-cue-spark, .motion-up, .motion-down, .reserve-icon-wrap:hover, .reserve-icon:focus-visible, .reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap, .stat-icon-button:hover > span, .stat-icon-button:focus-visible > span, .progress-pop, .count-old, .count-new, .progress-denominator, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
+  .stage-progress, .stage-progress.is-bumping, .stage-progress.is-bumping .stage-progress-copy > strong, .stage-progress.is-bumping .stage-track::after, .active-task-cue, .task-cue-spark, .motion-up, .motion-down, .reserve-icon-wrap:hover, .reserve-icon:focus-visible, .reserve-card:has(.reserve-meter:hover) .reserve-icon-wrap, .stat-icon-button:hover > span, .stat-icon-button:focus-visible > span, .progress-pop, .count-old, .count-new, .progress-denominator, .fill-up::after, .fill-full::after, .low-pulse .reserve-meter, .achievement-toast, .toast-spark { animation: none; }
 }
 </style>
