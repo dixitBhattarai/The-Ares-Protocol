@@ -103,4 +103,41 @@ describe('emergency path trailer', () => {
     trailer.dispose();
     resources.dispose();
   });
+
+  it('points chevron arrow tips forward towards the destination in all directions', () => {
+    const resources = new WorldResources();
+    const kit = createModelKit(resources);
+    const trailer = createEmergencyPath(kit, resources);
+
+    const testTargets = [
+      { name: '+Z', target: { x: 0, y: 0.8, z: 10 }, check: (tip: THREE.Vector3, center: THREE.Vector3) => tip.z > center.z },
+      { name: '-Z', target: { x: 0, y: 0.8, z: -10 }, check: (tip: THREE.Vector3, center: THREE.Vector3) => tip.z < center.z },
+      { name: '+X', target: { x: 10, y: 0.8, z: 0 }, check: (tip: THREE.Vector3, center: THREE.Vector3) => tip.x > center.x },
+      { name: '-X', target: { x: -10, y: 0.8, z: 0 }, check: (tip: THREE.Vector3, center: THREE.Vector3) => tip.x < center.x },
+    ];
+
+    for (const { name, target, check } of testTargets) {
+      trailer.setRoute({ x: 0, y: 0.8, z: 0 }, target);
+      const container = trailer.group.getObjectByName('path-markers-container')!;
+      const firstMarker = container.children[0] as THREE.Group;
+      expect(firstMarker.visible, `${name} marker visible`).toBe(true);
+
+      const chevronMesh = firstMarker.children.find(c => c instanceof THREE.Mesh) as THREE.Mesh;
+      expect(chevronMesh, `${name} chevron mesh`).toBeDefined();
+
+      trailer.group.updateMatrixWorld(true);
+      const geom = chevronMesh.geometry;
+      const tipLocal = new THREE.Vector3(
+        geom.attributes.position.getX(0),
+        geom.attributes.position.getY(0),
+        geom.attributes.position.getZ(0),
+      );
+      const tipWorld = tipLocal.clone().applyMatrix4(chevronMesh.matrixWorld);
+
+      expect(check(tipWorld, firstMarker.position), `${name} chevron tip points toward destination`).toBe(true);
+    }
+
+    trailer.dispose();
+    resources.dispose();
+  });
 });
