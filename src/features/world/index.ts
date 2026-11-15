@@ -31,7 +31,7 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
   container.className = 'ares-world';
   const scene = new THREE.Scene();
   scene.name = 'mars-outpost';
-  const camera = new THREE.OrthographicCamera(-10, 10, 7, -7, .1, 220);
+  const camera = new THREE.OrthographicCamera(-10, 10, 7, -7, .1, 1400);
   const playerPose = new THREE.Vector3(0, .8, 5);
   const cleanups: Array<() => void> = [];
   let renderer: THREE.WebGLRenderer | undefined;
@@ -85,8 +85,23 @@ export function createWorld(host: HTMLElement, onInteract: (station: StationId) 
     // Scenic references stay outside the walkable boundary: no invisible indoor obstacles.
     const rover = new THREE.Group(); rover.position.set(21, 0, 7); rover.rotation.y = -Math.PI / 3; scene.add(rover);
     void nasa.attach(rover, 'curiosity', 3.2, undefined, true);
-    const volcano = new THREE.Group(); volcano.position.set(0, -4.5, -58); scene.add(volcano);
-    void nasa.attach(volcano, 'olympus', 58, undefined, true);
+    const volcano = new THREE.Group();
+    volcano.name = 'olympus-mons-distant';
+    volcano.position.set(-70, -22, -430); scene.add(volcano);
+    void nasa.attach(volcano, 'olympus', 560, undefined, true).then(() => {
+      if (disposed) return;
+      volcano.traverse(object => {
+        if (!(object instanceof THREE.Mesh)) return;
+        object.castShadow = false; object.receiveShadow = false;
+        for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+          if (!(material instanceof THREE.MeshStandardMaterial)) continue;
+          // Explicit distant haze: the base's short-range dust fog would erase this landmark.
+          material.fog = false; material.color.set('#aa9185');
+          material.emissive.set('#b87d69'); material.emissiveIntensity = .32;
+          material.roughness = 1;
+        }
+      });
+    });
     const expedition = createExpeditionViews(kit, resources, nasa);
     cleanups.push(() => expedition.dispose());
     const launchView=createLaunchView(kit,resources,nasa);cleanups.push(()=>launchView.dispose());

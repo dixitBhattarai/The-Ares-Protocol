@@ -80,3 +80,5 @@ Optimized in a separate Blender process: textures capped at 1024, JPEG quality 8
 - Output SHA-256: feed1392cdfec47fe7df8e07f4e16eeaa98012cc1ef5dae4d6f4e737cde7434c
 
 Continuous Ares launch: rocket, pad, tower, exhaust and cloud sprites authored in code for this project. Earth uses the existing src/assets/earth_atmos_2048.jpg imagery already bundled with the game; no new downloads or third-party model license introduced. Scene scale, booster staging and 8x time compression are authored presentation.
+
+EVA helmet/visor geometry, procedural reflected-horizon texture and backpack detailing authored in code for this project (15 Nov 2026). Jump/landing overlays authored on the existing credited Mixamo/NASA/procedural rigs; no additional third-party animation download. Olympus uses the existing credited model with scenic scale, placement and atmospheric material adjustments.
