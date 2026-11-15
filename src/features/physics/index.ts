@@ -2,6 +2,7 @@ import {CABIN,stepCabin} from './cabin-motion';
 import { constrainHabitatMotion } from './habitat';
 import type { HabitatAccess } from '../../contracts/habitat';
 import type { PlayerMotion } from '../../contracts/exploration';
+import { MARS_OBSTACLES, MARS_WALKABLE_HALF_SIZE } from '../../contracts/exploration';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { BUILDING_HALF_SIZE, DOOR_HALF_WIDTH, STATIONS } from '../../contracts';
 import type { GravityBody, GravityInfo, PhysicsAdapter, StationId, Vec3 } from '../../contracts';
@@ -85,10 +86,10 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   const gravity = { x: 0, y: -MARS_GRAVITY, z: 0 };
   const world = new RAPIER.World(gravity);
 
-  // Ground collider: 40x40 bounded map, Y=0.
-  // Half extents (20, 0.1, 20) with translation (0, -0.1, 0) places top surface at Y=0.
+  // Ground collider: the Mars arena plus a margin, Y=0. Earth keeps its smaller BOUNDARY clamp.
+  // Half extents (arena + 4, 0.1, arena + 4) with translation (0, -0.1, 0) places top surface at Y=0.
   world.createCollider(
-    RAPIER.ColliderDesc.cuboid(20, 0.1, 20)
+    RAPIER.ColliderDesc.cuboid(MARS_WALKABLE_HALF_SIZE + 4, 0.1, MARS_WALKABLE_HALF_SIZE + 4)
       .setTranslation(0, -0.1, 0)
       .setFriction(0)
       .setRestitution(0),
@@ -114,6 +115,13 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
     if(station.id==='greenhouse')for(const px of [-1.65,1.65])box(.525,.34,1.15,px,.34,.6);
     if(station.id==='habitat')box(.625,.9,1,-2,.9,-.1);
     if(station.id==='solar')for(const px of [-2,2])box(.4,.8,.55,px,.8,.2);
+  }
+
+  // Landmarks inside the Mars arena. World draws them at the same spots (contracts MARS_LANDMARKS).
+  for (const o of MARS_OBSTACLES) {
+    marsOnlyColliders.push(world.createCollider(
+      RAPIER.ColliderDesc.cuboid(o.halfX, o.height / 2, o.halfZ).setTranslation(o.x, o.height / 2, o.z).setFriction(0),
+    ));
   }
 
   // Solid envelope around the Earth launch vehicle and its service gantry.
@@ -290,8 +298,9 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       world.step();
 
       const pose = body.translation();
-      const min = outsidePose ? -2.6 : BOUNDARY_MIN;
-      const max = outsidePose ? 2.6 : BOUNDARY_MAX;
+      const arena = gravityBody === 'mars' ? MARS_WALKABLE_HALF_SIZE : BOUNDARY_MAX;
+      const min = outsidePose ? -2.6 : -arena;
+      const max = outsidePose ? 2.6 : arena;
       let clampedX = Math.max(min, Math.min(max, pose.x));
       let clampedZ = Math.max(min, Math.min(max, pose.z));
       let clampedY = pose.y;
