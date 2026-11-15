@@ -284,7 +284,10 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
   // Only nearby Earth and Moon belong in this window; the other planets are not a real panorama.
   for(const distant of [cabinMars,cabinVenus,cabinJupiter,cabinSun,cabinSunHalo])distant.visible=false;
   const equipment = new THREE.Group(); room.add(equipment);
-  const astronaut = createAstronaut(kit); room.add(astronaut.group);
+  const cabinStructure=new THREE.Group();cabinStructure.name='expanded-cabin-shell';for(const child of [...room.children])if(!(child instanceof THREE.Light)&&child!==equipment)cabinStructure.add(child);room.add(cabinStructure);
+ const upperDeck=new THREE.Group();room.add(upperDeck);upperDeck.visible=false;kit.flatBox(upperDeck,kit.materials.trim,[3,.12,5.7],[-3,2.9,-1.35]);kit.flatBox(upperDeck,kit.materials.trim,[3,.12,.9],[-3,2.9,3.75]);kit.flatBox(upperDeck,kit.materials.trim,[.4,.12,1.8],[-4.3,2.9,2.4]);kit.flatBox(upperDeck,kit.materials.trim,[1.9,.12,1.8],[-2.45,2.9,2.4]);
+ for(const x of [-4.05,-3.35])kit.cylinder(upperDeck,steel,[.04,4.7,.04],[x,2.35,2.6]);for(let y=.25;y<4.7;y+=.32)kit.cylinder(upperDeck,steel,[.045,.7,.045],[-3.7,y,2.6]).rotation.z=Math.PI/2;
+ const astronaut = createAstronaut(kit); room.add(astronaut.group);
   const suit = new THREE.Group(); suit.position.y = -.8; astronaut.group.add(suit);
   void nasa.attach(suit, 'astronaut', 1.55, astronaut.fallback);
   const camera = new THREE.OrthographicCamera(-10, 10, 6, -6, .1, 100);
@@ -332,7 +335,7 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
       cabinJupiter.position.set(1.88 + Math.sin(windowTime * .024 + 1.5) * .09, 1.15 + Math.cos(windowTime * .032) * .035, -2.48);
       cabinSun.position.set(.05 + Math.cos(windowTime * .018) * .08, 2.02 + Math.sin(windowTime * .025) * .025, -2.46);
       cabinSunHalo.position.copy(cabinSun.position);
-      suit.userData.setPosture?.(cabinSeatState==='occupied'?'seated':activeRoom==='space'?'float':'ground');
+      suit.userData.setPosture?.(cabinSeatState==='occupied'?'seated':activeRoom==='space'?(Math.hypot(previous.x+3.7,previous.z-2.6)<.3?'climb':'float'):'ground');
       updateAstronautAnimation(astronaut, seconds, active, reduced);
       if(activeRoom==='space'&&cabinSeatState==='occupied'){
         astronaut.group.updateWorldMatrix(true,true);
@@ -372,7 +375,7 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
       camera.left = -half * aspect; camera.right = half * aspect; camera.top = half; camera.bottom = -half; camera.updateProjectionMatrix();
     },
     interior(id: StationId | 'earth' | 'space') {
-      activeRoom = id;
+      activeRoom = id;cabinStructure.scale.set(id==='space'?1.6:1,id==='space'?2.3:1,id==='space'?1.6:1);upperDeck.visible=id==='space';door.group.scale.set(id==='space'?1/1.6:1,id==='space'?1/2.3:1,id==='space'?1/1.6:1);door.group.position.y=id==='space'?.92/2.3:.92;for(const child of cabinStructure.children)if(child instanceof THREE.Mesh&&child.position.x<-2&&child.position.z>1.3&&child.scale.y>.4)child.visible=id!=='space';
       equipment.clear();
       observationWindow.visible = id === 'space';
       let set = rooms.get(id);
@@ -408,14 +411,14 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
       const d = previous.distanceTo(new THREE.Vector3(pose.x, pose.y, pose.z));
       if (d > .001 && d < 1) { cycle += d * 7; astronaut.group.rotation.y = Math.atan2(pose.x - previous.x, pose.z - previous.z); }
       previous.copy(pose);
-      applyAstronautGait(astronaut, cycle, moving && d < 1 && cabinSeatState !== 'occupied');
+      applyAstronautGait(astronaut, cycle, moving && d < 1 && activeRoom!=='space' && cabinSeatState !== 'occupied');
       if (activeRoom === 'space' && cabinSeatState === 'occupied') {
         astronaut.group.position.set(SPACECRAFT_SEAT.x, SPACECRAFT_SEAT.y, SPACECRAFT_SEAT.z);
         astronaut.group.rotation.set(0, Math.PI, 0);
         astronaut.legs.forEach((leg, index) => { leg.rotation.x = index ? .74 : .9; });
         astronaut.arms.forEach((arm, index) => { arm.rotation.x = index ? -.45 : -.7; });
       } else {
-        const drift = activeRoom === 'space' ? .42 + (reducedCabinMotion ? 0 : Math.sin(cabinFloatTime * 1.15) * .045) : 0;
+        const drift = 0;
         astronaut.group.position.set(pose.x, pose.y + drift, pose.z);
         astronaut.group.rotation.z = activeRoom === 'space' && !reducedCabinMotion ? Math.sin(cabinFloatTime * .55) * .035 : 0;
       }

@@ -89,18 +89,20 @@ export function reduceStationGame(state:Readonly<GameState>,action:GameAction,mi
   if(action.type!=='TICK'||!Number.isFinite(action.seconds)||action.seconds<=0||action.seconds>1)return state;
   const elapsed=run.elapsed+action.seconds;
   let resources={...state.resources},notice=state.lastHazardNotice;
+  let radiationExposure=run.radiationExposure??0;
+  if(state.shielding>=15)radiationExposure=Math.max(0,radiationExposure-action.seconds*.5);
   const notes:string[]=[];
   if(Math.floor(elapsed/20)>Math.floor(run.elapsed/20)){
-    resources=apply(resources,{power:-4,oxygen:-4,supplies:-3});
+    resources=apply(resources,{power:-4,oxygen:-4,supplies:radiationExposure>=40?-5:-3});
     notes.push('Outpost systems used 4 power, 4 air and 3 supplies during the last 20 active seconds.');
   }
   const event=scheduledHazard(Math.floor(elapsed/45),mission.hazardSeed??1,run.session);
   if(event && run.elapsed<event.at && elapsed>=event.at){
     const hazard=HAZARDS[event.index];
     const protectedNow=hazard.station?(run.protections[hazard.station]??-1)>=elapsed:state.shielding>=15;
-    if(!protectedNow)resources=apply(resources,hazard.loss);
+    if(!protectedNow){resources=apply(resources,hazard.loss);if(hazard.title==='Solar storm')radiationExposure=Math.min(100,radiationExposure+50);}
     notice=protectedNow?`${hazard.title} prevented · maintenance protected you.`:`${hazard.title} hit · ${Object.entries(hazard.loss).map(([key,value])=>`${key} ${value}`).join(' · ')}`;
     notes.push(notice);
   }
-  return finish({...state,resources,taskRun:{...run,elapsed},lastHazardNotice:notice,upcomingHazardNotice:taskHazardNotice(elapsed,mission.hazardSeed??1,run.session),log:[...state.log,...notes]},mission);
+  return finish({...state,resources,taskRun:{...run,elapsed,radiationExposure},lastHazardNotice:notice,upcomingHazardNotice:taskHazardNotice(elapsed,mission.hazardSeed??1,run.session),log:[...state.log,...notes]},mission);
 }
