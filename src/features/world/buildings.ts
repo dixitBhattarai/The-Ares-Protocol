@@ -17,10 +17,11 @@ export function createBuilding(id:StationId,kit:ModelKit,resources:WorldResource
   // Interior surfaces must render and obstruct the follow camera from either side.
   kit.materials.ivory.side=THREE.DoubleSide;kit.materials.trim.side=THREE.DoubleSide;
   kit.flatBox(room,kit.materials.trim,[6.5,.1,6.5],[0,-.05,0]);
-  const wallMaterial=id==='greenhouse'?resources.material(new THREE.MeshStandardMaterial({color:'#a9d9c4',transparent:true,opacity:.35,roughness:.3,side:THREE.DoubleSide})):kit.materials.ivory;
+  const facade=work?kit.materials.ivory:resources.material(new THREE.MeshStandardMaterial({color:'#c0cccd',metalness:.25,roughness:.65,side:THREE.DoubleSide}));
+  const wallMaterial=!work?facade:id==='greenhouse'?resources.material(new THREE.MeshStandardMaterial({color:'#a9d9c4',transparent:true,opacity:.35,roughness:.3,side:THREE.DoubleSide})):kit.materials.ivory;
   for(const x of [-h+.1,h-.1])walls.push(kit.flatBox(room,wallMaterial,[.2,2.6,h*2],[x,1.3,0]));
   walls.push(kit.flatBox(room,wallMaterial,[h*2,2.6,.2],[0,1.3,-h+.1]));
-  for(const x of [-2,2])walls.push(kit.flatBox(room,kit.materials.ivory,[2.4,2.6,.2],[x,1.3,h-.1]));
+  for(const x of [-2,2])walls.push(kit.flatBox(room,facade,[2.4,2.6,.2],[x,1.3,h-.1]));
   kit.box(room,kit.materials.trim,[1.6,.35,.2],[0,2.42,h-.1]);
   const {steel}=dressRoom(room,kit,resources);
   const screens=[0,1,2].map(()=>resources.material(new THREE.MeshStandardMaterial({color:'#80cbda',emissive:'#18374e',emissiveIntensity:.5})));
@@ -43,12 +44,16 @@ export function createBuilding(id:StationId,kit:ModelKit,resources:WorldResource
   for(const x of [-2.4,2.4])kit.flatBox(room,lamp,[.08,.05,5.2],[x,2.36,0]);
   if(typeof document!=='undefined'){
     const canvas=document.createElement('canvas');canvas.width=512;canvas.height=96;const ctx=canvas.getContext('2d');
-    if(ctx){ctx.fillStyle='#162b36';ctx.fillRect(0,0,512,96);ctx.font='bold 40px sans-serif';ctx.textAlign='center';ctx.fillStyle=accent;ctx.fillText({habitat:'01  HABITAT',solar:'02  SOLAR',greenhouse:'03  GREENHOUSE'}[id],256,62);
+    if(ctx){ctx.fillStyle='#162b36';ctx.fillRect(0,0,512,96);ctx.font='bold 40px sans-serif';ctx.textAlign='center';ctx.fillStyle=accent;ctx.fillText(work?{habitat:'01  HABITAT',solar:'02  SOLAR',greenhouse:'03  GREENHOUSE'}[id]:'CREW OPERATIONS',256,62);
       const texture=resources.texture(new THREE.CanvasTexture(canvas));texture.colorSpace=THREE.SRGBColorSpace;
       kit.flatBox(room,resources.material(new THREE.MeshBasicMaterial({map:texture})),[2.8,.48,.035],[0,2.45,h+.025]);
     }
   }
   const roof=new THREE.Group();room.add(roof);
+  if(!work){
+    const shade=kit.flatBox(roof,kit.materials.trim,[6.5,.09,.65],[0,2.66,h]);shade.rotation.x=-.08;
+    for(const x of [-3.05,3.05])kit.flatBox(room,kit.materials.trim,[.13,2.6,.2],[x,1.3,h+.03]);
+  }
   kit.flatBox(roof,kit.materials.trim,[6.45,.16,6.45],[0,2.7,0]);
   const panelMaterial=id==='solar'?resources.material(new THREE.MeshStandardMaterial({color:'#23475d',metalness:.65,roughness:.24})):kit.materials.blue;
   if(id==='solar')for(const x of [-1.6,1.6]) {
@@ -58,7 +63,8 @@ export function createBuilding(id:StationId,kit:ModelKit,resources:WorldResource
   if(id==='greenhouse')kit.sphere(roof,windows,[2.8,.38,2.8],[0,2.85,0]);
   const shelterPanels:THREE.Mesh[]=[];
   for(const x of [-2,2]) {
-    kit.box(room,windows,[1.45,.65,.04],[x,1.6,h+.01]);
+    kit.box(room,work?windows:resources.material(new THREE.MeshStandardMaterial({color:'#345b69',metalness:.35,roughness:.25})),work?[1.45,.65,.04]:[2.25,1.65,.04],[x,work?1.6:1.35,h+.01]);
+    if(!work)for(const offset of [-.65,0,.65])kit.flatBox(room,kit.materials.trim,[.035,1.65,.06],[x+offset,1.35,h+.045]);
     const panel=kit.box(room,kit.materials.blue,[1.5,.7,.03],[x,1.6,h+.04]);panel.scale.y=.01;panel.visible=false;shelterPanels.push(panel);
   }
   kit.box(room,indicator,[.5,.09,.04],[0,2.77,h+.08]);

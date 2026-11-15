@@ -95,10 +95,15 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
 
   const doors = new Map<StationId,RAPIER.Collider>();
   const doorStates = new Map<StationId,boolean>();
+  const marsOnlyColliders: RAPIER.Collider[] = [];
   // Hollow shells: same world, solid walls, and an actual opening on the +Z face.
   for (const station of STATIONS) {
     const {x,z}=station.position, h=BUILDING_HALF_SIZE;
-    const box=(hx:number,hy:number,hz:number,px:number,py:number,pz:number)=>world.createCollider(RAPIER.ColliderDesc.cuboid(hx,hy,hz).setTranslation(x+px,py,z+pz).setFriction(0));
+    const box=(hx:number,hy:number,hz:number,px:number,py:number,pz:number)=>{
+      const collider=world.createCollider(RAPIER.ColliderDesc.cuboid(hx,hy,hz).setTranslation(x+px,py,z+pz).setFriction(0));
+      if(station.id!=='habitat')marsOnlyColliders.push(collider);
+      return collider;
+    };
     box(.1,1.3,h,-h+.1,1.3,0);box(.1,1.3,h,h-.1,1.3,0);box(h,1.3,.1,0,1.3,-h+.1);
     const half=(h-DOOR_HALF_WIDTH)/2;
     for(const side of [-1,1])box(half,1.3,.1,side*(DOOR_HALF_WIDTH+half),1.3,h-.1);
@@ -230,10 +235,12 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       gravityBody = next;
       world.gravity = { x: 0, y: -GRAVITY_BY_BODY[next], z: 0 };
       earthLaunchVehicleCollider.setEnabled(next === 'earth');
+      marsOnlyColliders.forEach(collider=>collider.setEnabled(next === 'mars'));
+      if(next === 'mars')for(const [id,collider] of doors)collider.setEnabled(!doorStates.get(id));
       jumpRequested = false;
     },
     getGravityInfo() { return describeGravity(gravityBody); },
-    setDoorOpen(station,open) { if(isDisposed||doorStates.get(station)===open)return;doorStates.set(station,open);doors.get(station)?.setEnabled(!open); },
+    setDoorOpen(station,open) { if(isDisposed||doorStates.get(station)===open)return;doorStates.set(station,open);doors.get(station)?.setEnabled(!open && (gravityBody==='mars'||station==='habitat')); },
     walkPath(points) { if(isDisposed||isInputPaused)return;pressed.clear();walkingPath=points.filter(point=>[point.x,point.y,point.z].every(Number.isFinite)).map(point=>({...point})); },
     setCameraYaw(yaw) { cameraYaw = Number.isFinite(yaw) ? yaw : 0; },
     step(seconds: number) {

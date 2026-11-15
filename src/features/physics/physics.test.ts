@@ -385,3 +385,21 @@ describe('Reset, Pause, Focus and Lifecycle Hooks', () => {
     physics.dispose();
   });
 });
+
+describe('Earth and Mars building membership',()=>{
+ it('removes invisible solar/greenhouse walls on Earth and restores them on Mars',async()=>{
+  const physics=await createPhysics();
+  physics.setGravityBody?.('earth');
+  physics.setDoorOpen?.('solar',false);
+  physics.reset?.({x:3,y:.8,z:0});
+  physics.walkPath?.([{x:11,y:.8,z:0}]);
+  for(let i=0;i<240;i++)physics.step(1/60);
+  expect(physics.getPlayerPose().x).toBeGreaterThan(10.5);
+  physics.setGravityBody?.('mars');
+  physics.reset?.({x:3,y:.8,z:0});
+  physics.walkPath?.([{x:11,y:.8,z:0}]);
+  for(let i=0;i<160;i++)physics.step(1/60);
+  expect(physics.getPlayerPose().x).toBeLessThan(3.6);
+  physics.dispose();
+ });
+});

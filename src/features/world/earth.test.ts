@@ -29,8 +29,12 @@ describe('Realistic Earth Campus Environment', () => {
     const earth = createEarthCampus(kit, resources);
 
     expect(earth.scene.name).toBe('earth-outdoors');
-    expect(earth.stations).toHaveLength(3);
+    expect(earth.stations).toHaveLength(1);
     expect(earth.labDoor).toBeDefined();
+    expect(earth.stations[0].id).toBe('habitat');
+    expect(earth.scene.getObjectByName('solar')).toBeUndefined();
+    expect(earth.scene.getObjectByName('greenhouse')).toBeUndefined();
+    expect(earth.scene.getObjectByName('vehicle-assembly-hangar')).toBeDefined();
     expect(earth.launchVehicle).toBeDefined();
 
     // Check water, forest, and cloud subsystems
