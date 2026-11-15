@@ -98,7 +98,13 @@ export function createEarthCampus(kit: ModelKit, resources: WorldResources) {
   scene.add(launchPad);
 
   const launchPadMat = resources.material(new THREE.MeshStandardMaterial({ color: '#55636c', roughness: 0.85 }));
-  kit.flatBox(launchPad, launchPadMat, [10, 0.2, 10], [0, 0.04, 0]);
+  // Raised launch platform: slab top at y=.36, reached by two .12m steps on the crew-lab (+Z) side.
+  // Keep this aligned with the earthLaunchPad colliders in physics/index.ts (centre 12,-14; 10 x 10).
+  kit.flatBox(launchPad, launchPadMat, [10, 0.42, 10], [0, 0.15, 0]);
+  kit.flatBox(launchPad, launchPadMat, [4, 0.3, 0.6], [0, 0.09, 5.3]);
+  kit.flatBox(launchPad, launchPadMat, [4, 0.18, 0.6], [0, 0.03, 5.9]);
+  for (const z of [-4.875, 4.875]) kit.flatBox(launchPad, paint, [10, 0.01, 0.25], [0, 0.365, z]);
+  for (const x of [-4.875, 4.875]) kit.flatBox(launchPad, paint, [0.25, 0.01, 9.5], [x, 0.365, 0]);
 
   const rocket = new THREE.Group();
   rocket.name = 'ares-launch-vehicle';

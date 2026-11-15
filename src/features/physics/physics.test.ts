@@ -403,3 +403,33 @@ describe('Earth and Mars building membership',()=>{
   physics.dispose();
  });
 });
+
+describe('Earth launch platform',()=>{
+ it('can be climbed by its steps and stood on, not walked through',async()=>{
+  const physics=await createPhysics();
+  physics.setGravityBody?.('earth');
+  physics.reset?.({x:12,y:.8,z:-5});
+  physics.walkPath?.([{x:12,y:.8,z:-11}]);
+  for(let i=0;i<300;i++)physics.step(1/60);
+  const pose=physics.getPlayerPose();
+  expect(pose.z).toBeLessThan(-10.5);
+  expect(pose.y).toBeGreaterThan(1.1);
+  expect(pose.y).toBeLessThan(1.3);
+  physics.dispose();
+ });
+ it('is a solid wall from the sides and disappears off Earth',async()=>{
+  const physics=await createPhysics();
+  physics.setGravityBody?.('earth');
+  physics.reset?.({x:4,y:.8,z:-14});
+  physics.walkPath?.([{x:12,y:.8,z:-14}]);
+  for(let i=0;i<300;i++)physics.step(1/60);
+  expect(physics.getPlayerPose().x).toBeLessThan(7.1);
+  expect(physics.getPlayerPose().y).toBeLessThan(1);
+  physics.setGravityBody?.('mars');
+  physics.reset?.({x:4,y:.8,z:-14});
+  physics.walkPath?.([{x:9,y:.8,z:-14}]);
+  for(let i=0;i<300;i++)physics.step(1/60);
+  expect(physics.getPlayerPose().x).toBeGreaterThan(8.5);
+  physics.dispose();
+ });
+});

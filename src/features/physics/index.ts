@@ -125,6 +125,19 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   );
   earthLaunchVehicleCollider.setEnabled(false);
 
+  // Solid raised launch platform under the rocket (matches 'ares-launch-pad' in world/earth.ts):
+  // a 10 x 10 slab centred on (12, -14) with its top at y=.36, reached by two .12m steps on the
+  // crew-lab (+Z) side. Everywhere else its edge is a wall, so it can't be walked through.
+  const earthLaunchPadColliders: RAPIER.Collider[] = [];
+  const padBlock = (hx: number, hy: number, hz: number, x: number, topY: number, z: number) => {
+    const collider = world.createCollider(RAPIER.ColliderDesc.cuboid(hx, hy, hz).setTranslation(x, topY - hy, z).setFriction(0));
+    collider.setEnabled(false);
+    earthLaunchPadColliders.push(collider);
+  };
+  padBlock(5, .5, 5, 12, .36, -14);
+  padBlock(2, .3, .3, 12, .24, -8.7);
+  padBlock(2, .3, .3, 12, .12, -8.1);
+
   // Astronaut dynamic rigid body with locked rotations and capsule collider (halfHeight 0.5, radius 0.3)
   const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
     .setTranslation(DEFAULT_SPAWN.x, DEFAULT_SPAWN.y, DEFAULT_SPAWN.z)
@@ -242,6 +255,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       stationColliders.forEach(c=>c.setEnabled(next!=='orbit'));
       world.gravity = { x: 0, y: -GRAVITY_BY_BODY[next], z: 0 };
       earthLaunchVehicleCollider.setEnabled(next === 'earth');
+      earthLaunchPadColliders.forEach(collider => collider.setEnabled(next === 'earth'));
       marsOnlyColliders.forEach(collider=>collider.setEnabled(next === 'mars'));
       if(next === 'mars')for(const [id,collider] of doors)collider.setEnabled(!doorStates.get(id));
       jumpRequested = false;
