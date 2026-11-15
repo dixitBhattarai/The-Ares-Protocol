@@ -281,6 +281,8 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
   const cabinSun = kit.sphere(observationWindow, cabinSunMaterial, [.13, .13, .13], [.05, 2.02, -2.46]);
   const cabinSunHalo = new THREE.Sprite(resources.material(new THREE.SpriteMaterial({ map: sunHaloTexture, transparent: true, depthWrite: false, opacity: .85 })));
   cabinSunHalo.scale.set(.68, .68, 1); cabinSunHalo.position.copy(cabinSun.position); observationWindow.add(cabinSunHalo);
+  // Only nearby Earth and Moon belong in this window; the other planets are not a real panorama.
+  for(const distant of [cabinMars,cabinVenus,cabinJupiter,cabinSun,cabinSunHalo])distant.visible=false;
   const equipment = new THREE.Group(); room.add(equipment);
   const astronaut = createAstronaut(kit); room.add(astronaut.group);
   const suit = new THREE.Group(); suit.position.y = -.8; astronaut.group.add(suit);
@@ -330,6 +332,7 @@ export function createExpeditionViews(kit: ModelKit, resources: WorldResources, 
       cabinJupiter.position.set(1.88 + Math.sin(windowTime * .024 + 1.5) * .09, 1.15 + Math.cos(windowTime * .032) * .035, -2.48);
       cabinSun.position.set(.05 + Math.cos(windowTime * .018) * .08, 2.02 + Math.sin(windowTime * .025) * .025, -2.46);
       cabinSunHalo.position.copy(cabinSun.position);
+      suit.userData.setPosture?.(cabinSeatState==='occupied'?'seated':activeRoom==='space'?'float':'ground');
       updateAstronautAnimation(astronaut, seconds, active, reduced);
       door.update(active ? seconds : 0, reduced);
     },

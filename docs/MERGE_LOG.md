@@ -443,3 +443,6 @@ Merged codex/doorway-surface-fix (f58fb7e). Open exterior door leaves were nearl
      - Game: updated orbital preflight minigame title and step labels for Ares rocket flight cabin.
      - Additive contracts: `SPACECRAFT_SEAT`, `CabinSeatState`, `WorldAdapter.setCabinSeatState`.
    - Verification: `npm run typecheck` passed (0 errors); `npm test` passed (27 test files, 158 tests passed); `npm run build` passed cleanly in 1.31s with all client assets bundled.
+
+### 15 November — published branch merge sweep
+Merged origin/feat/immersive-mars-science, tip 782a20b, with original feature/merge history preserved. This was the only published branch with commits outside main. Clean automatic merge; includes the already-completed dome/EVA airlock, avatar actions and jump telemetry, sample expedition, compact instruments, cabin checks and NASA science console. The separate uncommitted codex/pressurized-outpost worktree was left untouched, per user instruction. Validation: npm run build (includes typecheck) passed; 35 focused tests across airlock, field sample, EVA suit, avatar actions, physics motion and science client passed. Existing large-chunk advisory remains. No additional implementation, full suite or browser walkthrough performed in this merge-only request.

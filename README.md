@@ -45,12 +45,14 @@ Each feature has its own `AGENTS.md` and `NOTES.md`; add helpers/assets/tests in
 
 Himamshu's separate [merge-coordinator prompt](docs/MERGE_COORDINATOR_PROMPT.md) explains how to collect handoffs and merge in a clean main checkout. [MERGE_LOG.md](docs/MERGE_LOG.md) records actual merge results. The world feature worktree is not the merge workspace.
 
-## Current limits and priorities
+## Current playable workflow
 
-This is a runnable foundation, not a completed submission: one authored event repeats, research-only can win, shelter has no hazard benefit, vertical physics is a placeholder and replay doesn't reset position. No NASA observation is bundled yet. Those gaps have named owners in the task list.
+Choose **Start** for the complete Earth launch/cabin/landing introduction, or **Mars field mission** for a direct outpost demo. Explore a proposed pressurized dome, equip the EVA helmet/air pack at the rack, cycle the two-door airlock and follow the survey markers to the sand site. Collect and seal a sample, return through the airlock, and use the blue solar lab to image and describe it. Recording the observation earns one job and two science points. Other station jobs maintain air, power, crops and solid shelter; six finished jobs end the mission.
 
-Keep scope to one map, three reserve meters, six meaningful choices, one verified NASA-backed scenario and a debrief. Read [the deadline plan and pitfalls](docs/HACKATHON_PLAN.md) and [demo checklist](docs/DEMO_CHECKLIST.md). This is a learning game, not professional astronaut training.
+Space jumps use physics telemetry with grounded/ascent/fall/landing poses. The existing character's Idle/Walk clips remain intact; authored scoop/inspection layers and tools follow its actual bones. The field sample and its grain illustration are game content, not a real NASA sample or a chemical analysis.
 
-All starter reserve values are authored game units. Real observations must retain provenance and a mapping to simplified rules; never label a static snapshot live.
+The **NASA** instrument opens public DONKI and NASA Images requests, shows source/observation dates and image credits, and distinguishes a fresh response from bundled DONKI/InSight archives. Timeouts, policy failures, empty responses and rate limits do not break gameplay. NASA's public DEMO_KEY is sufficient; no private API key is exposed. To enable requests in a restricted environment allow `api.nasa.gov`, `images-api.nasa.gov`, and `images-assets.nasa.gov` (record links also use `ccmc.gsfc.nasa.gov` and `images.nasa.gov`).
+
+This is a teaching prototype. The dome is a concept design, the local terrain is authored, and pressure-cycle times, reserve rewards, crop targets, hazards and interplanetary travel are compressed game rules. A transparent dome is not radiation protection. CME speed is not a Mars dose/impact forecast; NASA records never silently alter the game's hazards. Preserve source credits and usage terms. No account, backend, live request or hosting deployment is required to play.
 
 NASA does not endorse any non-U.S. Government entity and is not responsible for information contained on non-U.S. Government websites. For non-U.S. Government websites, participants must comply with any data use parameters of that specific website.

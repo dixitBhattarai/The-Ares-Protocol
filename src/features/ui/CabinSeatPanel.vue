@@ -8,6 +8,7 @@ defineProps<{
 
 const emit = defineEmits<{
   sit: [];
+  glide: [];
   transfer: [];
   pause: [];
 }>();
@@ -17,14 +18,15 @@ const emit = defineEmits<{
   <section class="seat-panel" aria-labelledby="seat-title">
     <p class="eyebrow">ARES · ZERO-G FLIGHT CABIN</p>
     <h2 id="seat-title">Cabin tasks complete</h2>
-    <p v-if="!seated" class="instruction">Glide to the glowing orange flight seat. Press <kbd>E</kbd> or use the button when you are beside it.</p>
-    <p v-else class="instruction">You can relax here and watch the planets drift across the forward window while the engines are idle. Start the Mars transfer whenever you are ready.</p>
+    <p v-if="!seated" class="instruction">Go to the orange seat. Buckle in.</p>
+    <p v-else class="instruction">Harness locked. Ready for Mars?</p>
     <p class="seat-status" role="status" aria-live="polite">
       <span class="status-light" :class="{ ready: nearSeat || seated }" aria-hidden="true" />
-      {{ feedback || (seated ? 'Harness secure. The window view is still active.' : nearSeat ? 'Flight seat is within reach.' : 'Move toward the orange marker beside the pilot seat.') }}
+      {{ (seated ? 'Harness secure.' : nearSeat ? 'Flight seat is within reach.' : 'Follow the orange seat marker.') }}
     </p>
     <div class="seat-actions">
-      <button v-if="!seated" class="sit-button" type="button" :disabled="paused || !nearSeat" @click="emit('sit')">Sit and buckle in</button>
+      <button v-if="!seated && !nearSeat" class="sit-button" :disabled="paused" @click="emit('glide')">Go to seat</button>
+      <button v-else-if="!seated" class="sit-button" type="button" :disabled="paused || !nearSeat" @click="emit('sit')">Sit and buckle in</button>
       <button v-else class="sit-button" type="button" :disabled="paused" @click="emit('transfer')">Begin Mars transfer</button>
       <button class="pause-button" type="button" @click="emit('pause')">{{ paused ? '▶ Resume' : 'Ⅱ Pause' }}</button>
     </div>

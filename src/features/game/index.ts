@@ -11,6 +11,7 @@ import type {
   Phase,
   TurnRecord,
 } from '../../contracts';
+import { reduceFieldSample } from './field-sample';
 import { reduceStationGame, taskHazardNotice } from './station-game';
 export { STATION_TASKS, taskCompletionId } from './station-game';
 
@@ -91,7 +92,18 @@ export function getCurrentEvent(mission: MissionData, state: Readonly<GameState>
 
 // Pure turn-based reducer. Only this module changes simulation state.
 export function reduceGame(state: Readonly<GameState>, action: GameAction, mission: MissionData): GameState {
-  if(mission.gameplayMode==='station-tasks')return reduceStationGame(state,action,mission,()=>createInitialState(mission));
+  if(mission.gameplayMode==='station-tasks') {
+    const field=reduceFieldSample(state,action,prepared=>{
+      const result=reduceStationGame(prepared,{type:'COMPLETE_TASK',completionId:`${prepared.taskRun!.session}:${prepared.turn}:survey`},mission,()=>createInitialState(mission));
+      if(result.turn===prepared.turn)return result;
+      const explanation='Collected, sealed and examined a practice regolith sample. Loose grains observed; composition is unknown. +2 science.';
+      return {...result,log:[...result.log.slice(0,-1),explanation],history:result.history?.map((record,index)=>index===result.history!.length-1?{...record,choiceLabel:'Collect and examine regolith',explanation}:record)};
+    });
+    if(field)return field;
+    // A carried sample is a multi-location job; a generic completion cannot skip its checks.
+    if(action.type==='COMPLETE_TASK'&&state.fieldSample&&state.fieldSample.stage!=='researched'&&state.taskRun?.activeTaskId==='survey')return state;
+    return reduceStationGame(state,action,mission,()=>createInitialState(mission));
+  }
   if (action.type === 'RESTART') return createInitialState(mission);
   if (action.type === 'START' && state.phase === 'ready') return { ...state, phase: 'running' };
   if (action.type === 'PAUSE' && state.phase === 'running') return { ...state, phase: 'paused' };

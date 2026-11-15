@@ -1,15 +1,24 @@
 <script setup lang="ts">
 // Integration shell: Rohit owns this file. Himamshu's layout handoff is recorded in world/NOTES.md.
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import { atSuitRack, inAirlock, freshHabitatAccess } from './contracts/habitat';
+import { changeSuit, cycleAirlock, stepAirlock } from './features/game/airlock';
+import { SAMPLE_SITE, SAMPLE_LAB } from './contracts/exploration';
+import { fieldBusy, nearSampleLocation } from './features/game/field-sample';
+import FieldWorkPanel from './features/ui/FieldWorkPanel.vue';
 import { SPACECRAFT_SEAT, STATIONS } from './contracts';
 import type { LandingFlightSnapshot, LaunchFlightSnapshot, FlightStage, GravityBody, GameAction, PhysicsAdapter, Vec3, WorldAdapter, StationId, MissionData } from './contracts';
 import { createInitialState, getCurrentEvent, reduceGame, STATION_TASKS, taskCompletionId } from './features/game';
 import { soundFX } from './features/game/audio';
+import { createScienceClient, archivedScienceSnapshot } from './features/missions/science-client';
+import ScienceConsole from './features/ui/ScienceConsole.vue';
 import { loadMission } from './features/missions';
 import HudOverlay from './features/hud/HudOverlay.vue';
+import SourceCredits from './features/ui/SourceCredits.vue';
 import MissionPanels from './features/ui/MissionPanels.vue';
 import { usableMachines, WORK_MACHINES, type WorkWorldAdapter } from './features/world/interactables';
 import SpaceflightPanel from './features/ui/SpaceflightPanel.vue';
+import CabinTasks from './features/ui/CabinTasks.vue';
 import CabinSeatPanel from './features/ui/CabinSeatPanel.vue';
 import LaunchControls from './features/ui/LaunchControls.vue';
 import LandingControls from './features/ui/LandingControls.vue';
@@ -42,6 +51,77 @@ const deckVisible = ref(true);
 const activeActivity = shallowRef<(Activity & { taskId: string; completionId: string; impact: string }) | null>(null);
 const activityProgress = ref(0);
 const activityFeedback = ref('');
+const habitatAccess=ref(freshHabitatAccess());
+const nearSuitRack=ref(false);
+const nearMachine=ref(false);
+const airlockOccupied=ref(false);
+const airlockNotice=ref('');
+function equipSuit(){if(state.value.phase!=='running'||activeActivity.value)return;habitatAccess.value=changeSuit(habitatAccess.value,physics?.getPlayerPose()??{x:1.5,y:.8,z:9});}
+function useAirlock(){if(state.value.phase!=='running'||activeActivity.value)return;const next=cycleAirlock(habitatAccess.value,physics?.getPlayerPose()??{x:0,y:.8,z:12.5});airlockNotice.value=next===habitatAccess.value?'Suit up at the rack first.':'';habitatAccess.value=next;}
+const nearSampleSite=ref(false),nearSampleLab=ref(false);
+let pendingSampleAction:'dig'|'research'|null=null;
+const fieldNotice=ref('');
+const scienceOpen=ref(false),scienceLoading=ref(false);
+const scienceSnapshot=shallowRef(archivedScienceSnapshot());
+const scienceDialog=ref<HTMLElement>();
+const scienceClient=createScienceClient();
+let scienceAbort:AbortController|undefined;
+let scienceResume:'game'|'preparation'|'none'='none';
+let sciencePreviousFocus:HTMLElement|null=null;
+async function refreshScience(force=false){
+ scienceAbort?.abort();const request=new AbortController();scienceAbort=request;scienceLoading.value=true;
+ try {const result=await scienceClient.load({signal:request.signal,force});if(scienceAbort===request&&!request.signal.aborted)scienceSnapshot.value=result;}
+ finally {if(scienceAbort===request)scienceLoading.value=false;}
+}
+function openScience(){
+ if(scienceOpen.value)return;sciencePreviousFocus=document.activeElement as HTMLElement;scienceResume='none';
+ if((preparation.value||flightStage.value)&&!preparationPaused.value){scienceResume='preparation';togglePreparationPause();}
+ else if(state.value.phase==='running'){scienceResume='game';dispatch({type:'PAUSE'});}
+ scienceOpen.value=true;physics?.pauseInput?.();void nextTick(()=>scienceDialog.value?.focus());void refreshScience();
+}
+function closeScience(){
+ scienceAbort?.abort();scienceOpen.value=false;scienceLoading.value=false;
+ if(scienceResume==='game'&&state.value.phase==='paused')dispatch({type:'RESUME'});
+ else if(scienceResume==='preparation'&&preparationPaused.value)togglePreparationPause();
+ scienceResume='none';void nextTick(()=>{if(sciencePreviousFocus?.isConnected)sciencePreviousFocus.focus();else host.value?.focus();});
+}
+function trapScience(event:KeyboardEvent){
+ if(event.key==='Escape'){event.preventDefault();closeScience();return;}
+ if(event.key!=='Tab')return;
+ const nodes=Array.from(scienceDialog.value?.querySelectorAll<HTMLElement>('button:not(:disabled),summary,a[href],[tabindex="0"]')??[]).filter(n=>n.getClientRects().length);
+ const first=nodes[0],last=nodes[nodes.length-1];if(!first)return;
+ if(event.shiftKey&&(document.activeElement===first||document.activeElement===scienceDialog.value)){event.preventDefault();last.focus();}
+ else if(!event.shiftKey&&(document.activeElement===last||document.activeElement===scienceDialog.value)){event.preventDefault();first.focus();}
+}
+const doingFieldWork=computed(()=>fieldBusy(state.value));
+const showFieldPanel=computed(()=>!activeActivity.value && (nearSampleSite.value||nearSampleLab.value||doingFieldWork.value));
+function samplePose(){return physics?.getPlayerPose()??{x:0,y:0,z:0};}
+function startDig(){
+ if(!physics)return;
+ if(state.value.phase==='running'&&!state.value.fieldSample&&habitatAccess.value.suited&&nearSampleLocation(samplePose(),SAMPLE_SITE)&&Math.hypot(samplePose().x-SAMPLE_SITE.x,samplePose().z-SAMPLE_SITE.z)>.16){
+  pendingSampleAction='dig';(document.activeElement as HTMLElement)?.blur();physics.resumeInput?.();physics.walkPath?.([SAMPLE_SITE]);startMissionAfterGuide();return;
+ }
+ pendingSampleAction=null;
+ const before=state.value;state.value=reduceGame(state.value,{type:'START_DIG',pose:samplePose(),suited:habitatAccess.value.suited,grounded:physics.getMotionState?.().grounded??false},mission);
+ if(state.value!==before){startMissionAfterGuide();(document.activeElement as HTMLElement)?.blur();physics.pauseInput?.();fieldNotice.value='';}
+}
+function startSampleResearch(){
+ if(!physics)return;
+ if(state.value.phase==='running'&&state.value.fieldSample?.stage==='collected'&&nearSampleLocation(samplePose(),SAMPLE_LAB)&&Math.hypot(samplePose().x-SAMPLE_LAB.x,samplePose().z-SAMPLE_LAB.z)>.16){
+  pendingSampleAction='research';(document.activeElement as HTMLElement)?.blur();physics.resumeInput?.();physics.walkPath?.(samplePose().z>-.7?[{x:7,y:.8,z:samplePose().z},{x:7,y:.8,z:SAMPLE_LAB.z},SAMPLE_LAB]:[SAMPLE_LAB]);return;
+ }
+ pendingSampleAction=null;const before=state.value;
+ state.value=reduceGame(state.value,{type:'START_SAMPLE_RESEARCH',pose:samplePose(),grounded:physics.getMotionState?.().grounded??false},mission);
+ if(before!==state.value){(document.activeElement as HTMLElement)?.blur();physics.pauseInput?.();fieldNotice.value='';}
+}
+function observeSample(control:string){
+ const sample=state.value.fieldSample;if(!sample)return;const before=state.value;
+ dispatch({type:'SAMPLE_RESEARCH_STEP',runId:sample.runId,pose:samplePose(),control});
+ fieldNotice.value=state.value===before?'Look at the small, loose grains.':'';
+ if(state.value.fieldSample?.stage==='researched')physics?.resumeInput?.();
+}
+function cancelSample(){pendingSampleAction=null;state.value=reduceGame(state.value,{type:'CANCEL_SAMPLE'},mission);physics?.resumeInput?.();fieldNotice.value='';}
+function jump(){pendingSampleAction=null;if(!doingFieldWork.value&&!activeActivity.value&&state.value.phase==='running')physics?.requestJump?.();}
 const interior = ref<StationId | null>(null);
 const nearby = ref<StationId | null>(null);
 const doorsOpen = ref<Record<StationId, boolean>>({ habitat: false, solar: false, greenhouse: false });
@@ -189,6 +269,10 @@ function beginMarsTransfer() {
   music?.select('space');
 }
 
+function glideToFlightSeat(){
+ if(preparation.value!=='space'||preparationPaused.value||preparationProgress.value<3||cabinSeated.value)return;
+ (document.activeElement as HTMLElement)?.blur();deckVisible.value=false;physics?.resumeInput?.();physics?.walkPath?.([{...SPACECRAFT_SEAT}]);
+}
 function sitInFlightSeat() {
   if (preparation.value !== 'space' || preparationProgress.value < PREPARATION.space.steps.length || preparationPaused.value || cabinSeated.value) return;
   if (!nearCabinSeat.value) {
@@ -297,6 +381,7 @@ function operatePreparation(control: string) {
 }
 
 function handleVisualMinigameControl(control: string) {
+  // A local console or the explicit accessible deck uses the same puzzle checks.
   remoteConsole = true;
   operatePreparation(control);
 }
@@ -343,6 +428,7 @@ function leaveModule() {
 function travelToDoor(id: StationId) {
   if (state.value.phase !== 'running') return;
   startMissionAfterGuide();
+  if(habitatAccess.value.phase!=='inside'||airlockOccupied.value){stationMessage.value='Return through the airlock first.';return;}
   leaveModule(); physics?.reset?.(doorApproach(id)); nearby.value = id;
   doorReady.value = false;
   stationMessage.value = `At the ${id} entrance. Open the door with E or the button.`;
@@ -406,8 +492,26 @@ let missionSeconds=0;
 const showSplash = ref(true);
 const showLogin = ref(true);
 
+function trapDeck(event:KeyboardEvent){
+ if(event.key==='Escape'){event.preventDefault();if(state.value.phase==='paused')dispatch({type:'RESUME'});else deckVisible.value=false;return;}
+ if(event.key!=='Tab')return;
+ const nodes=Array.from(commandPanel.value?.querySelectorAll<HTMLElement>('button:not(:disabled),summary,a[href],input:not(:disabled),select,[tabindex="0"]')??[]).filter(node=>node.getClientRects().length);
+ const first=nodes[0],last=nodes[nodes.length-1];if(!first)return;
+ if(event.shiftKey&&(document.activeElement===first||document.activeElement===commandPanel.value)){event.preventDefault();last.focus();}
+ else if(!event.shiftKey&&(document.activeElement===last||document.activeElement===commandPanel.value)){event.preventDefault();first.focus();}
+}
+watch(()=>[deckVisible.value,state.value.phase,preparation.value],async()=>{
+ if(!deckVisible.value||activeActivity.value||scienceOpen.value||showLogin.value||showSplash.value)return;
+ await nextTick();if(!scienceOpen.value&&commandPanel.value?.getClientRects().length)commandPanel.value.focus();
+});
+
 function onSplashDone() {
   showSplash.value = false;
+}
+
+function quickStartMars(){
+ showSplash.value=false;showLogin.value=false;arrivalComplete=true;preparation.value=null;updateFlightStage(null);world?.setLevel?.(null);setGravity('mars');
+ physics?.exitInterior?.();physics?.reset?.({x:1.5,y:.8,z:7});deckVisible.value=false;dispatch({type:'START'});music?.select('mars');
 }
 
 function onLoginStart() {
@@ -436,6 +540,8 @@ function dispatch(action: GameAction) {
   if(action.type==='START'&&state.value.phase==='ready'&&(directDecisionMode.value||graphicsError.value)){arrivalComplete=true;setGravity('mars');world?.setLevel?.(null);world?.setJourney?.(null);music?.select('mars');}
   if(action.type==='CHOOSE')return;
   if(action.type==='START_TASK') {
+    if(action.taskId==='survey'&&state.value.fieldSample?.stage==='collected'){startSampleResearch();return;}
+    if(doingFieldWork.value||state.value.taskRun?.activeTaskId==='survey'&&state.value.fieldSample?.stage==='collected')return;
     if(state.value.phase==='running')startMissionAfterGuide();
     const previous=state.value;state.value=reduceGame(state.value,action,mission);
     if(state.value===previous)return;
@@ -444,8 +550,9 @@ function dispatch(action: GameAction) {
     activityProgress.value=0;activityFeedback.value='Finish the station minigame to earn this reward.';
     world?.setObjective?.(task.station);physics?.pauseInput?.();deckVisible.value=false;return;
   }
-  if (action.type === 'RESTART') { missionTimerActive.value=false;arrivalGuide.value=false;clearLandingFlight();clearLaunchFlight();missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; preparationProgress.value=0;nearCabinSeat.value=false;cabinSeated.value=false;world?.setCabinSeatState?.('hidden');arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
-  if (action.type === 'PAUSE' && state.value.phase === 'running') music?.setPaused(true);
+  if (action.type === 'RESTART') { pendingSampleAction=null;scienceOpen.value=false;scienceAbort?.abort();fieldNotice.value='';habitatAccess.value=freshHabitatAccess();airlockNotice.value='';missionTimerActive.value=false;arrivalGuide.value=false;clearLandingFlight();clearLaunchFlight();missionSeconds=0;cancelActivity();interior.value=null;world?.setInterior?.(null);for (const station of STATIONS) setDoor(station.id, false); nearby.value = null; deckVisible.value = true; preparation.value = null; preparationProgress.value=0;nearCabinSeat.value=false;cabinSeated.value=false;world?.setCabinSeatState?.('hidden');arrivalComplete = false; preparationPaused.value=false;flightControlProgress.value=0;flightFeedback.value='';stopFlightSim();updateFlightStage(null);world?.setJourney?.(null);world?.setLevel?.(null); music?.select('earth'); music?.setPaused(false); }
+  if (action.type === 'PAUSE' && state.value.phase === 'running') {pendingSampleAction=null;deckVisible.value=true;music?.setPaused(true);}
+  if (action.type === 'RESUME' && !directDecisionMode.value) deckVisible.value=false;
   if (action.type === 'RESUME' && state.value.phase === 'paused') music?.setPaused(false);
   const previousState = state.value;
   state.value = reduceGame(state.value, action, mission);
@@ -457,11 +564,11 @@ function dispatch(action: GameAction) {
     if(previousState.phase==='ready'&&state.value.phase==='running'){missionTimerActive.value=false;arrivalGuide.value=true;}
     if(state.value.phase==='running')physics?.resumeInput?.();
     soundFX.playStart();
-  } else if(action.type==='COMPLETE_TASK'||action.type==='TICK') {
+  } else if(action.type==='COMPLETE_TASK'||action.type==='SAMPLE_RESEARCH_STEP'||action.type==='TICK') {
     if(state.value.phase==='won'&&previousState.phase!=='won')soundFX.playVictory();
     else if(state.value.phase==='lost'&&previousState.phase!=='lost')soundFX.playDepleted();
     else if(state.value.lastHazardNotice!==previousState.lastHazardNotice)soundFX.playHazard();
-    else if(action.type==='COMPLETE_TASK'&&state.value!==previousState)soundFX.playDecision();
+    else if((action.type==='COMPLETE_TASK'||action.type==='SAMPLE_RESEARCH_STEP')&&state.value.turn>previousState.turn)soundFX.playDecision();
     if(state.value.phase==='won'||state.value.phase==='lost'){cancelActivity(false);deckVisible.value=true;physics?.pauseInput?.();music?.setPaused(true);}
   } else if (action.type === 'RESTART') {
     soundFX.playRestart();
@@ -476,7 +583,7 @@ function dispatch(action: GameAction) {
   } else if (action.type === 'PAUSE') {
     physics?.pauseInput?.();
   } else if (action.type === 'RESUME') {
-    if(!activeActivity.value)physics?.resumeInput?.();
+    if(!activeActivity.value&&!doingFieldWork.value)physics?.resumeInput?.();
   }
 }
 
@@ -539,6 +646,11 @@ function handleGlobalKeydown(event: KeyboardEvent) {
     if(event.code==='Space'&&!(event.target as HTMLElement|null)?.closest('button')){event.preventDefault();if(!event.repeat)igniteLaunch();return;}
   }
   if ((event.target as HTMLElement | null)?.closest('button, input, textarea, select, [contenteditable]')) return;
+  if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.code))pendingSampleAction=null;
+  if(state.value.phase==='running'&&!activeActivity.value&&!doingFieldWork.value&&event.code==='KeyE'&&(nearSuitRack.value||airlockOccupied.value)){event.preventDefault();if(!event.repeat){if(airlockOccupied.value)useAirlock();else equipSuit();}return;}
+  if(state.value.phase==='running'&&!activeActivity.value&&event.code==='KeyE'&&(nearSampleSite.value||nearSampleLab.value)){
+   event.preventDefault();if(!event.repeat&&!doingFieldWork.value){if(nearSampleSite.value)startDig();else startSampleResearch();}return;
+  }
   if ((preparation.value || flightStage.value) && event.code === 'KeyP') { event.preventDefault(); togglePreparationPause(); return; }
   if (flightStage.value) {
     if (event.code === 'Space' || event.code === 'Enter') {
@@ -643,7 +755,7 @@ onMounted(async () => {
           deckVisible.value = true;
           preparationFeedback.value = `${PREPARATION.space.steps[preparationProgress.value]} is ready. Complete its interactive task in the flight deck.`;
         }
-      } else if (preparation.value) {const steps=PREPARATION[preparation.value].steps;const progress=preparationProgress.value;operatePreparation(steps[index===progress%3?progress:index]);}
+      } else if (preparation.value) {remoteConsole=true;deckVisible.value=true;}
 
       else if(interior.value) {stationMessage.value='Approach a glowing machine and press E.';}
     });
@@ -677,7 +789,7 @@ onMounted(async () => {
         }
         if (flightStage.value === stage) world!.setFlightStage?.(stage, flightProgress.value ?? 0);
       }
-      if (state.value.phase === 'running' || (preparation.value && !preparationPaused.value)) {
+      if (!document.hidden && ((state.value.phase === 'running' && !activeActivity.value && !doingFieldWork.value && !scienceOpen.value) || (preparation.value && !preparationPaused.value && !cabinSeated.value))) {
         physics!.setCameraYaw?.(world!.getCameraYaw?.() ?? 0);
         accumulator = Math.min(accumulator + elapsed, 0.1);
         while (accumulator >= 1 / 60) {
@@ -688,6 +800,10 @@ onMounted(async () => {
         accumulator = 0;
       }
       advanceMissionTime(elapsed);
+      if(state.value.phase==='running'&&!activeActivity.value&&!document.hidden)habitatAccess.value=stepAirlock(habitatAccess.value,elapsed);
+      physics!.setHabitatAccess?.(habitatAccess.value);world!.setHabitatAccess?.(habitatAccess.value);
+      nearSampleSite.value=nearSampleLocation(physics!.getPlayerPose(),SAMPLE_SITE);nearSampleLab.value=interior.value==='solar'&&nearSampleLocation(physics!.getPlayerPose(),SAMPLE_LAB);
+      nearSuitRack.value=atSuitRack(physics!.getPlayerPose());airlockOccupied.value=inAirlock(physics!.getPlayerPose());
       let pose = physics!.getPlayerPose();
       if (preparation.value === 'earth') {
         const outside=insideStation(pose)!=='habitat';
@@ -699,10 +815,24 @@ onMounted(async () => {
         nearConsole.value=pose.z<-.4;
         nearCabinSeat.value=preparationProgress.value>=PREPARATION.space.steps.length && Math.hypot(pose.x-SPACECRAFT_SEAT.x,pose.z-SPACECRAFT_SEAT.z)<.95;
       } else { nearConsole.value=false; nearCabinSeat.value=false; }
+      if(pendingSampleAction&&state.value.phase==='running'){
+        const target=pendingSampleAction==='dig'?SAMPLE_SITE:SAMPLE_LAB;
+        if(Math.hypot(pose.x-target.x,pose.z-target.z)<=.16){if(pendingSampleAction==='dig')startDig();else startSampleResearch();}
+      }
       checkStationProximity(pose);
       pose = physics!.getPlayerPose();
-      const usable=state.value.phase==='running'&&!activeActivity.value&&!preparation.value&&flightProgress.value===null?usableMachines(pose,interior.value):[];
+      const usable=state.value.phase==='running'&&!activeActivity.value&&!doingFieldWork.value&&!preparation.value&&flightProgress.value===null?usableMachines(pose,interior.value):[];
+      nearMachine.value=usable.length>0;
       world!.setInteractables?.(usable);world!.setPrompt?.(usable[0]?'E · '+usable[0].label:'');
+      if(doingFieldWork.value&&state.value.phase==='running'&&!scienceOpen.value&&!document.hidden){
+        const beforeStage=state.value.fieldSample!.stage;
+        state.value=reduceGame(state.value,{type:'FIELD_TICK',runId:state.value.fieldSample!.runId,seconds:Math.min(.1,elapsed),pose,suited:habitatAccess.value.suited,grounded:physics!.getMotionState?.().grounded??false},mission);
+        if(beforeStage==='digging'&&state.value.fieldSample?.stage==='collected'){physics!.resumeInput?.();soundFX.playDecision();}
+      }
+      world!.setPlayerMotion?.(physics!.getMotionState?.()??{grounded:true,verticalSpeed:0,body:'mars'});
+      const sample=state.value.fieldSample;
+      world!.setSampleStage?.(sample?.stage??'empty',Math.min(1,(sample?.elapsed??0)/6));
+      world!.setAvatarActivity?.({action:sample?.stage==='digging'?'dig':sample?.stage==='researching'?'research':'none',progress:Math.min(1,(sample?.elapsed??0)/6)});
       world!.setPlayerPose(pose);
       world!.setState(state.value);
       if (state.value.phase === 'running') {
@@ -737,6 +867,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  scienceAbort?.abort();
   music?.dispose();
   stopFlightSim();
   disposed = true;
@@ -753,9 +884,12 @@ onBeforeUnmount(() => {
 
 <template>
   <SplashScreen v-if="showSplash" @finished="onSplashDone" />
-  <LoginScreen v-if="showLogin" @start="onLoginStart" />
-  <main class="ares-app" :class="{'launch-active':!!launchFlight}">
+  <LoginScreen v-if="showLogin" @start="onLoginStart" @explore="quickStartMars" />
+  <main class="ares-app" :class="{'console-open':scienceOpen || activeActivity || (deckVisible && (preparation || flightStage || state.phase!=='running' || directDecisionMode)),'mars-play':arrivalComplete && state.phase==='running','launch-active':!!launchFlight}">
 
+    <div v-if="scienceOpen" ref="scienceDialog" class="science-modal" role="dialog" aria-modal="true" aria-label="NASA science console" tabindex="-1" @keydown.stop="trapScience">
+      <ScienceConsole :snapshot="scienceSnapshot" :loading="scienceLoading" :sample-status="state.fieldSample ? state.fieldSample.stage==='researched'?'Your practice sample: loose grains observed; composition unknown.':'Collect → seal → examine. Keep observations separate from guesses.':undefined" @close="closeScience" @refresh="refreshScience(true)"/>
+    </div>
     <div class="mission-layout">
 
       <section class="world-panel" aria-label="Mars surface exploration">
@@ -768,7 +902,8 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <div class="header-controls">
-        <span class="prototype-label">Junior explorer program</span>
+        <span class="prototype-label">Junior explorer program</span><button v-if="!launchFlight && !landingFlight" @click="openScience">NASA</button>
+        <button v-if="state.taskRun && (state.phase==='running'||state.phase==='paused')" @click="dispatch({type:state.phase==='paused'?'RESUME':'PAUSE'})">{{ state.phase==='paused'?'Resume':'Pause' }}</button>
         <button
           type="button"
           v-if="!launchFlight && !landingFlight" class="mode-btn"
@@ -776,7 +911,7 @@ onBeforeUnmount(() => {
           :title="directDecisionMode ? 'Use walking and station computers' : 'Use accessible station consoles'"
           :aria-label="directDecisionMode ? 'Accessible consoles active. Switch to walking.' : 'Walking mode active. Enable accessible consoles.'"
         >
-          {{ directDecisionMode ? 'Accessible consoles' : 'Walk & work' }}
+          {{ directDecisionMode ? 'Remote console' : 'Walk mode' }}
         </button>
         <button v-if="state.phase === 'ready' && !preparation && flightProgress === null" class="launch-btn" @click="dispatch({ type: 'START' })">Begin expedition <span aria-hidden="true">↗</span></button>
         <button
@@ -786,12 +921,12 @@ onBeforeUnmount(() => {
           :aria-label="soundEnabled ? 'Mute audio' : 'Enable audio'"
           :title="soundEnabled ? 'Press M to mute sound' : 'Press M to enable sound'"
         >
-          {{ soundEnabled ? '🔊 Sound On' : '🔇 Muted' }}
+          {{ soundEnabled ? '♫ On' : '♫ Off' }}
         </button>
       </div>
     </header>
       <div class="hud-container">
-        <HudOverlay v-if="!launchFlight && !landingFlight" :key="state.taskRun?.session ?? 0" :state="state" :mission="mission" />
+        <HudOverlay v-if="!launchFlight && !landingFlight" :key="state.taskRun?.session ?? 0" :state="state" :mission="mission" :stage="preparation ?? flightStage" :stage-progress="preparation ? {value:preparationProgress,max:PREPARATION[preparation].steps.length}:undefined" />
       </div>
         <div class="surface-header">
           <span><span class="live-dot" aria-hidden="true" /> {{ preparation === 'earth' ? 'EARTH / PREPARATION LAB' : preparation === 'space' ? 'ARES / ROCKET FLIGHT CABIN' : flightStage === 'launch' || flightStage === 'orbit-autopilot' ? 'EARTH / LAUNCH VEHICLE' : flightStage === 'transfer' ? 'EXPEDITION / AUTOPILOT TRANSFER' : flightStage === 'landing' || flightStage === 'touchdown' ? 'MARS / LANDING APPROACH' : 'OUTPOST ARES / SURFACE VIEW' }}</span>
@@ -803,7 +938,7 @@ onBeforeUnmount(() => {
               :title="deckVisible ? 'Hide Mission Deck (Press C)' : 'Show Mission Deck (Press C)'"
               @click="deckVisible = !deckVisible"
             >
-              {{ deckVisible ? '✕ Close Deck' : 'ℹ Mission Info' }}
+              {{ deckVisible ? 'Close console' : 'Console' }}
             </button>
             <span>SECTOR 01</span>
           </div>
@@ -814,18 +949,27 @@ onBeforeUnmount(() => {
           role="region"
           :aria-label="flightStage ? 'Rocket ascent, transfer or Mars landing view' : preparation === 'earth' ? 'Interactive Earth launch site' : preparation === 'space' ? 'Interactive zero-gravity rocket cabin' : 'Interactive 3D Mars Outpost Viewport'"
         />
+        <div v-if="arrivalComplete && state.phase==='running'" class="environment-label">{{ habitatAccess.phase==='outside'?'MARS · SUIT SEALED':habitatAccess.suited?'BASE · SUIT READY':'BASE · BREATHABLE' }}</div>
+        <div v-if="preparation==='space' && !deckVisible" class="cabin-prompt">
+          <button v-if="preparationProgress<3" @click="deckVisible=true">E · Flight console {{ preparationProgress+1 }}</button>
+          <template v-else><button v-if="!nearCabinSeat && !cabinSeated" @click="glideToFlightSeat">Go to seat</button><button v-else-if="!cabinSeated" @click="sitInFlightSeat">E · Buckle in</button><button v-else @click="beginTransferFromFlightSeat">Begin Mars transfer</button></template>
+        </div>
         <div v-if="arrivalGuide && state.phase==='running' && !activeActivity" class="arrival-guide" role="status">
           <span><strong>Touchdown</strong> · E near any machine</span>
           <button @click="startMissionAfterGuide">Explore</button>
           <details><summary aria-label="Show movement help">?</summary><p>WASD · move<br>Drag · look<br>E · use<br>P · pause</p></details>
         </div>
-        <div v-if="state.taskRun && (state.phase==='running'||state.phase==='paused')" class="task-warning">
-
-          <button @click="dispatch({type:state.phase==='paused'?'RESUME':'PAUSE'})">{{ state.phase==='paused'?'▶ Resume':'Ⅱ Pause' }}</button>
-        </div>
-        <DoorPanel v-if="!activeActivity && arrivalComplete && state.phase === 'running' && !preparation && flightProgress === null"
+        <DoorPanel v-if="!activeActivity && !showFieldPanel && !nearMachine && !nearSuitRack && !airlockOccupied && arrivalComplete && state.phase === 'running' && !preparation && flightProgress === null"
           :station="interior ?? nearby" :inside="!!interior" :open="!!doorsOpen[interior ?? nearby ?? 'habitat']"
           :ready="doorReady" :paused="false" @toggle="toggleDoor" @enter="enterModule()" @exit="leaveModule" @travel="travelToDoor" />
+        <section v-if="arrivalComplete && state.phase==='running' && !activeActivity && (nearSuitRack || airlockOccupied)" class="airlock-panel" aria-label="Habitat airlock">
+          <strong>{{ airlockOccupied ? 'AIRLOCK' : 'EVA SUIT' }}</strong>
+          <p role="status">{{ airlockNotice || (habitatAccess.remaining>0 ? 'Doors sealed · changing pressure…' : airlockOccupied ? habitatAccess.phase==='outside'?'Mars door open':'Base door open' : habitatAccess.suited?'Helmet sealed · air pack ready':'Suit up to explore Mars') }}</p>
+          <button v-if="nearSuitRack && !airlockOccupied" @click="equipSuit">{{ habitatAccess.suited?'E · Stow suit':'E · Equip suit' }}</button>
+          <button v-else :disabled="habitatAccess.remaining>0 || !habitatAccess.suited" @click="useAirlock">{{ habitatAccess.phase==='inside'?'E · Cycle to Mars':'E · Cycle to base' }}</button>
+        </section>
+        <FieldWorkPanel v-if="arrivalComplete && (state.phase==='running'||state.phase==='paused') && showFieldPanel" :sample="state.fieldSample" :near-site="nearSampleSite" :near-lab="nearSampleLab" :suited="habitatAccess.suited" :paused="state.phase==='paused'" :notice="fieldNotice" @dig="startDig" @research="startSampleResearch" @check="observeSample" @cancel="cancelSample" @science="openScience" @pause="dispatch({type:state.phase==='paused'?'RESUME':'PAUSE'})"/>
+        <button v-if="arrivalComplete && state.phase==='running' && !activeActivity && !doingFieldWork" class="jump-control" aria-label="Jump" @click="jump">↑ Jump <kbd>Space</kbd></button>
         <LaunchControls v-if="launchFlight" :flight="launchFlight" :paused="preparationPaused" @ignite="igniteLaunch" @hold="holdLaunch" @nudge="nudgeLaunch" @throttle="setLaunchThrottle" @pause="togglePreparationPause" @reset="beginLaunchSequence" />
         <LandingControls v-if="landingFlight" :flight="landingFlight" :guidance="landingGuidance(landingFlight)" :paused="preparationPaused" @hold="holdLanding" @nudge="nudgeLanding" @throttle="setLandingThrottle" @legs="deployLandingLegs" @assist="toggleLandingAssist" @pause="togglePreparationPause" @retry="retryMarsLanding" @continue="finishArrival" />
         <div v-if="flightStage && !launchFlight && !landingFlight" class="arrival-overlay" role="status">
@@ -861,9 +1005,9 @@ onBeforeUnmount(() => {
           class="command-panel in-viewport-deck"
           role="dialog" aria-label="Mission controls"
           tabindex="0"
-          @keydown.stop
+          @keydown.stop="trapDeck"
           @focusin="physics?.pauseInput?.()"
-          @focusout="!cabinSeated && !activeActivity && (state.phase === 'running' || (preparation && !preparationPaused)) && physics?.resumeInput?.()"
+          @focusout="!scienceOpen && !cabinSeated && !activeActivity && (state.phase === 'running' || (preparation && !preparationPaused)) && physics?.resumeInput?.()"
         >
           <div v-if="!activeActivity" class="command-heading">
             <span>ARES</span>
@@ -881,8 +1025,9 @@ onBeforeUnmount(() => {
           <p v-if="state.upcomingHazardNotice && state.phase === 'running'" class="hazard-advisory" role="alert">
             {{ state.upcomingHazardNotice }}
           </p>
+          <CabinTasks v-if="preparation==='space' && preparationProgress<PREPARATION.space.steps.length" :progress="preparationProgress" :paused="preparationPaused" @control="handleVisualMinigameControl" @pause="togglePreparationPause" />
           <VisualPreflightMinigame
-            v-if="preparation && !(preparation === 'space' && preparationProgress >= PREPARATION.space.steps.length)"
+            v-else-if="preparation==='earth'"
             :level="preparation"
             :progress="preparationProgress"
             :paused="preparationPaused"
@@ -896,6 +1041,7 @@ onBeforeUnmount(() => {
             :seated="cabinSeated"
             :paused="preparationPaused"
             :feedback="preparationFeedback"
+            @glide="glideToFlightSeat"
             @sit="sitInFlightSeat"
             @transfer="beginTransferFromFlightSeat"
             @pause="togglePreparationPause"
@@ -911,6 +1057,7 @@ onBeforeUnmount(() => {
             :event="getCurrentEvent(mission, state)"
             @action="dispatch"
           />
+          <SourceCredits v-if="preparation || flightStage || state.phase==='running'" :mission="mission" />
           <AssetCredits />
         </section>
       </section>
@@ -1042,4 +1189,4 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
 }
 </style>
 
-<style scoped src="./features/world/shell.css">.arrival-guide{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:14;display:flex;align-items:center;gap:10px;max-width:calc(100% - 24px);box-sizing:border-box;padding:10px 12px;border:1px solid #98cbc677;border-radius:12px;background:#102c38e8;color:#dff9ee;backdrop-filter:blur(12px);font-size:12px}.arrival-guide strong{color:#ffe0a0}.arrival-guide button,.arrival-guide summary{min-height:40px;min-width:36px;display:grid;place-items:center;padding:0 10px;border:1px solid #97cfc5;border-radius:8px;background:#234751;color:#ecfff6;cursor:pointer}.arrival-guide details{position:relative}.arrival-guide details p{position:absolute;bottom:44px;right:0;min-width:110px;padding:12px;margin:0;border:1px solid #8fbdbd;border-radius:10px;background:#12313d;line-height:1.8}.arrival-guide button:focus-visible,.arrival-guide summary:focus-visible{outline:3px solid #ffe0a0;outline-offset:2px}@media(max-width:600px){.arrival-guide{bottom:230px;width:max-content;font-size:10px;gap:7px}}</style>
+<style scoped src="./features/world/shell.css"></style>

@@ -17,85 +17,15 @@ function onStart() {
 
 <template>
   <div class="onboarding" role="region" aria-label="Mission Onboarding">
-    <div class="hero">
-      <span class="role-badge">Mission Commander Briefing</span>
-      <h2>Welcome to Mars Outpost Ares!</h2>
-      <p class="tagline">
-        Humanity needs you to lead the first research base on the Red Planet.
-      </p>
-    </div>
-
-    <div class="briefing-grid">
-      <div class="card mission-goals">
-        <h3>🎯 Mission Goals</h3>
-        <ul>
-          <li>
-            <strong>{{ mission.gameplayMode === 'station-tasks' ? `Finish ${mission.maxTurns} Jobs:` : `Survive ${mission.maxTurns} Shifts:` }}</strong>
-            {{ mission.gameplayMode === 'station-tasks' ? 'Complete station work while keeping every life-support system running.' : 'Keep every life-support system running.' }}
-          </li>
-          <li>
-            <strong>Reach Science Target:</strong> Collect at least
-            <span class="highlight">{{ mission.scienceTarget }} Science Points</span> before your mission ends.
-          </li>
-          <li>
-            <strong>Zero-Reserve Rule:</strong> If <em>Power</em>, <em>Air (Oxygen)</em>, or <em>Supplies</em> hits zero, the mission terminates immediately!
-          </li>
-        </ul>
-      </div>
-
-      <div class="card controls-guide">
-        <h3>🕹️ How to Play</h3>
-        <ul>
-          <li>
-            <strong>Walk & Explore:</strong> Use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or
-            <kbd>Arrow Keys</kbd> on your keyboard to guide the astronaut around the Martian surface.
-          </li>
-          <li>
-            <template v-if="mission.gameplayMode === 'station-tasks'"><strong>Work & Protect:</strong> Use station computers to complete jobs and earn benefits. Reserves drain over time. Watch hazard warnings and service the matching system to prevent damage. Pause whenever you need a break.</template>
-            <template v-else><strong>Make Choices:</strong> Each shift presents a real engineering dilemma. Choose the option that balances safety and discovery.</template>
-          </li>
-          <li>
-            <strong>Keyboard Accessible:</strong> Use <kbd>Tab</kbd> to move between buttons and press <kbd>Enter</kbd> or <kbd>Space</kbd> to select.
-          </li>
-        </ul>
-      </div>
-
-      <div class="card stations-overview">
-        <h3>🏛️ Outpost Modules</h3>
-        <div class="station-tags">
-          <div class="station-tag">
-            <span class="tag-icon">⚡</span>
-            <div>
-              <strong>Solar Station</strong>
-              <p>Generates power for heaters and life support.</p>
-            </div>
-          </div>
-          <div class="station-tag">
-            <span class="tag-icon">🏠</span>
-            <div>
-              <strong>Hab & Shelter</strong>
-              <p>Protects your crew against radiation and dust storms.</p>
-            </div>
-          </div>
-          <div class="station-tag">
-            <span class="tag-icon">🌱</span>
-            <div>
-              <strong>Greenhouse</strong>
-              <p>Produces oxygen and grows emergency food supplies.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="start-action">
-      <button
-        class="start-button"
-        type="button"
-        @click="onStart"
-      >
-        🚀 Start Mission ({{ mission.gameplayMode === 'station-tasks' ? 'Job 1' : 'Shift 1' }})
-      </button>
+    <div class="hero"><span class="role-badge">YOUR MISSION</span><h2>Welcome to Mars Outpost Ares!</h2></div>
+    <div class="mission-brief">
+      <p><strong>{{ mission.gameplayMode==='station-tasks'?`Finish ${mission.maxTurns} Jobs`:`Survive ${mission.maxTurns} Shifts` }}</strong> · Collect {{ mission.scienceTarget }} Science Points.</p>
+      <div class="brief-icons"><span>ϟ Power</span><span>◉ Air</span><span>▣ Food</span></div>
+      <p>Keep all three above zero.</p>
+      <h3>How to Play</h3><p>WASD / Arrow Keys · move<br>E · use a machine<br>P · pause</p>
+      <p>Leaving the bubble? Suit up first.</p>
+      <button class="start-button" @click="onStart">Start Mission ({{ mission.gameplayMode==='station-tasks'?'Job 1':'Shift 1' }})</button>
+      <details><summary>Base guide</summary><p>Solar Station · power<br>Hab &amp; Shelter · air and solid shielding<br>Greenhouse · crops</p><p>Zero-Reserve Rule: empty reserves end the mission. Work takes time while other systems use supplies.</p></details>
     </div>
   </div>
 </template>
@@ -270,3 +200,5 @@ kbd {
   }
 }
 </style>
+
+<style scoped>.mission-brief{font-size:14px;line-height:1.7}.mission-brief h3{font-size:13px;color:#a8d6c2;margin-bottom:4px}.brief-icons{display:flex;gap:18px;color:#ffe0a0}.mission-brief .start-button{width:100%;min-height:48px;font-size:15px}.mission-brief details{margin-top:15px;font-size:12px;color:#acc7c1}.mission-brief summary{min-height:32px;cursor:pointer}.hero h2{font-size:24px!important}</style>

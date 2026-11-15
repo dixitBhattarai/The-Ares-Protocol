@@ -11,7 +11,7 @@ const modeDescription = computed(() => {
     case 'authored-demo':
       return 'Starter Demo: All resource values, events, and station parameters are authored game mechanics. No live NASA dataset is loaded yet.';
     case 'archived':
-      return 'Archived NASA Evidence: Real planetary mission records, telemetry snapshots, and space weather observations adapted into educational gameplay.';
+      return 'Archived NASA Evidence: Bundled DONKI space-weather and InSight weather records, plus linked science references. Game hazards, reserves and timers are authored; this is not a live Mars feed.';
     case 'live':
       return 'Live NASA Data Feed: Near-real-time sensor telemetry adapted into educational simulation rules.';
     default:
@@ -24,7 +24,7 @@ const modeDescription = computed(() => {
   <details class="sources-drawer">
     <summary class="sources-summary">
       <span class="summary-icon">🔬</span>
-      <span class="summary-title">Science Sources, NASA Data &amp; Attributions</span>
+      <span class="summary-title">Science &amp; sources</span>
       <span class="summary-badge">{{ mission.dataMode }}</span>
     </summary>
 
@@ -79,6 +79,21 @@ const modeDescription = computed(() => {
         </ul>
       </section>
 
+      <details class="further-science">
+        <summary>Explore more science</summary>
+        <p>Further reading; these services are not live inputs to the game.</p>
+        <ul>
+          <li><a href="https://api.nasa.gov/" target="_blank" rel="noopener noreferrer">NASA Open APIs</a> · data portal</li>
+          <li><a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank" rel="noopener noreferrer">DONKI</a> · space weather</li>
+          <li><a href="https://osdr.nasa.gov/bio/repo/" target="_blank" rel="noopener noreferrer">OSDR</a> · space biology research</li>
+          <li><a href="https://visualization.osdr.nasa.gov/radlab/gui/data-api/" target="_blank" rel="noopener noreferrer">RadLab</a> · ISS dosimetry, not Mars crew dose</li>
+          <li><a href="https://trek.nasa.gov/mars/" target="_blank" rel="noopener noreferrer">Mars Trek</a> · real terrain; this outpost map is invented</li>
+          <li><a href="https://www.asc-csa.gc.ca/eng/youth-educators/resources-stem-and-youth-organizations.asp" target="_blank" rel="noopener noreferrer">CSA youth resources</a></li>
+          <li><a href="https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/" target="_blank" rel="noopener noreferrer">CSA space food toolkit</a></li>
+        </ul>
+        <p>The dome is a habitat concept, not a proven Mars structure. Pressure checks, plant targets, rewards, hazards and travel times are simplified game rules. Solid shelter helps with radiation; a clear bubble is not a radiation shield.</p>
+      </details>
+
       <!-- Educational Caveat & Physical Simplification Notes -->
       <div class="disclaimers">
         <div class="disclaimer-item">
@@ -99,7 +114,7 @@ const modeDescription = computed(() => {
         <div class="disclaimer-item nasa-disclaimer">
           <strong>🏛️ NASA Non-Endorsement Notice:</strong>
           <p>
-            NASA does not endorse any non-U.S. Government entity and is not responsible for information contained on non-U.S. Government websites.
+            NASA does not endorse any non-U.S. Government entity and is not responsible for information contained on non-U.S. Government websites. For non-U.S. Government websites, participants must comply with any data use parameters of that specific website.
           </p>
         </div>
       </div>

@@ -211,7 +211,7 @@ watch(
       <div v-if="progress === 0" class="stage-card fueling-stage">
         <div class="tanks-rack">
           <!-- Fuel Tank (Orange) -->
-          <div class="tank-column" @click="fillFuel">
+          <div class="tank-column">
             <div class="tank-glass">
               <div
                 class="tank-liquid fuel-liquid"
@@ -237,7 +237,7 @@ watch(
           </div>
 
           <!-- Oxidizer Tank (Cyan) -->
-          <div class="tank-column" @click="fillOxidizer">
+          <div class="tank-column">
             <div class="tank-glass">
               <div
                 class="tank-liquid ox-liquid"

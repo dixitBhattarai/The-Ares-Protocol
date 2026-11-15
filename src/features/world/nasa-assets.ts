@@ -4,6 +4,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import type { WorldResources } from './resources';
 import { rigSuit } from './suit-rig';
 import { createLocomotion } from './locomotion';
+import { createAvatarActionLayer } from './avatar-action';
 
 export const NASA_ASSETS = {
   astronaut: new URL('./assets/astronaut.glb', import.meta.url).href,
@@ -68,9 +69,24 @@ export function createNasaLoader(resources: WorldResources) {
           parent.userData.animateSuit = (_cycle: number, moving: boolean) => animation.setMoving(moving);
           parent.userData.updateSuit = animation.update;
           parent.userData.animationMixer = animation.mixer;
+          parent.userData.setPosture = animation.setPosture;
+          parent.userData.setMotion = animation.setMotion;
+          parent.userData.setActivity = animation.setActivity;
+          parent.userData.resetActions = animation.resetActions;
         } else if (key === 'astronaut') {
           const rig = rigSuit(scene, resources, height);
-          parent.add(rig.group); parent.userData.animateSuit = rig.animate;
+          parent.add(rig.group);
+          const layer = createAvatarActionLayer(rig.group);
+          let cycle = 0, moving = false;
+          parent.userData.animateSuit = (nextCycle: number, nextMoving: boolean) => { cycle = nextCycle; moving = nextMoving; };
+          parent.userData.updateSuit = (seconds: number, active: boolean, reduced: boolean) => {
+            if (!active) return;
+            layer.beforeMixer(); rig.animate(reduced ? 0 : cycle, !reduced && moving);
+            layer.update(seconds, active, reduced);
+          };
+          parent.userData.setMotion = layer.setMotion;
+          parent.userData.setActivity = layer.setActivity;
+          parent.userData.resetActions = layer.reset;
         } else parent.add(scene);
         if (fallback) fallback.visible = false;
         parent.userData.assetLoaded = key;

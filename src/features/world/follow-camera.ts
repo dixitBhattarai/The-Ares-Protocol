@@ -24,12 +24,14 @@ export function createFollowCamera(canvas: HTMLCanvasElement) {
   const target = new THREE.Vector3();
   const up = new THREE.Vector3(0, 1, 0);
   let context = '';
+  let workFocus:'none'|'dig'|'research'='none';
   let firstPerson = false;
   let pendingYaw = 0;
   let look: Look = { yaw: 0, pitch: 0 };
   const ray = new THREE.Raycaster();
   return {
     camera:view, controls,
+    setWorkFocus(value:'none'|'dig'|'research'){if(value===workFocus)return;workFocus=value;context='';},
     update(pose: Vec3, aspect: number, nextContext: string, enabled: boolean) {
       controls.enabled = enabled && !firstPerson;
       if (!enabled) return;
@@ -44,7 +46,7 @@ export function createFollowCamera(canvas: HTMLCanvasElement) {
       target.set(pose.x, pose.y + .45, pose.z);
       if (context !== nextContext) {
         context = nextContext;
-        const offset = new THREE.Vector3(0, nextContext === 'room' ? 3.5 : 2.5, nextContext === 'room' ? 5 : 8).applyAxisAngle(up, pendingYaw);
+        const offset = new THREE.Vector3(workFocus==='research'?-2.4:workFocus==='dig'?2.4:0, workFocus!=='none'?1.65:nextContext === 'room' ? 3.5 : 2.5, workFocus==='research'?-2.4:workFocus==='dig'?3:nextContext === 'room' ? 5 : 8).applyAxisAngle(up, pendingYaw);
         pendingYaw = 0;
         camera.position.copy(target).add(offset);
         controls.target.copy(target);

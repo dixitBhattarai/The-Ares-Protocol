@@ -48,12 +48,11 @@ function testSound() {
     <div class="pause-card">
       <div class="pause-badge">
         <span class="pause-icon">⏸️</span>
-        <h2>Mission Suspended</h2>
+        <h2>Paused</h2>
       </div>
 
       <p class="pause-message">
-        Outpost simulation and astronaut motion are currently paused.
-        Review telemetry, calibrate outpost sound systems, or restart your expedition.
+        Take a break. Your base can wait.
       </p>
 
       <!-- In-Game Audio & Setting Controls -->

@@ -1,4 +1,6 @@
 {
+  "provenanceStatus": "unverified-placeholder-not-api-evidence",
+  "usageNote": "These legacy hand-authored-looking entries have no retained request/response provenance. They are not used by the game or NASA science feed and must not be presented as NASA observations.",
   "apod": {
     "date": "2024-05-11",
     "title": "Solar Active Region 13664 Eruption",
@@ -13,7 +15,11 @@
     "element_count": 3,
     "near_earth_objects": {
       "2024-05-11": [
-        { "name": "(2024 JZ)", "estimated_diameter_min_meters": 45, "is_potentially_hazardous_asteroid": false }
+        {
+          "name": "(2024 JZ)",
+          "estimated_diameter_min_meters": 45,
+          "is_potentially_hazardous_asteroid": false
+        }
       ]
     }
   }

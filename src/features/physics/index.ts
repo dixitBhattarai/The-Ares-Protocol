@@ -1,3 +1,6 @@
+import { constrainHabitatMotion } from './habitat';
+import type { HabitatAccess } from '../../contracts/habitat';
+import type { PlayerMotion } from '../../contracts/exploration';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { BUILDING_HALF_SIZE, DOOR_HALF_WIDTH, STATIONS } from '../../contracts';
 import type { GravityBody, GravityInfo, PhysicsAdapter, StationId, Vec3 } from '../../contracts';
@@ -138,8 +141,36 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   let outsidePose: Vec3 | undefined;
   let cameraYaw = 0;
   let walkingPath: Vec3[] = [];
+  let habitatAccess: HabitatAccess | null = null;
   let gravityBody: GravityBody = 'mars';
   let jumpRequested = false;
+
+  // The capsule reaches .8m below its centre. A short support probe handles
+  // furniture tops as well as the flat base, without treating nearby walls as ground.
+  function grounded(): boolean {
+    if (isDisposed || gravityBody === 'orbit' || body.linvel().y > .1) return false;
+    const position = body.translation();
+    if (position.y <= GROUND_Y + .025 && Math.abs(body.linvel().y) < .15) return true;
+    const hit = world.castRayAndGetNormal(
+      new RAPIER.Ray(position, {x: 0, y: -1, z: 0}),
+      GROUND_Y + .035,
+      true,
+      undefined,
+      undefined,
+      capsuleCollider,
+      body,
+    );
+    return !!hit && hit.normal.y > .65 && Math.abs(body.linvel().y) < .15;
+  }
+
+  function requestJump(): void {
+    if (isDisposed || isInputPaused || gravityBody === 'orbit'
+      || (typeof document !== 'undefined' && document.hidden)) return;
+    // An explicit jump takes over from an accessible walking route. It is consumed
+    // on the next physics step, so air presses cannot queue a jump upon landing.
+    walkingPath = [];
+    jumpRequested = true;
+  }
 
   const keyDown = (event: KeyboardEvent) => {
     if (isDisposed || isInputPaused) return;
@@ -150,7 +181,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
     if (event.code === 'Space') {
       if((event.target as HTMLElement|null)?.closest?.('button,summary,a'))return;
       event.preventDefault();
-      if (!event.repeat) jumpRequested = true;
+      if (!event.repeat) requestJump();
       return;
     }
     if (MOVEMENT_KEY_CODES.has(event.code)) {
@@ -189,6 +220,11 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
   }
 
   return {
+    getMotionState(): PlayerMotion {
+      return {grounded: grounded(), verticalSpeed: isDisposed ? 0 : body.linvel().y, body: gravityBody};
+    },
+    requestJump,
+    setHabitatAccess(access) { habitatAccess = access; },
     setGravityBody(next) {
       if (isDisposed || !(next in GRAVITY_BY_BODY)) return;
       gravityBody = next;
@@ -201,7 +237,7 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
     walkPath(points) { if(isDisposed||isInputPaused)return;pressed.clear();walkingPath=points.filter(point=>[point.x,point.y,point.z].every(Number.isFinite)).map(point=>({...point})); },
     setCameraYaw(yaw) { cameraYaw = Number.isFinite(yaw) ? yaw : 0; },
     step(seconds: number) {
-      if (isDisposed) return;
+      if (isDisposed || !Number.isFinite(seconds) || seconds <= 0) return;
       const dt = Math.max(0.001, Math.min(seconds, 0.1));
       const input = computeMovementVelocity(pressed, ASTRONAUT_SPEED);
       let movement = rotateMovement(input.vx, input.vz, cameraYaw);
@@ -213,11 +249,12 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
       const { vx, vz } = isInputPaused ? { vx: 0, vz: 0 } : movement;
       const curLinvel = body.linvel();
       let vy = curLinvel.y;
-      const onGround = body.translation().y <= GROUND_Y + 0.03 && Math.abs(curLinvel.y) < 0.1;
+      const onGround = grounded();
       if (jumpRequested && onGround && !isInputPaused && !walkingPath.length && GRAVITY_BY_BODY[gravityBody] > 0) vy = JUMP_SPEED;
       jumpRequested = false;
       body.setLinvel({ x: vx, y: vy, z: vz }, true);
 
+      const previousPose = {...body.translation()};
       world.timestep = dt;
       world.step();
 
@@ -235,6 +272,10 @@ export async function createPhysics(): Promise<PhysicsAdapter> {
         }
       }
 
+      if (gravityBody === 'mars' && !outsidePose && habitatAccess) {
+        const safe=constrainHabitatMotion(previousPose,{x:clampedX,y:clampedY,z:clampedZ},habitatAccess);
+        clampedX=safe.x;clampedZ=safe.z;
+      }
       if (clampedX !== pose.x || clampedY !== pose.y || clampedZ !== pose.z) {
         body.setTranslation({ x: clampedX, y: clampedY, z: clampedZ }, true);
       }

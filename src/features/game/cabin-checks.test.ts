@@ -1,0 +1,4 @@
+import {it,expect} from 'vitest';
+import {adjustCabinCheck as act,newCabinCheck,cabinCheckReady as ready} from './cabin-checks';
+it('requires alignment, a matched course, and ordered packets before confirmation',()=>{let s=newCabinCheck();expect(ready(s,0)).toBe(false);for(let i=0;i<4;i++)s=act(s,{type:'bearing',value:15});expect(ready(s,0)).toBe(true);for(let i=0;i<3;i++)s=act(s,{type:'burn',value:1});expect(ready(s,1)).toBe(true);expect(ready(act(s,{type:'burn',value:1}),1)).toBe(false);expect(act(s,{type:'packet',value:3})).toBe(s);for(let n=1;n<=3;n++)s=act(s,{type:'packet',value:n});expect(ready(s,2)).toBe(true);expect(act(s,{type:'packet',value:1})).toBe(s);});
+it('rejects paused and invalid inputs',()=>{const s=newCabinCheck();expect(act(s,{type:'bearing',value:15},false)).toBe(s);expect(act(s,{type:'burn',value:NaN})).toBe(s);expect(ready(s,9)).toBe(false);});
